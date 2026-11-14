@@ -262,3 +262,7 @@ Follow [clock-control acceptance](WEB_CLOCK.md). Confirm deliberate whole-date/t
 ## Browser Bluetooth management
 
 Follow [Bluetooth acceptance](WEB_BLUETOOTH.md): saved Connect without scan, discovery/cancel with persistent OFF, confirmed Forget/save/restart, physical state reflection, stale/full-list guards and busy-audio protection on Portable/Nest. HOME/direct and four-client/radio/heap checks remain hardware work. Installation and acceptance pending; do not trigger speaker changes during read-only installation verification.
+
+## Status reconnect layout
+
+See [reconnect reproduction and acceptance](WEB_RECONNECT.md). Verify preserved viewport/panels/drafts with disabled stale controls during connection loss, recovery without navigation and correct hiding after real authorization removal. Distinguish a layout jump from actual browser navigation. Installation/phone acceptance pending.

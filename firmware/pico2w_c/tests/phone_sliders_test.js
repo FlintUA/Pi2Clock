@@ -77,7 +77,7 @@ const clockForm=getElementById("clock-controls");
 const clockButtons=["reload","phone","set","sync"].map(clockAction=>({dataset:{clockAction}}));
 clockForm.querySelectorAll=()=>[...Object.values(clockForm.elements),...clockButtons];
 const btButtons=["scan","cancel","disconnect","connect","forget"].map(btAction=>({dataset:{btAction}}));
-getElementById("bluetooth-controls").querySelectorAll=()=>btButtons;
+getElementById("bluetooth-controls").querySelectorAll=selector=>selector==="button"?btButtons:[getElementById("bluetooth-device"),...btButtons];
 getElementById("bluetooth-device").replaceChildren=function(...options){this.options=options;};
 const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:""};}};
 const context = vm.createContext({
@@ -291,7 +291,7 @@ async function settled() {
   assert.equal(getElementById("about-build").textContent, state.firmware.build);
   failStatusReads = 1;
   await update();
-  assert.equal(getElementById("about-version").textContent, "Unavailable");
+  assert.equal(getElementById("about-version").textContent, "1.2.4"); // Last received metadata stays visible during a failed poll.
   await update();
   assert.equal(getElementById("about-version").textContent, "1.2.4");
   const firmware = state.firmware;
@@ -330,7 +330,7 @@ async function settled() {
   assert.equal(getElementById("ntp-status").textContent,"Direct mode · RTC only");
   failStatusReads=1;
   await update();
-  assert.equal(getElementById("alarm-status").textContent,"Unavailable");
+  assert.equal(getElementById("alarm-status").textContent,"Alarm 2 ringing · 1 queued"); // Display remains, actions are disabled.
   await update();
   assert.equal(getElementById("alarm-status").textContent,"Alarm 2 ringing · 1 queued");
   delete state.overview;
@@ -451,7 +451,7 @@ async function settled() {
   assert.equal(a.snoozes,0);
   failStatusReads=1;
   await update();
-  assert.equal(alarmLive.hidden,true);
+  assert.equal(alarmLive.hidden,false); // A temporary failure pauses actions without collapsing the panel.
   assert(alarmLiveButtons.every(button=>button.disabled));
   await update();
   state.timer_running=false; preferences.editing=false; state.player="Closed";
@@ -655,6 +655,24 @@ async function settled() {
   assert(!getElementById("connection").textContent.includes("lost"));failBtRead=false;
   btFixture.epoch=124;await update();assert(btButtons[0].disabled);btFixture.epoch=123;
   state.bt_control=false;await update();assert(btButtons[0].disabled);
+  state.bt_control=true;btFixture.available=true;await update();
+  btSelect.value="123456789ABC";btSelect.handlers.change();
+  clockForm.elements.date.value="2029-12-10";clockForm.handlers.input();
+  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","alarm-controls","birthday-controls"];
+  for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
+  const beforeDropPosts=posts.length;
+  failStatusReads=1;await update();
+  for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
+  assert(btSelect.disabled && btButtons[0].disabled && timerButtons[1].disabled && form.elements.volume_local.disabled);
+  assert.equal(btSelect.value,"123456789ABC");assert.equal(clockForm.elements.date.value,"2029-12-10");
+  await btClick({target:btButtons[3]});assert.equal(posts.length,beforeDropPosts);
+  assert(getElementById("connection").textContent.includes("last received values"));
+  await update();assert(!btSelect.disabled && !btButtons[3].disabled);
+  assert.equal(btSelect.value,"123456789ABC");assert.equal(clockForm.elements.date.value,"2029-12-10");
+  failStatusReads=1;await update();vm.runInContext("remember(null);updateControls();",context);
+  for(const id of visibleRegions)assert.equal(getElementById(id).hidden,true); // Explicit access removal still hides panels.
+  state.home_trusted=false;await update();for(const id of visibleRegions)assert.equal(getElementById(id).hidden,true);
+  state.home_trusted=true;await update();for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

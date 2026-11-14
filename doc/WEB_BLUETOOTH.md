@@ -1,6 +1,6 @@
 # Browser Bluetooth speaker management
 
-Status: implemented and software-tested on the development branch; installation and user acceptance pending.
+Status: installed with separate approval as `1.0.0+35.g5c09045` on November 14. Startup/settings/list checks passed. The user reported device selection working but an apparent full page reload; the [reconnect layout fix](WEB_RECONNECT.md) is implemented with installation/acceptance pending. Radio/persistence scenarios still need focused acceptance.
 
 ## Workflow
 

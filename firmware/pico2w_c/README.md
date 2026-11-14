@@ -103,4 +103,6 @@ Automatic-announcement and quiet-hour browser controls are installed and general
 
 Date/time setting and explicit NTP requests are installed as `1.0.0+33.gc2dbec4`; functional acceptance remains pending. See [clock controls](../../doc/WEB_CLOCK.md).
 
-The next development candidate adds speaker management through /bluetooth and a separate bounded /bluetooth.json snapshot; see [Bluetooth controls](../../doc/WEB_BLUETOOTH.md). Installation and hardware acceptance are pending.
+The installed `1.0.0+35.g5c09045` profile adds speaker management through /bluetooth and a separate bounded /bluetooth.json snapshot; see [Bluetooth controls](../../doc/WEB_BLUETOOTH.md). Focused hardware acceptance and the reconnect-layout follow-up remain pending.
+
+The installed browser Bluetooth workflow has a pending reconnect-layout follow-up; see [reported page jump and fix](../../doc/WEB_RECONNECT.md). Installation and phone acceptance of that UI fix are pending.

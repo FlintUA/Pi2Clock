@@ -419,6 +419,7 @@
   try { token = localStorage.getItem(storageKey); } catch {}
   if (!/^[0-9a-f]{32}$/.test(token || "")) token = null;
   let busy = false, pending = null, live = null, edited = false;
+  let authorizedLayout=false;
   const timerWheels = [];
   for (const field of [hours, minutes, seconds]) {
     const wheel = document.getElementById("wheel-" + field.id);
@@ -486,6 +487,7 @@
     token = value;
     checkedEpoch = value && live ? live.epoch : null;
     if (!value) {
+      authorizedLayout=false;
       settingChanges.clear();
       dirtySettings.clear();
     }
@@ -497,6 +499,20 @@
   function updateControls() {
     const paired = Boolean(live && token && checkedEpoch === live.epoch);
     const allowed = Boolean(live && (live.home_trusted || paired));
+    if(live) authorizedLayout=allowed;
+    if(!live && authorizedLayout) {
+      // A failed poll is not loss of authorization. Preserve layout and drafts,
+      // but never allow a command against stale status while reconnecting.
+      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,
+        quickControls,alarmLiveControls,...scheduleEditors.map(editor=>editor.form)]) {
+        for(const field of region.querySelectorAll("input, select, button")) field.disabled=true;
+      }
+      for(const {wheel} of timerWheels) {
+        wheel.setAttribute("aria-disabled","true");wheel.tabIndex=-1;
+      }
+      pairForm.hidden=true;logout.disabled=true;
+      return;
+    }
     pairForm.hidden = !live || allowed || Boolean(token && checkedEpoch !== live.epoch);
     controls.hidden = !allowed;
     for (const {wheel, sync} of timerWheels) {
@@ -1153,11 +1169,13 @@
     } catch {
       live = null;
       bluetoothView=null;
-      showAbout(null);
-      showOverview(null);
-      labels.connection.textContent = "Connection lost. Reconnecting…";
+      if(!authorizedLayout) {
+        showAbout(null);
+        showOverview(null);
+        for (const key of ["time", "timer", "player", "output"]) labels[key].textContent = "—";
+      }
+      labels.connection.textContent = "Connection lost. Showing last received values; controls paused. Reconnecting…";
       saveStatus.textContent = "Saved state unavailable while disconnected.";
-      for (const key of ["time", "timer", "player", "output"]) labels[key].textContent = "—";
     } finally {
       if (pending && Date.now() >= pending.until) {
         pending = null;

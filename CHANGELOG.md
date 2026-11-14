@@ -4,6 +4,8 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Preserved authorized web-panel layout, last received values and drafts during failed status polls, with actions disabled and stale/reconnecting feedback until fresh status. The previous collapse could jump the page to the top and resemble a full reload. Actual navigation is not claimed as reproduced; genuine authorization removal still hides panels. Production-script/browser checks pass; installation and phone acceptance pending. See doc/WEB_RECONNECT.md.
+
 - Added browser Bluetooth speaker management: saved/discovered list by name, scan/cancel, direct known-device connection, disconnect and confirmed Forget. Stable 48-bit identities, guarded main-loop actions, snapshot acknowledgement and existing retry protection preserve manual OFF/pairing policy. A separate 4 KiB list response bounds status size; shared JSON escaping handles names. Browser new-device connection at four saved entries requires explicit Forget first; physical/USB FIFO policy is unchanged. No Flash/gain/asset change. Software checks and both builds pass; installation and hardware acceptance pending. See doc/WEB_BLUETOOTH.md.
 
 - Replaced the numeric-card 19/001 timer-warning asset with a temporary single pulse extracted from the working 07/015 half-hour beep at the user request. About 205 ms, 44.1 kHz stereo, approximately 4.1 kHz principal tone, no amplification. Original 8.2 kHz single/double files were reported poorly audible. No firmware logic, volume or Flash change; copy the new 19/001 to both cards. Wider audio redesign is deferred and new-cue hardware acceptance is pending. See doc/TIMER_PREWARNING.md.
