@@ -1,6 +1,6 @@
 # Browser date/time and NTP requests
 
-Status: implemented and software-tested; installation and user acceptance pending.
+Status: installed with separate approval as `1.0.0+33.gc2dbec4` on November 14. Startup, settings preservation, HOME/NTP and capability checks passed; functional user acceptance remains pending.
 
 ## Controls
 

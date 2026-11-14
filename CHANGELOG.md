@@ -4,6 +4,8 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Replaced the numeric-card 19/001 timer-warning asset with a temporary single pulse extracted from the working 07/015 half-hour beep at the user request. About 205 ms, 44.1 kHz stereo, approximately 4.1 kHz principal tone, no amplification. Original 8.2 kHz single/double files were reported poorly audible. No firmware logic, volume or Flash change; copy the new 19/001 to both cards. Wider audio redesign is deferred and new-cue hardware acceptance is pending. See doc/TIMER_PREWARNING.md.
+
 - Added explicit whole-date/time browser editing, device/phone-Berlin draft fill and separate HOME NTP request with request-failure feedback. Manual web/physical edits share RTC write/readback and NTP scheduler correction safeguards, reject the spring gap and discard stale pending network references while retaining hourly synchronization. New authenticated /clock commands preserve request retry protection and saved settings; no Flash change. Native/script/browser fixtures and both builds pass; installation and acceptance pending. See doc/WEB_CLOCK.md.
 
 - Added immediate browser automatic-announcement controls: runtime enable until restart, saved VOICE/CHIME, half-hour beep, exact-hour word and quiet enabled/start/end with overnight/all-day/off explanations. Existing scheduler/output/priority behavior, saved settings and Flash v17 are retained. Seven scalar commands reuse authenticated serialized application and idle guards. Both builds and host checks pass; installation and hardware acceptance pending. See doc/WEB_ANNOUNCEMENTS.md.

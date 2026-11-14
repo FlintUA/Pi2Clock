@@ -190,4 +190,4 @@ Timer sound now starts with an optional five-second warning ON/OFF page, followe
 
 ## Explicit date/time adjustment
 
-Physical date/time confirmation and the development browser clock panel share RTC write/readback, scheduler replay guards and stale-NTP invalidation. Europe/Berlin spring-gap times are rejected; an equal autumn civil time remains representable without a fold flag. NTP stays enabled and may correct a manual choice later. See [browser clock behavior and acceptance](WEB_CLOCK.md); this follow-up is implemented but not installed.
+Physical date/time confirmation and the development browser clock panel share RTC write/readback, scheduler replay guards and stale-NTP invalidation. Europe/Berlin spring-gap times are rejected; an equal autumn civil time remains representable without a fold flag. NTP stays enabled and may correct a manual choice later. See [browser clock behavior and acceptance](WEB_CLOCK.md); this follow-up is installed as `1.0.0+33.gc2dbec4`, with functional acceptance pending.
