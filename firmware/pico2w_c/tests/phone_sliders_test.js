@@ -52,6 +52,9 @@ const state = {
   clock_control:true,
   alarms: Array(5).fill(alarm), birthdays: Array(15).fill(birthday)
 };
+const btFixture={epoch:123,snapshot_id:0,supported:true,available:true,scanning:false,connected:false,target:"",known_count:1,
+  devices:[{id:"042144FAA90E",name:"Portable",saved:true},{id:"123456789ABC",name:"Nest",saved:false}]};
+let failBtRead=false,confirmForget=true,nextBtResult=null;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const posts = [], writes = [];
 const controlCalls = [];
@@ -73,16 +76,23 @@ getElementById("controls").reportValidity=()=>true;
 const clockForm=getElementById("clock-controls");
 const clockButtons=["reload","phone","set","sync"].map(clockAction=>({dataset:{clockAction}}));
 clockForm.querySelectorAll=()=>[...Object.values(clockForm.elements),...clockButtons];
-const document = {getElementById, activeElement: null, addEventListener() {}};
+const btButtons=["scan","cancel","disconnect","connect","forget"].map(btAction=>({dataset:{btAction}}));
+getElementById("bluetooth-controls").querySelectorAll=()=>btButtons;
+getElementById("bluetooth-device").replaceChildren=function(...options){this.options=options;};
+const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:""};}};
 const context = vm.createContext({
-  Date, AbortController, document, setTimeout, clearTimeout,
+  Date, AbortController, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
   crypto: require("node:crypto").webcrypto, localStorage: {getItem: () => null},
   fetch: async (url, options) => {
+    if(url==="/bluetooth.json") {
+      if(failBtRead)throw new Error("Bluetooth list temporarily unavailable");
+      return {ok:true,json:async()=>structuredClone(btFixture)};
+    }
     if (url === "/status.json") {
       if (failStatusReads) { --failStatusReads; throw new Error("Status temporarily unavailable"); }
       return {ok: true, json: async () => structuredClone(state)};
     }
-    assert(["/settings", "/player", "/control", "/timer", "/clock"].includes(url));
+    assert(["/settings", "/player", "/control", "/timer", "/clock", "/bluetooth"].includes(url));
     posts.push(options.body);
     if (rejectOnce) {
       rejectOnce = false;
@@ -97,6 +107,23 @@ const context = vm.createContext({
       state.command_id = Number(fields[2]);
       state.command_nonce = Number(fields[3]);
       state.command_result = "applied";
+      if(url==="/bluetooth") {
+        const action=fields[4],id=Number(fields[5]).toString(16).padStart(12,"0").toUpperCase();
+        const peer=btFixture.devices.find(d=>d.id===id);
+        if(nextBtResult){state.command_result=nextBtResult;nextBtResult=null;}
+        else if(action==="scan"){btFixture.scanning=true;btFixture.target="";btFixture.connected=false;}
+        else if(action==="cancel")btFixture.scanning=false;
+        else if(action==="disconnect"){btFixture.target="";btFixture.connected=false;}
+        else if(!peer || action==="forget" && !peer.saved)state.command_result="bt_not_found";
+        else if(action==="connect") {
+          if(!peer.saved && btFixture.known_count>=4)state.command_result="bt_registry_full";
+          else {btFixture.target=id;btFixture.connected=false;}
+        } else if(action==="forget") {
+          btFixture.devices=btFixture.devices.filter(d=>d.id!==id);--btFixture.known_count;
+          if(btFixture.target===id){btFixture.target="";btFixture.connected=false;}
+        }
+        btFixture.snapshot_id=state.command_id;
+      }
       if(url==="/clock") {
         if(nextClockResult){state.command_result=nextClockResult;nextClockResult=null;}
         else if(fields[4]==="set") {
@@ -598,6 +625,36 @@ async function settled() {
   state.overview.network.mode="direct";await update();assert(clockButtons[3].disabled && !clockButtons[2].disabled);
   preferences.idle=false;await update();assert(clockButtons[2].disabled);
   preferences.idle=true;state.clock_control=false;await update();assert(clockButtons[2].disabled && clockButtons[3].disabled);
+  state.clock_control=true;state.bt_control=true;preferences.idle=true;await update();
+  const btSelect=getElementById("bluetooth-device"),btClick=getElementById("bluetooth-controls").handlers.click;
+  assert(!btButtons[0].disabled && btButtons[1].disabled);
+  btSelect.value="042144FAA90E";getElementById("bluetooth-device").handlers.change();
+  btFixture.devices.reverse();await update();assert.equal(btSelect.value,"042144FAA90E");
+  const connectsBefore=writes.filter(w=>w.field==="connect").length;dropResponses=2;
+  await btClick({target:btButtons[3]});await settled();await update();
+  assert.equal(btFixture.target,"042144FAA90E");assert.equal(writes.filter(w=>w.field==="connect").length,connectsBefore+1);
+  assert(getElementById("bluetooth-state").textContent.includes("Connecting/retrying"));
+  btFixture.connected=true;await update();assert.equal(getElementById("bluetooth-state").textContent,"Connected to Portable");
+  await btClick({target:btButtons[2]});await settled();await update();
+  assert.equal(btFixture.target,"");assert.equal(btFixture.known_count,1);
+  await btClick({target:btButtons[0]});await settled();await update();
+  assert(btFixture.scanning && !btButtons[1].disabled && btButtons[3].disabled);
+  await btClick({target:btButtons[1]});await settled();await update();
+  assert(!btFixture.scanning && !btFixture.target);
+  btFixture.known_count=4;btSelect.value="123456789ABC";await update();assert(btButtons[3].disabled);
+  btSelect.value="042144FAA90E";await update();assert(!btButtons[3].disabled && !btButtons[4].disabled);
+  confirmForget=false;const beforeForget=posts.length;await btClick({target:btButtons[4]});assert.equal(posts.length,beforeForget);
+  confirmForget=true;await btClick({target:btButtons[4]});await settled();await update();
+  assert(!btFixture.devices.some(d=>d.id==="042144FAA90E"));assert.equal(btFixture.known_count,3);
+  btSelect.value="123456789ABC";await update();assert(!btButtons[3].disabled);
+  btFixture.devices=[];await btClick({target:btButtons[3]});await settled();await update();
+  assert(getElementById("feedback").textContent.includes("Speaker list changed"));
+  btFixture.devices=[{id:"123456789ABC",name:"Nest",saved:true}];btFixture.available=false;await update();
+  assert(btButtons[0].disabled && btButtons[3].disabled);
+  btFixture.available=true;failBtRead=true;await update();assert(btSelect.disabled && btButtons[3].disabled);
+  assert(!getElementById("connection").textContent.includes("lost"));failBtRead=false;
+  btFixture.epoch=124;await update();assert(btButtons[0].disabled);btFixture.epoch=123;
+  state.bt_control=false;await update();assert(btButtons[0].disabled);
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

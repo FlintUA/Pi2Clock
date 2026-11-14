@@ -56,7 +56,7 @@ void phone_overview_calendar(phone_overview_t *out, const ds1302_datetime_t *now
 }
 
 // Preserve valid UTF-8. Escape controls/quotes and replace invalid UTF-8 bytes.
-static void json_name(char out[151], const char name[25]) {
+void phone_json_name(char out[151], const char name[25]) {
     size_t used = 0;
     for (size_t i = 0; i < 24u && name[i];) {
         unsigned char c = (unsigned char)name[i];
@@ -85,7 +85,7 @@ int phone_overview_json(char *buffer, size_t capacity, const phone_overview_t *s
     static const char *const bt[] = {"unavailable", "off", "scanning", "waiting", "connected"};
     static const char *const network[] = {"offline", "unconfigured", "suspended", "wait_idle", "connecting", "address", "retry", "ready"};
     char name[151];
-    json_name(name, s->bt_name);
+    phone_json_name(name, s->bt_name);
     int length = snprintf(buffer, capacity,
         ",\"overview\":{\"rtc_valid\":%s,\"date\":\"%s\",\"weekday\":%u,\"sound_on\":%s,\"timer_sound_id\":%" PRIu32 ","
         "\"alarm\":{\"active\":%u,\"active_id\":%" PRIu32 ",\"snooze_revision\":%" PRIu32 ",\"deferred\":%u,\"next_slot\":%u,\"next_at\":\"%s\",\"next_snoozed\":%s,"

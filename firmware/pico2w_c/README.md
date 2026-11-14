@@ -101,4 +101,6 @@ Browser playback mode and sleep presets are installed and generally user-accepte
 
 Automatic-announcement and quiet-hour browser controls are installed and generally user-accepted as of November 14. See [announcement options](../../doc/WEB_ANNOUNCEMENTS.md).
 
-Date/time setting and explicit NTP requests are implemented in the next candidate; installation and user acceptance pending. See [clock controls](../../doc/WEB_CLOCK.md).
+Date/time setting and explicit NTP requests are installed as `1.0.0+33.gc2dbec4`; functional acceptance remains pending. See [clock controls](../../doc/WEB_CLOCK.md).
+
+The next development candidate adds speaker management through /bluetooth and a separate bounded /bluetooth.json snapshot; see [Bluetooth controls](../../doc/WEB_BLUETOOTH.md). Installation and hardware acceptance are pending.

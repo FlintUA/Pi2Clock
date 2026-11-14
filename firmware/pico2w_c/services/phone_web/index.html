@@ -30,7 +30,7 @@
   .weekdays { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .75rem; padding: .4rem 0; }
   #settings-controls > div { display: grid; align-items: end; gap: .7rem; }
   #settings-controls > div { grid-template-columns: minmax(0, 1fr); }
-  #controls > div, #clock-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+  #controls > div, #clock-controls > div, #bluetooth-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
   #controls .timer-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; width: 100%; max-width: 25rem; margin: .5rem auto; }
   .timer-column { min-width: 0; text-align: center; }
   .timer-column > span { display: block; color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
@@ -203,6 +203,22 @@
     <p>Close settings on the clock to change these options. Stop playback or the timer before changing language, audio outputs, timer or announcement options.</p>
     <p id="save-status" role="status"></p>
   </form>
+  <form id="bluetooth-controls" hidden>
+    <h2>Bluetooth speakers</h2>
+    <p id="bluetooth-state" role="status">Checking Bluetooth...</p>
+    <div>
+      <button type="button" data-bt-action="scan">Scan devices</button>
+      <button type="button" data-bt-action="cancel">Cancel scan</button>
+      <button type="button" data-bt-action="disconnect">Disconnect</button>
+    </div>
+    <label>Speaker <select id="bluetooth-device"><option value="">Select a speaker</option></select></label>
+    <div>
+      <button type="button" data-bt-action="connect">Connect</button>
+      <button type="button" data-bt-action="forget">Forget saved speaker</button>
+    </div>
+    <p id="bluetooth-hint" role="status"></p>
+    <p>Saved speakers connect without scanning. Put a new speaker in pairing mode before scanning. Scanning disconnects the current speaker; finishing or cancelling leaves Bluetooth off until Connect. Disconnect keeps saved devices. Forget removes the saved entry and pairing. Wait for Settings saved before switching power off. Audio output preferences remain separate.</p>
+  </form>
   <form id="clock-controls" hidden>
     <h2>Date and time</h2>
     <p>Local time uses Europe/Berlin. Stop audio and the timer, and close physical editors before setting the clock.</p>
@@ -336,6 +352,12 @@
   const controlHint = document.getElementById("control-hint");
   const clockControls = document.getElementById("clock-controls");
   const clockStatus = document.getElementById("clock-status");
+  const bluetoothControls=document.getElementById("bluetooth-controls");
+  const bluetoothDevice=document.getElementById("bluetooth-device");
+  const bluetoothState=document.getElementById("bluetooth-state");
+  const bluetoothHint=document.getElementById("bluetooth-hint");
+  let bluetoothView=null, bluetoothSignature="";
+  let bluetoothScanObserved=false, bluetoothScanFinished=false;
   let clockDirty = false;
   const controlMessages = {
     conflict: "State changed. Review the current status and try again.",
@@ -348,7 +370,9 @@
     audio_busy: "Wait for the current audio to finish.", unavailable: "Current device status is unavailable.",
     network_unavailable: "NTP needs a configured, connected home Wi-Fi network.",
     rtc_write_failed: "RTC write/readback failed. The clock setting was not confirmed.",
-    invalid_time: "Invalid date/time or a missing Europe/Berlin hour at the spring clock change."
+    invalid_time: "Invalid date/time or a missing Europe/Berlin hour at the spring clock change.",
+    bt_not_found: "Speaker list changed. Select a current saved or discovered device.",
+    bt_registry_full: "Four speakers are saved. Forget a saved speaker before adding another."
   };
   function controlReason(action) {
     const overview = live?.overview;
@@ -483,6 +507,8 @@
     }
     playerControls.hidden = !allowed;
     settingsControls.hidden = !allowed;
+    bluetoothControls.hidden=!allowed;
+    renderBluetooth();
     clockControls.hidden = !allowed;
     const clockIdle = Boolean(live?.clock_control && live?.settings?.idle && !live?.settings?.editing);
     for (const field of clockControls.querySelectorAll("input, button")) {
@@ -679,6 +705,66 @@
     const action = field.dataset.playerOption;
     if (!(action === "mode" ? [0,1,2] : [0,15,30,60,90]).includes(value)) return;
     await sendCommand("player", action, value);
+  });
+  function renderBluetooth() {
+    const v=bluetoothView;
+    const supported=Boolean(live?.bt_control && v?.supported && v.epoch===live.epoch);
+    if(!supported) {bluetoothScanObserved=false;bluetoothScanFinished=false;}
+    else if(v.scanning) {bluetoothScanObserved=true;bluetoothScanFinished=false;}
+    else if(bluetoothScanObserved) {bluetoothScanObserved=false;bluetoothScanFinished=true;}
+    if(v?.target) bluetoothScanFinished=false;
+    const items=supported?v.devices:[];
+    const signature=JSON.stringify([items,v?.target,v?.connected]);
+    if(signature!==bluetoothSignature && document.activeElement!==bluetoothDevice) {
+      const selected=bluetoothDevice.value;
+      const options=[document.createElement("option")];
+      options[0].value="";options[0].textContent="Select a speaker";
+      for(const d of items) {
+        const option=document.createElement("option");option.value=d.id;
+        option.textContent=(d.saved?"Saved: ":"Found: ")+d.name+
+          (d.id===v.target ? v.connected?" (connected)":" (connecting/retrying)":"");
+        options.push(option);
+      }
+      bluetoothDevice.replaceChildren(...options);
+      bluetoothDevice.value=items.some(d=>d.id===selected)?selected:items.some(d=>d.id===v?.target)?v.target:"";
+      bluetoothSignature=signature;
+    }
+    const selected=items.find(d=>d.id===bluetoothDevice.value);
+    const locked=busy || Boolean(pending) || !supported || settingChanges.size>0 || dirtySettings.size>0;
+    bluetoothDevice.disabled=locked || !v?.available || v?.scanning;
+    for(const button of bluetoothControls.querySelectorAll("button")) {
+      const action=button.dataset.btAction;
+      const permitted=action==="cancel" ? v?.scanning && !live?.settings?.editing :
+        !v?.scanning && v?.available && (action==="connect" ? Boolean(selected) && (selected.saved || v.known_count<4) &&
+          !(selected.id===v.target && v.connected) :
+          action==="forget" ? selected?.saved : action==="disconnect" ? Boolean(v?.target) : true);
+      button.disabled=locked || !permitted;
+    }
+    const target=items.find(d=>d.id===v?.target)?.name || "speaker";
+    bluetoothState.textContent=!supported?"Bluetooth control unavailable." : v.scanning?
+      `Scanning and resolving names... ${items.length} devices listed.` : v.target?
+      (v.connected?"Connected to ":"Connecting/retrying: ")+target :
+      (bluetoothScanFinished?`Search finished: ${items.length} devices listed. `:"")+"Disconnected; automatic reconnect is off.";
+    bluetoothHint.textContent=!supported?"Refresh or wait for a current Bluetooth list." :
+      !v.available?"Stop audio, the player or timer and close physical editors to change speakers." :
+      v.scanning?"Cancel stops discovery; it does not reconnect a speaker." :
+      v.known_count>=4?"Four saved speakers. Forget one before adding a new speaker." :
+      items.length?"Select a speaker, then Connect. Forget is separate from Disconnect." : "No devices listed. Scan to find a new speaker.";
+  }
+  bluetoothControls.addEventListener("submit",event=>event.preventDefault());
+  bluetoothDevice.addEventListener("change",renderBluetooth);
+  bluetoothDevice.addEventListener("blur",renderBluetooth);
+  bluetoothControls.addEventListener("click",async event=>{
+    const button=event.target,action=button.dataset.btAction;
+    if(!action || button.disabled) return;
+    const device=bluetoothView?.devices.find(d=>d.id===bluetoothDevice.value);
+    let value=0;
+    if(action==="connect" || action==="forget") {
+      if(!device || !/^[0-9A-F]{12}$/.test(device.id)) return;
+      if(action==="forget" && !confirm(`Forget ${device.name}? The saved entry and pairing will be removed.`)) return;
+      value=parseInt(device.id,16); // All 48 address bits are exact within JavaScript's 53-bit integer range.
+    }
+    await sendCommand("bluetooth",action,value);
   });
   clockControls.addEventListener("submit", event => event.preventDefault());
   clockControls.addEventListener("input", () => {clockDirty=true;});
@@ -950,6 +1036,16 @@
       if (!response.ok) throw new Error("Status unavailable");
       const data = await response.json();
       live = data;
+      bluetoothView=null;
+      if(data.bt_control) {
+        try {
+          const btResponse=await fetch("/bluetooth.json",{cache:"no-store",signal:request.signal});
+          if(btResponse.ok) {
+            const bt=await btResponse.json();
+            if(bt.epoch===data.epoch && Array.isArray(bt.devices)) bluetoothView=bt;
+          }
+        } catch {} // A missing list must not hide timer/alarm controls or reuse stale peers.
+      }
       showAbout(data.firmware);
       showOverview(data.overview, data);
       if (refreshingSliders) settingsNeedStatus = false;
@@ -969,12 +1065,19 @@
       labels.output.textContent = data.output;
       if (pending && data.epoch === pending.epoch && data.command_id === pending.id &&
           data.command_nonce === pending.nonce && data.command_result !== "pending" &&
+          (pending.target !== "bluetooth" || data.command_result !== "applied" ||
+            bluetoothView?.snapshot_id >= pending.id) &&
           (pending.target !== "clock" || data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
           (pending.target !== "player" || !["mode","sleep"].includes(pending.action) ||
             data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
           (pending.target !== "settings" && pending.target !== "control" && pending.action !== "stop_sound" && !pending.editor || data.command_result !== "applied" ||
             data.settings?.snapshot_id >= pending.id)) {
-        if (pending.target === "clock") {
+        if(pending.target === "bluetooth") {
+          const messages={scan:"Scan started. The previous speaker stays disconnected.",cancel:"Scan cancelled. No reconnection was requested.",
+            disconnect:"Disconnected. Saved speakers retained.",connect:"Connection requested. Watch Bluetooth status for the result.",forget:"Speaker forgotten; settings save pending."};
+          feedback.textContent=data.command_result==="applied"?messages[pending.action]:
+            controlMessages[data.command_result] || "Bluetooth change refused. Stop audio/timers and close physical editors.";
+        } else if (pending.target === "clock") {
           feedback.textContent = data.command_result === "applied" ?
             pending.action === "sync" ? "NTP request queued. Watch synchronization status for completion." : "Date and time set." :
             controlMessages[data.command_result] || "Clock change refused. Stop audio/timers and close physical editors.";
@@ -1049,6 +1152,7 @@
       for (const editor of scheduleEditors) refreshSchedule(editor, data);
     } catch {
       live = null;
+      bluetoothView=null;
       showAbout(null);
       showOverview(null);
       labels.connection.textContent = "Connection lost. Reconnecting…";

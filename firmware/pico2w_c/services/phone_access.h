@@ -25,6 +25,7 @@ typedef enum {
     PHONE_SOUND_SET, PHONE_SAY_TIME, PHONE_SAY_DATE, PHONE_SAY_NEXT_ALARM,
     PHONE_ALARM_STOP, PHONE_ALARM_SNOOZE, PHONE_ALARM_CANCEL_SNOOZES,
     PHONE_CLOCK_SET, PHONE_CLOCK_SYNC,
+    PHONE_BT_SCAN, PHONE_BT_CANCEL, PHONE_BT_DISCONNECT, PHONE_BT_CONNECT, PHONE_BT_FORGET,
     PHONE_SET_ALARM, PHONE_SET_BIRTHDAY, PHONE_ACTION_COUNT
 } phone_action_t;
 typedef enum { PHONE_OK, PHONE_INVALID, PHONE_DENIED, PHONE_BUSY } phone_reply_t;
@@ -34,7 +35,8 @@ typedef enum {
     PHONE_COMMAND_EDITING, PHONE_COMMAND_TIMER_BUSY, PHONE_COMMAND_ALARM_BUSY,
     PHONE_COMMAND_PLAYER_BUSY, PHONE_COMMAND_AUDIO_BUSY,
     PHONE_COMMAND_NO_RINGING, PHONE_COMMAND_NO_SNOOZE, PHONE_COMMAND_NO_TIMER_SOUND,
-    PHONE_COMMAND_NETWORK_UNAVAILABLE, PHONE_COMMAND_RTC_WRITE_FAILED, PHONE_COMMAND_INVALID_TIME
+    PHONE_COMMAND_NETWORK_UNAVAILABLE, PHONE_COMMAND_RTC_WRITE_FAILED, PHONE_COMMAND_INVALID_TIME,
+    PHONE_COMMAND_BT_NOT_FOUND, PHONE_COMMAND_BT_REGISTRY_FULL
 } phone_command_result_t;
 
 typedef struct {
@@ -68,6 +70,7 @@ phone_reply_t phone_access_player(phone_access_t *access, const char *body, uint
 phone_reply_t phone_access_settings(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_control(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_clock(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
+phone_reply_t phone_access_bluetooth(phone_access_t *access,const char *body,uint8_t scope,bool home_peer);
 phone_reply_t phone_access_alarm(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_birthday(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 uint32_t phone_alarm_revision(const alarm_entry_t *alarm);

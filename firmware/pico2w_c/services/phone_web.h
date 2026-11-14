@@ -5,6 +5,7 @@
 #include "phone_access.h"
 #include "display_light.h"
 #include "phone_overview.h"
+#include "phone_bluetooth.h"
 
 #define PHONE_WEB_SSID "SpeakingClock"
 
@@ -48,6 +49,7 @@ void phone_web_get_settings(phone_settings_t *settings);
 bool phone_web_take_changes(void);
 void phone_web_status(void);
 void phone_web_publish(const phone_web_snapshot_t *snapshot);
+void phone_web_publish_bluetooth(const phone_bt_view_t *view);
 bool phone_web_begin_pair(void);
 bool phone_web_pair_code(uint32_t *code);
 bool phone_web_pair_succeeded(void);

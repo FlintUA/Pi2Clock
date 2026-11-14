@@ -1,6 +1,6 @@
 # Current roadmap
 
-This is the authoritative roadmap for the C firmware. It distinguishes the stable main baseline from experimental work on `codex/phone-control`. Status reviewed on 2026-11-14: browser player mode/sleep is installed as `1.0.0+31.g798da44` and generally user-accepted on November 14; browser automatic announcements/quiet hours is installed as `1.0.0+32.g08b93c5` and generally user-accepted; browser date/time/NTP is installed as `1.0.0+33.gc2dbec4`, with functional user acceptance pending. Browser Bluetooth management is the next implementation stage. Earlier MicroPython plans and migration logs are historical; unchecked boxes in those files are not the current task list.
+This is the authoritative roadmap for the C firmware. It distinguishes the stable main baseline from experimental work on `codex/phone-control`. Status reviewed on 2026-11-14: browser player mode/sleep is installed as `1.0.0+31.g798da44` and generally user-accepted on November 14; browser automatic announcements/quiet hours is installed as `1.0.0+32.g08b93c5` and generally user-accepted; browser date/time/NTP is installed as `1.0.0+33.gc2dbec4`, with functional user acceptance pending. Browser Bluetooth management is implemented in the next uninstalled candidate. Earlier MicroPython plans and migration logs are historical; unchecked boxes in those files are not the current task list.
 
 ## Release baseline
 
@@ -66,24 +66,26 @@ Remaining work, in recommended order:
 1. Preserve an identified source revision and reviewed UF2 for each next build; installation always requires separate approval. Complete focused expanded-slot save/restart, four-client and audio-priority checks when the user is available; router outage testing remains deferred.
 2. Quick controls (substage 2) are generally user-accepted. Preserve the separate focused test cases; defer next-alarm phrase replacement until functional development is complete and the audio assets are refreshed.
 3. Countdown completion-audio Stop is generally user-accepted on `1.0.0+26.g3717033`; scheduled-alarm three-minute repeat and cancellation are also user-confirmed. Preserve separate focused cases for the installed alarm stop/three-minute snooze/cancel-repeat commands with stale-occurrence protection. The existing physical handlers remain the source of behavior.
-4. Complete acceptance of the installed [scalar autosave/mobile fixes](WEB_SCALAR_SETTINGS.md); the user selected a temporary 4.1 kHz single cue from the working half-hour beep. Its repository asset is ready; installation on both cards and audibility remain pending. Wider audio investigation/redesign is deferred. Browser player mode/sleep is installed and generally user-accepted ([details](WEB_PLAYER_OPTIONS.md)). Automatic announcement/quiet-hour controls are installed and generally user-accepted ([details](WEB_ANNOUNCEMENTS.md)). Date/time and NTP requests are installed as `1.0.0+33.gc2dbec4`, with functional user acceptance pending ([details](WEB_CLOCK.md)). Browser Bluetooth management is next. Preserve focused output/persistence checks for timer sound choices, random music and pre-warning.
-5. Implement the dedicated [browser Bluetooth management stage](#browser-bluetooth-management-planned). Speaker selection must become available from the browser; choosing an audio preference alone does not connect a speaker.
+4. Complete acceptance of the installed [scalar autosave/mobile fixes](WEB_SCALAR_SETTINGS.md); the user selected a temporary 4.1 kHz single cue from the working half-hour beep. Its repository asset is ready; installation on both cards and audibility remain pending. Wider audio investigation/redesign is deferred. Browser player mode/sleep is installed and generally user-accepted ([details](WEB_PLAYER_OPTIONS.md)). Automatic announcement/quiet-hour controls are installed and generally user-accepted ([details](WEB_ANNOUNCEMENTS.md)). Date/time and NTP requests are installed as `1.0.0+33.gc2dbec4`, with functional user acceptance pending ([details](WEB_CLOCK.md)). Browser Bluetooth management is implemented, with installation/acceptance pending ([details](WEB_BLUETOOTH.md)). Preserve focused output/persistence checks for timer sound choices, random music and pre-warning.
+5. Install and accept [browser Bluetooth management](WEB_BLUETOOTH.md): saved/discovered speakers, scan/cancel, connect, disconnect and confirmed Forget. Audio preferences remain separate from connection.
 6. Add network/access management as a separate stage, including clear mode-switch and revocation consequences.
 7. Implement final navigation/presentation, light/dark/system themes and EN/RU/DE interface localization. Keep speech language separate and all assets local.
 8. Finish release evidence, resource/four-client measurements and English instructions, then prepare a separate web-control release. No merge into main or stable web release is implied by functional acceptance.
 
 The [expansion specification](WEB_CONTROL_SPEC.md) records the implemented capacity/UI stage and links the broader follow-up scope. One-time reminders, track seeking and new display/audio hardware remain excluded from current implementation.
 
-### Browser Bluetooth management (planned)
+<a id="browser-bluetooth-management-planned"></a>
 
-This is an explicit future implementation stage, requested again after the overview check. Current browser Bluetooth status is read-only.
+### Browser Bluetooth management
 
-- Show up to four known devices and new discovery results by name; use a stable internal address for actions, not a changing row index. MAC addresses belong only in optional diagnostic details.
+Implemented and software-tested; installation and real-device acceptance are pending. See [commands, workflow and acceptance](WEB_BLUETOOTH.md). The checklist below is the stage scope; it is not evidence of hardware acceptance.
+
+- Show up to four known devices and new discovery results by name; use a stable internal address for actions, not a changing row index. MAC addresses remain in internal identities and USB diagnostics.
 - Scan with visible progress/completion and cancellation. Preserve the existing intentional disconnect/manual-OFF behavior when discovery starts; ending/cancelling discovery must not silently restore a speaker.
 - Connect a known device directly without scanning, or select a discovered device for pairing/connection. Persist a newly selected peer only after its stream becomes active. Preserve known names and address deduplication.
 - Disconnect while retaining the known entry and pairing key; keep OFF through autosave/restart until explicit Connect. Forget is a separate confirmed deletion of an entry/key.
 - Reuse existing audio/timer/alarm guards, shared authorization, command serialization and retry protection. Audio-output preferences and separate volumes remain independent of speaker connection.
-- Explain replacement when the four-device registry is full. Keep current retry behavior; switch-latency optimization remains in the deferred tail.
+- When all four saved slots are full, require confirmed Forget of a named entry before browser connection to a new device. Physical/USB replacement policy remains unchanged. Keep current retry behavior; switch-latency optimization remains in the deferred tail.
 - Use bounded responses for the device list, preferably separate from the already populated 4 KiB status response. Recheck peak memory and four-client contention.
 - Accept with real saved/discovered Portable/Nest connections, cancellation, manual OFF, forget/save/restart, LOCAL fallback and status changes from physical controls. Do not claim support for BLE-only or legacy PIN-only audio devices.
 

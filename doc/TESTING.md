@@ -258,3 +258,7 @@ Follow [announcement acceptance](WEB_ANNOUNCEMENTS.md). Check runtime automatic 
 ## Browser clock setting and NTP
 
 Follow [clock-control acceptance](WEB_CLOCK.md). Confirm deliberate whole-date/time apply, preserved drafts, HOME sync versus direct mode, manual stale-reference invalidation and scheduler replay guards. Installation verification is read-only and must not change RTC for a test. Real time-jump/hardware/network-failure scenarios remain separate acceptance.
+
+## Browser Bluetooth management
+
+Follow [Bluetooth acceptance](WEB_BLUETOOTH.md): saved Connect without scan, discovery/cancel with persistent OFF, confirmed Forget/save/restart, physical state reflection, stale/full-list guards and busy-audio protection on Portable/Nest. HOME/direct and four-client/radio/heap checks remain hardware work. Installation and acceptance pending; do not trigger speaker changes during read-only installation verification.

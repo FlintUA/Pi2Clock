@@ -185,6 +185,27 @@ int main(void) {
     assert(phone_access_clock(&clock,"- 24 3 53 sync 0",PHONE_SCOPE_HOME,true)==PHONE_OK);
     assert(clock.result==PHONE_COMMAND_APPLIED);
 
+    phone_access_t bluetooth={0};phone_access_reset(&bluetooth,25);bluetooth.settings.home_trusted=1;
+    assert(phone_access_bluetooth(&bluetooth,"- 25 1 61 connect 0",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_bluetooth(&bluetooth,"- 25 1 61 connect 281474976710655",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_bluetooth(&bluetooth,"- 25 1 61 connect 281474976710656",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_bluetooth(&bluetooth,"- 25 1 61 scan 1",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_clock(&bluetooth,"- 25 1 61 disconnect 0",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_timer(&bluetooth,"- 25 1 61 connect 1",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_bluetooth(&bluetooth,"- 25 1 61 connect 1",PHONE_SCOPE_DIRECT,true)==PHONE_DENIED);
+    const char *const bt_actions[]={"scan","cancel","disconnect","connect","forget"};
+    for(unsigned i=0;i<5;++i) {
+        char body[100];
+        snprintf(body,sizeof(body),"- 25 %u %u %s %llu",i+1,i+61,bt_actions[i],
+            (unsigned long long)(i<3?0:UINT64_C(0x042144faa90e)));
+        assert(phone_access_bluetooth(&bluetooth,body,PHONE_SCOPE_HOME,true)==PHONE_OK);
+        assert(bluetooth.last.action==(phone_action_t)(PHONE_BT_SCAN+i));
+        if(i>=3)assert(bluetooth.last.expected==UINT64_C(0x042144faa90e));
+        bluetooth.result=PHONE_COMMAND_APPLIED;
+        assert(phone_access_bluetooth(&bluetooth,body,PHONE_SCOPE_HOME,true)==PHONE_OK);
+        assert(bluetooth.result==PHONE_COMMAND_APPLIED);
+    }
+
     phone_access_t settings = {0};
     phone_access_reset(&settings, 30);
     assert(phone_access_settings(&settings, "- 30 1 40 volume_local 15", PHONE_SCOPE_HOME, true) == PHONE_DENIED);

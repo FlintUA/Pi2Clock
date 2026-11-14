@@ -191,3 +191,7 @@ Timer sound now starts with an optional five-second warning ON/OFF page, followe
 ## Explicit date/time adjustment
 
 Physical date/time confirmation and the development browser clock panel share RTC write/readback, scheduler replay guards and stale-NTP invalidation. Europe/Berlin spring-gap times are rejected; an equal autumn civil time remains representable without a fold flag. NTP stays enabled and may correct a manual choice later. See [browser clock behavior and acceptance](WEB_CLOCK.md); this follow-up is installed as `1.0.0+33.gc2dbec4`, with functional acceptance pending.
+
+## Browser Bluetooth follow-up
+
+The next candidate adds saved-device direct Connect, discovery/Cancel, Disconnect and confirmed Forget. MACs remain internal/USB identities. Browser new-device connection at four saved entries requires explicit Forget first; physical/USB FIFO replacement is retained. Audio preferences remain separate. See [Bluetooth controls](WEB_BLUETOOTH.md); installation and hardware acceptance are pending.

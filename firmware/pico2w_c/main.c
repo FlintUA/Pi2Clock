@@ -2184,6 +2184,19 @@ static bool bt_sink_select(const char *mac){
            clock_a2dp_target());
     return true;
 }
+static bool bt_user_forget(const char *address) {
+    uint8_t mac[6];
+    if(!bt_address_parse(address,mac) || !bt_sink_change_allowed()) return false;
+    int found=bt_known_find(mac);
+    if(found<0 || !clock_a2dp_forget(address)) return false;
+    if(memcmp(saved_bt_target_addr,mac,6)==0) memset(saved_bt_target_addr,0xff,6);
+    if(bt_pending_target_valid && memcmp(bt_pending_target_addr,mac,6)==0) bt_pending_target_valid=false;
+    memmove(&bt_known[found],&bt_known[found+1],(bt_known_count-(unsigned)found-1u)*sizeof(bt_known[0]));
+    --bt_known_count;memset(&bt_known[bt_known_count],0,sizeof(bt_known[0]));
+    settings_mark_changed();
+    printf("[BT-KNOWN] Forgotten %s; Flash autosave pending\n",address);
+    return true;
+}
 static void bt_scan_list(void){
     printf("[BT-KNOWN] count=%u\n", (unsigned)bt_known_count);
     for (unsigned i = 0; i < bt_known_count; ++i) {
@@ -2496,6 +2509,67 @@ static phone_command_result_t service_phone_control(const phone_command_t *reque
     return PHONE_COMMAND_AUDIO_BUSY;
 }
 
+static phone_command_result_t service_phone_bluetooth(const phone_command_t *request) {
+#ifdef CLOCK_ENABLE_A2DP
+    if(menu_state!=MENU_CLOSED || alarm_ui_state!=ALARM_UI_CLOSED) return PHONE_COMMAND_EDITING;
+    if(request->action==PHONE_BT_CANCEL) {clock_a2dp_scan_stop();return PHONE_COMMAND_APPLIED;}
+    if(!bt_sink_change_allowed()) return PHONE_COMMAND_BLOCKED;
+    if(request->action==PHONE_BT_DISCONNECT) {
+        clock_a2dp_scan_stop();
+        return bt_user_disconnect()?PHONE_COMMAND_APPLIED:PHONE_COMMAND_BLOCKED;
+    }
+    if(request->action==PHONE_BT_SCAN) {
+        return clock_a2dp_scan_active() || bt_user_scan() ? PHONE_COMMAND_APPLIED:PHONE_COMMAND_BLOCKED;
+    }
+    if(clock_a2dp_scan_active()) return PHONE_COMMAND_BLOCKED;
+    uint8_t mac[6];char address[18];
+    for(unsigned i=0;i<6;++i) mac[i]=(uint8_t)(request->expected>>(8u*(5u-i)));
+    snprintf(address,sizeof(address),"%02X:%02X:%02X:%02X:%02X:%02X",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+    int known=bt_known_find(mac);
+    if(request->action==PHONE_BT_FORGET)
+        return known<0 ? PHONE_COMMAND_BT_NOT_FOUND : bt_user_forget(address)?PHONE_COMMAND_APPLIED:PHONE_COMMAND_BLOCKED;
+    if(request->action!=PHONE_BT_CONNECT) return PHONE_COMMAND_BLOCKED;
+    unsigned count=bt_catalog_refresh();bool present=false;
+    for(unsigned i=0;i<count;++i) {
+        uint8_t seen[6];
+        if(bt_address_parse(bt_catalog_cache[i].address,seen) && memcmp(seen,mac,6)==0) present=true;
+    }
+    if(!present) return PHONE_COMMAND_BT_NOT_FOUND;
+    // Web never silently evicts another saved peer. Forget a named entry first.
+    if(known<0 && bt_known_count>=CLOCK_BT_KNOWN_MAX) return PHONE_COMMAND_BT_REGISTRY_FULL;
+    if(clock_a2dp_stream_active() && clock_a2dp_stream_matches(mac)) return PHONE_COMMAND_APPLIED;
+    return bt_sink_select(address)?PHONE_COMMAND_APPLIED:PHONE_COMMAND_BLOCKED;
+#else
+    (void)request;return PHONE_COMMAND_BLOCKED;
+#endif
+}
+static void phone_snapshot_bluetooth(void) {
+    static phone_bt_view_t view;
+    memset(&view,0,sizeof(view));
+#ifdef CLOCK_ENABLE_A2DP
+    _Static_assert(PHONE_BT_DEVICES>=BT_CATALOG_CAPACITY,"Bluetooth web list too small");
+    view.supported=true;
+    view.available=menu_state==MENU_CLOSED && alarm_ui_state==ALARM_UI_CLOSED && bt_sink_change_allowed();
+    view.scanning=clock_a2dp_scan_active();view.known_count=bt_known_count;
+    uint8_t target[6];
+    if(bt_address_parse(clock_a2dp_target(),target)) {
+        snprintf(view.target,sizeof(view.target),"%02X%02X%02X%02X%02X%02X",target[0],target[1],target[2],target[3],target[4],target[5]);
+        view.connected=clock_a2dp_stream_active() && clock_a2dp_stream_matches(target);
+    }
+    view.count=(uint8_t)bt_catalog_refresh();
+    for(unsigned i=0;i<view.count;++i) {
+        uint8_t mac[6];
+        if(!bt_address_parse(bt_catalog_cache[i].address,mac)) continue;
+        phone_bt_device_t *device=&view.devices[i];
+        snprintf(device->id,sizeof(device->id),"%02X%02X%02X%02X%02X%02X",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+        device->saved=bt_known_find(mac)>=0;
+        snprintf(device->name,sizeof(device->name),"%s",bt_name_usable(bt_catalog_cache[i].name)?bt_catalog_cache[i].name:
+            device->saved?"Saved speaker":"Unknown device");
+    }
+#endif
+    phone_web_publish_bluetooth(&view);
+}
+
 static phone_command_result_t service_phone_clock(const phone_command_t *request) {
     if (!phone_settings_idle()) return PHONE_COMMAND_BLOCKED;
     if(request->action==PHONE_CLOCK_SYNC) {
@@ -2525,6 +2599,10 @@ static void service_phone_command(uint64_t now) {
     if (!phone_web_command_pending(&request)) return;
     if (request.action >= PHONE_SET_ALARM) {
         phone_web_command_complete(request.id, service_phone_schedule(&request));
+        return;
+    }
+    if (request.action >= PHONE_BT_SCAN) {
+        phone_web_command_complete(request.id,service_phone_bluetooth(&request));
         return;
     }
     if (request.action >= PHONE_CLOCK_SET) {
@@ -3903,19 +3981,7 @@ static void handle_command(char *line) {
         } else {
             clock_bt_device_t known;
             bt_menu_device((unsigned)found + 1u, &known);
-            if (clock_a2dp_forget(known.address)) {
-                if (memcmp(saved_bt_target_addr, bt_known[found].address, 6) == 0)
-                    memset(saved_bt_target_addr, 0xff, 6);
-                if (bt_pending_target_valid &&
-                    memcmp(bt_pending_target_addr, bt_known[found].address, 6) == 0)
-                    bt_pending_target_valid = false;
-                memmove(&bt_known[found], &bt_known[found + 1u],
-                        (bt_known_count - (unsigned)found - 1u) * sizeof(bt_known[0]));
-                --bt_known_count;
-                memset(&bt_known[bt_known_count], 0, sizeof(bt_known[0]));
-                settings_mark_changed();
-                printf("[BT-KNOWN] Forgotten %s; Flash autosave pending\n", known.address);
-            }
+            (void)bt_user_forget(known.address);
         }
     } else if (strcmp(line, "bt-volume") == 0) {
         printf("[BT-VOL] preferred=%u/30 AVRCP=%s remote_absolute=%u PCM_fallback=%s\n",
@@ -5238,6 +5304,7 @@ int main(void) {
             memcpy(snapshot.alarms, alarms, sizeof(snapshot.alarms));
             memcpy(snapshot.birthdays, birthdays, sizeof(snapshot.birthdays));
             phone_web_publish(&snapshot);
+            phone_snapshot_bluetooth();
         }
 #endif
 #ifdef CLOCK_ENABLE_A2DP

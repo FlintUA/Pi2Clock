@@ -220,6 +220,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
         {"alarm_stop ", 1, UINT32_MAX}, {"alarm_snooze ", 1, UINT32_MAX},
         {"snooze_cancel ", 1, UINT32_MAX},
         {"set ", 946684800u, 4102444799u}, {"sync ", 0, 0},
+        {"scan ",0,0}, {"cancel ",0,0}, {"disconnect ",0,0}, {"connect ",0,0}, {"forget ",0,0},
         {"set ", 0, 0}, {"set ", 0, 0}
     };
     _Static_assert(sizeof(actions) / sizeof(actions[0]) == PHONE_ACTION_COUNT, "Missing phone action");
@@ -235,6 +236,9 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
     if (i == limit) return PHONE_INVALID;
     if (request.action >= PHONE_SET_ALARM) {
         if (!read_schedule(p, &request)) return PHONE_INVALID;
+    } else if (request.action == PHONE_BT_CONNECT || request.action == PHONE_BT_FORGET) {
+        if(!read_revision(&p,&request.expected) || *p || !request.expected ||
+            request.expected>=UINT64_C(0xffffffffffff)) return PHONE_INVALID;
     } else if (!read_number(&p, &request.value) || *p ||
         request.value < actions[i].minimum || request.value > actions[i].maximum)
         return PHONE_INVALID;
@@ -270,7 +274,10 @@ phone_reply_t phone_access_settings(phone_access_t *access, const char *body, ui
     return accept_command(access, body, scope, home_peer, PHONE_SET_VOLUME_LOCAL, PHONE_SOUND_SET);
 }
 phone_reply_t phone_access_clock(phone_access_t *access, const char *body, uint8_t scope, bool home_peer) {
-    return accept_command(access,body,scope,home_peer,PHONE_CLOCK_SET,PHONE_SET_ALARM);
+    return accept_command(access,body,scope,home_peer,PHONE_CLOCK_SET,PHONE_BT_SCAN);
+}
+phone_reply_t phone_access_bluetooth(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
+    return accept_command(access,body,scope,home_peer,PHONE_BT_SCAN,PHONE_SET_ALARM);
 }
 
 phone_reply_t phone_access_control(phone_access_t *access, const char *body, uint8_t scope, bool home_peer) {
