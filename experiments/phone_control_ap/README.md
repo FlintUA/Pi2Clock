@@ -22,7 +22,7 @@ Speech uses the existing manual routing/language/LOCAL fallback. It is refused w
 
 The page explains disabled actions, sends explicit on/off, rechecks fresh state on the clock and waits for a matching published snapshot before confirming applied controls. Retried speech requests retain their original ID/nonce and cannot enqueue twice. These operational actions do not dirty settings or write Flash.
 
-Approved installation on November 13 and read-only USB/HTTP/settings checks passed. The user subsequently confirmed general operation. Focused cases not individually reported remain: test sound from browser and physical button, independent levels, mute/unmute during LOCAL/BT music with no automatic restart, speech in both languages/routes, no-alarm/RTC/busy feedback and phone reconnect. Restore intended sound state and schedules. Browser speaker management is installed as `1.0.0+35.g5c09045`, with the reconnect-layout follow-up pending; see [Bluetooth workflow](../../doc/WEB_BLUETOOTH.md).
+Approved installation on November 13 and read-only USB/HTTP/settings checks passed. The user subsequently confirmed general operation. Focused cases not individually reported remain: test sound from browser and physical button, independent levels, mute/unmute during LOCAL/BT music with no automatic restart, speech in both languages/routes, no-alarm/RTC/busy feedback and phone reconnect. Restore intended sound state and schedules. Browser speaker management is installed as `1.0.0+35.g5c09045`, with the reconnect-layout fix installed and accepted; see [Bluetooth workflow](../../doc/WEB_BLUETOOTH.md).
 
 ## About in the integrated page
 
@@ -306,3 +306,7 @@ A separate saved checkbox enables single beeps at 5, 4, 3, 2 and 1 seconds. Defa
 ## Automatic settings and mobile checkbox fix (installation pending)
 
 Simple Settings controls now apply automatically; Apply remains for complete alarm/birthday records. Nonshrinking checkboxes and wrapping labels fix the narrow-screen/larger-text issue. LOCAL timer-warning playback waits for natural BUSY completion with a longer bounded startup allowance, without changing audio files or saved volumes. See [behavior, evidence and pending device checks](../../doc/WEB_SCALAR_SETTINGS.md).
+
+## Browser network mode stage 1
+
+State/address display and confirmed/cancellable HOME/Direct requests are implemented in the next candidate. The current connection is expected to end; the page retains explicit phone Wi-Fi/address instructions and does not redirect automatically. See [stage scope and acceptance](../../doc/WEB_NETWORK_MODES.md). Wi-Fi credentials and browser-access management are not edited in this stage. Installation/radio handoff acceptance pending.

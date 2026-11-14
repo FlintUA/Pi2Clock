@@ -221,6 +221,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
         {"snooze_cancel ", 1, UINT32_MAX},
         {"set ", 946684800u, 4102444799u}, {"sync ", 0, 0},
         {"scan ",0,0}, {"cancel ",0,0}, {"disconnect ",0,0}, {"connect ",0,0}, {"forget ",0,0},
+        {"home ",0,0}, {"direct ",0,0}, {"cancel ",0,0},
         {"set ", 0, 0}, {"set ", 0, 0}
     };
     _Static_assert(sizeof(actions) / sizeof(actions[0]) == PHONE_ACTION_COUNT, "Missing phone action");
@@ -277,7 +278,10 @@ phone_reply_t phone_access_clock(phone_access_t *access, const char *body, uint8
     return accept_command(access,body,scope,home_peer,PHONE_CLOCK_SET,PHONE_BT_SCAN);
 }
 phone_reply_t phone_access_bluetooth(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
-    return accept_command(access,body,scope,home_peer,PHONE_BT_SCAN,PHONE_SET_ALARM);
+    return accept_command(access,body,scope,home_peer,PHONE_BT_SCAN,PHONE_NET_HOME);
+}
+phone_reply_t phone_access_network(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
+    return accept_command(access,body,scope,home_peer,PHONE_NET_HOME,PHONE_SET_ALARM);
 }
 
 phone_reply_t phone_access_control(phone_access_t *access, const char *body, uint8_t scope, bool home_peer) {

@@ -26,6 +26,7 @@ typedef enum {
     PHONE_ALARM_STOP, PHONE_ALARM_SNOOZE, PHONE_ALARM_CANCEL_SNOOZES,
     PHONE_CLOCK_SET, PHONE_CLOCK_SYNC,
     PHONE_BT_SCAN, PHONE_BT_CANCEL, PHONE_BT_DISCONNECT, PHONE_BT_CONNECT, PHONE_BT_FORGET,
+    PHONE_NET_HOME, PHONE_NET_DIRECT, PHONE_NET_CANCEL,
     PHONE_SET_ALARM, PHONE_SET_BIRTHDAY, PHONE_ACTION_COUNT
 } phone_action_t;
 typedef enum { PHONE_OK, PHONE_INVALID, PHONE_DENIED, PHONE_BUSY } phone_reply_t;
@@ -71,6 +72,7 @@ phone_reply_t phone_access_settings(phone_access_t *access, const char *body, ui
 phone_reply_t phone_access_control(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_clock(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_bluetooth(phone_access_t *access,const char *body,uint8_t scope,bool home_peer);
+phone_reply_t phone_access_network(phone_access_t *access,const char *body,uint8_t scope,bool home_peer);
 phone_reply_t phone_access_alarm(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_birthday(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 uint32_t phone_alarm_revision(const alarm_entry_t *alarm);

@@ -206,6 +206,21 @@ int main(void) {
         assert(bluetooth.result==PHONE_COMMAND_APPLIED);
     }
 
+    phone_access_t network={0};phone_access_reset(&network,26);network.settings.home_trusted=1;
+    assert(phone_access_network(&network,"- 26 1 71 home 1",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_bluetooth(&network,"- 26 1 71 home 0",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_clock(&network,"- 26 1 71 direct 0",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
+    assert(phone_access_network(&network,"- 26 1 71 direct 0",PHONE_SCOPE_DIRECT,true)==PHONE_DENIED);
+    const char *const net_actions[]={"home","direct","cancel"};
+    for(unsigned i=0;i<3;++i){
+        char body[100];snprintf(body,sizeof(body),"- 26 %u %u %s 0",i+1,i+71,net_actions[i]);
+        assert(phone_access_network(&network,body,PHONE_SCOPE_HOME,true)==PHONE_OK);
+        assert(network.last.action==(phone_action_t)(PHONE_NET_HOME+i));
+        network.result=PHONE_COMMAND_APPLIED;
+        assert(phone_access_network(&network,body,PHONE_SCOPE_HOME,true)==PHONE_OK);
+        assert(network.result==PHONE_COMMAND_APPLIED);
+    }
+
     phone_access_t settings = {0};
     phone_access_reset(&settings, 30);
     assert(phone_access_settings(&settings, "- 30 1 40 volume_local 15", PHONE_SCOPE_HOME, true) == PHONE_DENIED);

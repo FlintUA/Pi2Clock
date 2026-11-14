@@ -55,6 +55,9 @@ const state = {
 const btFixture={epoch:123,snapshot_id:0,supported:true,available:true,scanning:false,connected:false,target:"",known_count:1,
   devices:[{id:"042144FAA90E",name:"Portable",saved:true},{id:"123456789ABC",name:"Nest",saved:false}]};
 let failBtRead=false,confirmForget=true,nextBtResult=null;
+const netFixture={epoch:123,snapshot_id:0,supported:true,available:true,mode:"home",configured:true,direct_key_ready:true,
+  home_ssid:"TestNetwork",home_address:"192.168.2.116",address:"192.168.2.116",home_state:"ready",home_seconds:0,transition:"idle",target:"direct",seconds:0};
+let failNetRead=false;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const posts = [], writes = [];
 const controlCalls = [];
@@ -79,11 +82,14 @@ clockForm.querySelectorAll=()=>[...Object.values(clockForm.elements),...clockBut
 const btButtons=["scan","cancel","disconnect","connect","forget"].map(btAction=>({dataset:{btAction}}));
 getElementById("bluetooth-controls").querySelectorAll=selector=>selector==="button"?btButtons:[getElementById("bluetooth-device"),...btButtons];
 getElementById("bluetooth-device").replaceChildren=function(...options){this.options=options;};
+const netButtons=["direct","home","cancel"].map(networkAction=>({dataset:{networkAction}}));
+getElementById("network-controls").querySelectorAll=()=>netButtons;
 const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:""};}};
 const context = vm.createContext({
   Date, AbortController, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
   crypto: require("node:crypto").webcrypto, localStorage: {getItem: () => null},
   fetch: async (url, options) => {
+    if(url==="/network.json") {if(failNetRead)throw new Error("Network info temporarily unavailable");return {ok:true,json:async()=>structuredClone(netFixture)};}
     if(url==="/bluetooth.json") {
       if(failBtRead)throw new Error("Bluetooth list temporarily unavailable");
       return {ok:true,json:async()=>structuredClone(btFixture)};
@@ -92,7 +98,7 @@ const context = vm.createContext({
       if (failStatusReads) { --failStatusReads; throw new Error("Status temporarily unavailable"); }
       return {ok: true, json: async () => structuredClone(state)};
     }
-    assert(["/settings", "/player", "/control", "/timer", "/clock", "/bluetooth"].includes(url));
+    assert(["/settings", "/player", "/control", "/timer", "/clock", "/bluetooth", "/network"].includes(url));
     posts.push(options.body);
     if (rejectOnce) {
       rejectOnce = false;
@@ -107,6 +113,11 @@ const context = vm.createContext({
       state.command_id = Number(fields[2]);
       state.command_nonce = Number(fields[3]);
       state.command_result = "applied";
+      if(url==="/network") {
+        if(fields[4]==="cancel"){netFixture.transition="cancelled";netFixture.seconds=0;}
+        else {netFixture.transition="pending";netFixture.target=fields[4];netFixture.seconds=5;}
+        netFixture.snapshot_id=state.command_id;
+      }
       if(url==="/bluetooth") {
         const action=fields[4],id=Number(fields[5]).toString(16).padStart(12,"0").toUpperCase();
         const peer=btFixture.devices.find(d=>d.id===id);
@@ -658,7 +669,7 @@ async function settled() {
   state.bt_control=true;btFixture.available=true;await update();
   btSelect.value="123456789ABC";btSelect.handlers.change();
   clockForm.elements.date.value="2029-12-10";clockForm.handlers.input();
-  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","alarm-controls","birthday-controls"];
+  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","network-controls","alarm-controls","birthday-controls"];
   for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
   const beforeDropPosts=posts.length;
   failStatusReads=1;await update();
@@ -673,6 +684,37 @@ async function settled() {
   for(const id of visibleRegions)assert.equal(getElementById(id).hidden,true); // Explicit access removal still hides panels.
   state.home_trusted=false;await update();for(const id of visibleRegions)assert.equal(getElementById(id).hidden,true);
   state.home_trusted=true;await update();for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
+  state.network_control=true;await update();
+  const netClick=getElementById("network-controls").handlers.click;
+  assert(!netButtons[0].disabled && netButtons[1].disabled && netButtons[2].disabled);
+  confirmForget=false;const beforeNet=posts.length;await netClick({target:netButtons[0]});assert.equal(posts.length,beforeNet);
+  confirmForget=true;dropResponses=2;
+  await netClick({target:netButtons[0]});await settled();await update();
+  assert.equal(netFixture.transition,"pending");assert.equal(netFixture.target,"direct");
+  assert.equal(writes.filter(w=>w.field==="direct").length,1);
+  assert(!netButtons[2].disabled && netButtons[0].disabled);
+  assert(getElementById("network-transition").textContent.includes("5s"));
+  assert.equal(getElementById("network-destination").href,"http://192.168.4.1/");
+  failStatusReads=1;await update();
+  assert.equal(getElementById("network-controls").hidden,false);assert(netButtons.every(b=>b.disabled));
+  assert(getElementById("network-instructions").textContent.includes("SpeakingClock"));
+  assert(getElementById("network-transition").textContent.includes("Connection changing"));
+  await update();await netClick({target:netButtons[2]});await settled();await update();
+  assert.equal(netFixture.transition,"cancelled");assert(getElementById("network-transition").textContent.includes("cancelled"));
+  netFixture.mode="direct";netFixture.transition="done";netFixture.address="192.168.4.1";await update();
+  assert(netButtons[0].disabled && !netButtons[1].disabled);
+  assert.equal(getElementById("network-destination").href,"http://192.168.2.116/");
+  await netClick({target:netButtons[1]});await settled();await update();assert.equal(netFixture.target,"home");
+  netFixture.transition="cancelled_busy";netFixture.available=false;await update();
+  assert(getElementById("network-transition").textContent.includes("became busy"));
+  netFixture.available=true;netFixture.configured=false;await update();assert(netButtons[1].disabled);
+  netFixture.configured=true;netFixture.home_address="https://untrusted.example";await update();
+  assert.equal(getElementById("network-destination").hidden,true);
+  netFixture.mode="home";netFixture.direct_key_ready=false;await update();assert(netButtons[0].disabled);
+  netFixture.direct_key_ready=true;failNetRead=true;await update();assert(netButtons.every(b=>b.disabled));
+  assert(!getElementById("connection").textContent.includes("lost"));failNetRead=false;
+  netFixture.epoch=124;await update();assert(netButtons.every(b=>b.disabled));netFixture.epoch=123;
+  state.network_control=false;await update();assert(netButtons.every(b=>b.disabled));
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

@@ -1,6 +1,6 @@
 # Stable layout while reconnecting
 
-Status: implemented and software-tested; installation and phone acceptance pending.
+Status: installed with separate approval as `1.0.0+36.ge21b139` on November 14. Startup/settings/page checks passed, and the user confirmed speaker changes no longer refreshed the page. The reported page-jump workflow is accepted.
 
 ## Report and reproduction
 

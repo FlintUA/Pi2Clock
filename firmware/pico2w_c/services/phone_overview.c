@@ -57,16 +57,20 @@ void phone_overview_calendar(phone_overview_t *out, const ds1302_datetime_t *now
 
 // Preserve valid UTF-8. Escape controls/quotes and replace invalid UTF-8 bytes.
 void phone_json_name(char out[151], const char name[25]) {
+    (void)phone_json_text(out,151u,name,24u);
+}
+bool phone_json_text(char *out,size_t capacity,const char *name,size_t limit) {
+    if(!out || !name || limit>(SIZE_MAX-1u)/6u || capacity<limit*6u+1u) return false;
     size_t used = 0;
-    for (size_t i = 0; i < 24u && name[i];) {
+    for (size_t i = 0; i < limit && name[i];) {
         unsigned char c = (unsigned char)name[i];
         if (c == '"' || c == '\\') { out[used++] = '\\'; out[used++] = (char)c; ++i; }
-        else if (c < 32u) { used += (size_t)snprintf(out + used, 151u - used, "\\u%04x", (unsigned)c); ++i; }
+        else if (c < 32u) { used += (size_t)snprintf(out + used, capacity - used, "\\u%04x", (unsigned)c); ++i; }
         else if (c < 128u) { out[used++] = (char)c; ++i; }
         else {
             size_t length = c >= 0xc2u && c <= 0xdfu ? 2u :
                 c >= 0xe0u && c <= 0xefu ? 3u : c >= 0xf0u && c <= 0xf4u ? 4u : 0u;
-            bool valid = length && i + length <= 24u;
+            bool valid = length && i + length <= limit;
             for (size_t j = 1; valid && j < length; ++j)
                 valid = (unsigned char)name[i+j] >= 0x80u && (unsigned char)name[i+j] <= 0xbfu;
             if (valid) {
@@ -79,6 +83,7 @@ void phone_json_name(char out[151], const char name[25]) {
         }
     }
     out[used] = 0;
+    return true;
 }
 
 int phone_overview_json(char *buffer, size_t capacity, const phone_overview_t *s) {

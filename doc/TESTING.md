@@ -266,3 +266,7 @@ Follow [Bluetooth acceptance](WEB_BLUETOOTH.md): saved Connect without scan, dis
 ## Status reconnect layout
 
 See [reconnect reproduction and acceptance](WEB_RECONNECT.md). Verify preserved viewport/panels/drafts with disabled stale controls during connection loss, recovery without navigation and correct hiding after real authorization removal. Distinguish a layout jump from actual browser navigation. Installation/phone acceptance pending.
+
+## Browser network mode stage 1
+
+Follow [network handoff acceptance](WEB_NETWORK_MODES.md): confirm/cancel first, then HOME/Direct round trip, remembered destination access, unchanged keys and busy cancellation. The old page should retain guidance during expected disconnection and should not redirect automatically. Radio-mode switching is not part of read-only installation verification. Credential rollback/access administration remain separate later stages.

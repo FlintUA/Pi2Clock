@@ -2509,6 +2509,44 @@ static phone_command_result_t service_phone_control(const phone_command_t *reque
     return PHONE_COMMAND_AUDIO_BUSY;
 }
 
+static phone_network_plan_t phone_network_plan;
+static bool phone_network_idle(void) {
+    return phone_settings_idle()
+#ifdef CLOCK_ENABLE_A2DP
+        && !clock_a2dp_scan_active()
+#endif
+        ;
+}
+static phone_command_result_t service_phone_network(const phone_command_t *request,uint64_t now) {
+    if(request->action==PHONE_NET_CANCEL) {phone_network_cancel(&phone_network_plan);return PHONE_COMMAND_APPLIED;}
+    if(!phone_network_idle()) return PHONE_COMMAND_BLOCKED;
+    bool direct=request->action==PHONE_NET_DIRECT;
+    if(request->action!=PHONE_NET_DIRECT && request->action!=PHONE_NET_HOME) return PHONE_COMMAND_BLOCKED;
+    if((!direct && !saved_wifi_ssid[0]) || (direct && !phone_web_password()[0])) return PHONE_COMMAND_NETWORK_UNAVAILABLE;
+    return phone_network_schedule(&phone_network_plan,phone_web_direct(),direct,phone_web_epoch(),now)?
+        PHONE_COMMAND_APPLIED:PHONE_COMMAND_CONFLICT;
+}
+static void service_phone_network_plan(uint64_t now) {
+    if(!phone_network_due(&phone_network_plan,phone_web_direct(),phone_network_idle(),phone_web_epoch(),now)) return;
+    bool ok=phone_web_set_direct(phone_network_plan.to_direct);
+    if(!ok) phone_network_plan.state=PHONE_NET_FAILED;
+    printf("[PHONE-NET] mode change=%s target=%s\n",ok?"OK":"FAILED",phone_network_plan.to_direct?"DIRECT":"HOME");
+}
+static void phone_snapshot_network(uint64_t now) {
+    static phone_network_view_t view;
+    static char last_home_address[16];
+    bool direct=phone_web_direct();
+    const char *address=phone_web_address();
+    if(!direct && address[0]) snprintf(last_home_address,sizeof(last_home_address),"%s",address);
+    view=(phone_network_view_t){.supported=true,.available=phone_network_idle(),.direct=direct,
+        .configured=saved_wifi_ssid[0]!=0,.direct_key_ready=phone_web_password()[0]!=0,
+        .home=network_time_home_status(now),.plan=phone_network_plan,.now_ms=now};
+    snprintf(view.home_ssid,sizeof(view.home_ssid),"%s",saved_wifi_ssid);
+    snprintf(view.home_address,sizeof(view.home_address),"%s",last_home_address);
+    snprintf(view.address,sizeof(view.address),"%s",address);
+    phone_web_publish_network(&view);
+}
+
 static phone_command_result_t service_phone_bluetooth(const phone_command_t *request) {
 #ifdef CLOCK_ENABLE_A2DP
     if(menu_state!=MENU_CLOSED || alarm_ui_state!=ALARM_UI_CLOSED) return PHONE_COMMAND_EDITING;
@@ -2599,6 +2637,10 @@ static void service_phone_command(uint64_t now) {
     if (!phone_web_command_pending(&request)) return;
     if (request.action >= PHONE_SET_ALARM) {
         phone_web_command_complete(request.id, service_phone_schedule(&request));
+        return;
+    }
+    if(request.action>=PHONE_NET_HOME) {
+        phone_web_command_complete(request.id,service_phone_network(&request,now));
         return;
     }
     if (request.action >= PHONE_BT_SCAN) {
@@ -5100,6 +5142,7 @@ int main(void) {
 #ifdef CLOCK_ENABLE_PHONE_WEB
         if (phone_web_take_changes()) settings_mark_changed();
         service_phone_command(now);
+        service_phone_network_plan(now);
 #endif
         countdown_service(&timer, now);
         // countdown_service clears timer.running at zero; the finish
@@ -5305,6 +5348,7 @@ int main(void) {
             memcpy(snapshot.birthdays, birthdays, sizeof(snapshot.birthdays));
             phone_web_publish(&snapshot);
             phone_snapshot_bluetooth();
+            phone_snapshot_network(now);
         }
 #endif
 #ifdef CLOCK_ENABLE_A2DP

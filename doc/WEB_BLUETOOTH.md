@@ -1,6 +1,6 @@
 # Browser Bluetooth speaker management
 
-Status: installed with separate approval as `1.0.0+35.g5c09045` on November 14. Startup/settings/list checks passed. The user reported device selection working but an apparent full page reload; the [reconnect layout fix](WEB_RECONNECT.md) is implemented with installation/acceptance pending. Radio/persistence scenarios still need focused acceptance.
+Status: installed with separate approval as `1.0.0+35.g5c09045` on November 14. Startup/settings/list checks passed. The user reported device selection working but an apparent full page reload; the [reconnect layout fix](WEB_RECONNECT.md) was installed as `1.0.0+36.ge21b139` and accepted by the user. Radio/persistence scenarios still need focused acceptance.
 
 ## Workflow
 

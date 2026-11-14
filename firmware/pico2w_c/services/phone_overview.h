@@ -35,3 +35,4 @@ void phone_overview_calendar(phone_overview_t *out, const ds1302_datetime_t *now
 // Append an overview member to an existing JSON object. Negative means overflow.
 int phone_overview_json(char *buffer, size_t capacity, const phone_overview_t *status);
 void phone_json_name(char out[151], const char name[25]);
+bool phone_json_text(char *out,size_t capacity,const char *text,size_t limit);

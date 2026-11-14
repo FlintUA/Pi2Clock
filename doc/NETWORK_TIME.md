@@ -95,3 +95,7 @@ On November 8, build 7964939 reported configured=YES, synced=YES and Europe/Berl
 ## Explicit clock changes in the web development profile
 
 The browser now has deliberate full date/time setting and a separate NTP request; see [clock controls and safeguards](WEB_CLOCK.md). Physical manual RTC edits share scheduler correction protection and stale-reference invalidation with web edits. After successful manual write, the previous NTP reference is discarded and the next hourly request is due one hour later; reconnection or an explicit request may synchronize sooner. Manual local times in the missing spring hour are rejected. Latest request failure is reported independently of prior synchronization and RTC-write retry. This development stage is installed as `1.0.0+33.gc2dbec4`; functional acceptance remains pending.
+
+## Browser network mode stage 1
+
+The next candidate exposes state and confirmed/deferred HOME/Direct switches with cancellation and phone handoff instructions. It reuses current radio/NTP behavior and does not edit credentials or browser access. See [network stage 1](WEB_NETWORK_MODES.md); installation and radio handoff acceptance pending.

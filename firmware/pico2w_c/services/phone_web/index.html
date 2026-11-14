@@ -30,7 +30,8 @@
   .weekdays { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .75rem; padding: .4rem 0; }
   #settings-controls > div { display: grid; align-items: end; gap: .7rem; }
   #settings-controls > div { grid-template-columns: minmax(0, 1fr); }
-  #controls > div, #clock-controls > div, #bluetooth-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+  #controls > div, #clock-controls > div, #bluetooth-controls > div, #network-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+  #network-mode, #network-instructions, #network-details { overflow-wrap: anywhere; }
   #controls .timer-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; width: 100%; max-width: 25rem; margin: .5rem auto; }
   .timer-column { min-width: 0; text-align: center; }
   .timer-column > span { display: block; color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
@@ -203,6 +204,20 @@
     <p>Close settings on the clock to change these options. Stop playback or the timer before changing language, audio outputs, timer or announcement options.</p>
     <p id="save-status" role="status"></p>
   </form>
+  <form id="network-controls" hidden>
+    <h2>Wi-Fi network</h2>
+    <p id="network-mode" role="status">Checking network...</p>
+    <p id="network-details"></p>
+    <div>
+      <button type="button" data-network-action="direct">Use Direct Wi-Fi</button>
+      <button type="button" data-network-action="home">Use home Wi-Fi</button>
+      <button type="button" data-network-action="cancel">Cancel pending switch</button>
+    </div>
+    <p id="network-transition" role="status"></p>
+    <p id="network-instructions"></p>
+    <p><a id="network-destination" hidden>Open destination address</a></p>
+    <p>The current connection will end when modes change. Passwords and remembered browsers remain unchanged. Direct uses the saved SpeakingClock Wi-Fi password; open Phone Control on the clock if you need to see it. After restart the clock starts in home mode. Home Wi-Fi setup and access management remain on the clock for now.</p>
+  </form>
   <form id="bluetooth-controls" hidden>
     <h2>Bluetooth speakers</h2>
     <p id="bluetooth-state" role="status">Checking Bluetooth...</p>
@@ -358,6 +373,13 @@
   const bluetoothHint=document.getElementById("bluetooth-hint");
   let bluetoothView=null, bluetoothSignature="";
   let bluetoothScanObserved=false, bluetoothScanFinished=false;
+  const networkControls=document.getElementById("network-controls");
+  const networkMode=document.getElementById("network-mode");
+  const networkDetails=document.getElementById("network-details");
+  const networkTransition=document.getElementById("network-transition");
+  const networkInstructions=document.getElementById("network-instructions");
+  const networkDestination=document.getElementById("network-destination");
+  let networkView=null, networkHandoff=null;
   let clockDirty = false;
   const controlMessages = {
     conflict: "State changed. Review the current status and try again.",
@@ -503,7 +525,7 @@
     if(!live && authorizedLayout) {
       // A failed poll is not loss of authorization. Preserve layout and drafts,
       // but never allow a command against stale status while reconnecting.
-      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,
+      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,
         quickControls,alarmLiveControls,...scheduleEditors.map(editor=>editor.form)]) {
         for(const field of region.querySelectorAll("input, select, button")) field.disabled=true;
       }
@@ -511,6 +533,7 @@
         wheel.setAttribute("aria-disabled","true");wheel.tabIndex=-1;
       }
       pairForm.hidden=true;logout.disabled=true;
+      if(networkHandoff) networkTransition.textContent="Connection changing. Follow the Wi-Fi instructions below; this page will not redirect automatically.";
       return;
     }
     pairForm.hidden = !live || allowed || Boolean(token && checkedEpoch !== live.epoch);
@@ -523,6 +546,8 @@
     }
     playerControls.hidden = !allowed;
     settingsControls.hidden = !allowed;
+    networkControls.hidden=!allowed;
+    renderNetwork();
     bluetoothControls.hidden=!allowed;
     renderBluetooth();
     clockControls.hidden = !allowed;
@@ -781,6 +806,54 @@
       value=parseInt(device.id,16); // All 48 address bits are exact within JavaScript's 53-bit integer range.
     }
     await sendCommand("bluetooth",action,value);
+  });
+  function networkAddress(value) {
+    const parts=String(value||"").split(".");
+    return parts.length===4 && parts.every(p=>/^\d{1,3}$/.test(p) && Number(p)<=255) ? value : "";
+  }
+  function renderNetwork() {
+    const v=networkView;
+    const supported=Boolean(live?.network_control && v?.supported && v.epoch===live.epoch);
+    for(const button of networkControls.querySelectorAll("button")) {
+      const action=button.dataset.networkAction;
+      button.disabled=busy || Boolean(pending) || !supported || settingChanges.size>0 || dirtySettings.size>0 ||
+        (action==="cancel" ? v?.transition!=="pending" : !v?.available || v.transition==="pending" ||
+          action===v.mode || action==="home" && !v.configured || action==="direct" && !v.direct_key_ready);
+    }
+    if(!supported) {networkMode.textContent="Network controls unavailable; waiting for current status.";return;}
+    const states={offline:"Offline",unconfigured:"Not configured",suspended:"Home Wi-Fi paused",wait_idle:"Waiting for idle",
+      connecting:"Connecting",address:"Waiting for address",retry:"Retry pending",ready:"Ready"};
+    networkMode.textContent=v.mode==="direct"?"Direct Wi-Fi · SpeakingClock":"Home Wi-Fi · "+(v.home_ssid||"Not configured");
+    networkDetails.textContent="Address: "+(v.address||"pending")+" · "+
+      (v.mode==="direct"?"Direct Wi-Fi ready":states[v.home_state]||"Unavailable")+
+      (v.mode==="home" && ["connecting","address","retry"].includes(v.home_state)?` ${v.home_seconds}s`:"");
+    if(["cancelled","cancelled_busy","cancelled_changed","failed"].includes(v.transition) || v.mode===networkHandoff?.target) networkHandoff=null;
+    const messages={idle:"",pending:`Switch to ${v.target==="direct"?"Direct":"home"} in ${v.seconds}s. The current connection will end.`,
+      cancelled:"Pending switch cancelled.",cancelled_busy:"Switch cancelled because the clock became busy. Try again when idle.",
+      cancelled_changed:"Switch cancelled because the mode or access changed.",done:"Mode change complete.",failed:"Mode change failed; check Phone Control on the clock."};
+    networkTransition.textContent=messages[v.transition] || (!v.available?
+      "Stop audio/timers, close physical editors and finish Bluetooth discovery before switching.":"");
+    const next=networkHandoff?.target || (v.transition==="pending"?v.target:v.mode==="home"?"direct":"home");
+    networkInstructions.textContent=next==="direct"?
+      !v.direct_key_ready?"First start Direct once from Phone Control on the clock to create and save its Wi-Fi password.":
+      "After switching: join SpeakingClock on this phone using its saved Wi-Fi password, then open 192.168.4.1. A browser not remembered in Direct needs the clock pairing code once.":
+      !v.configured?"No home Wi-Fi is saved. Configure it on the clock/USB before returning home.":
+      "After switching: reconnect this phone to "+v.home_ssid+". Open the last known home address below; if it changes, read the new address in Phone Control on the clock.";
+    const address=next==="direct"?"192.168.4.1":networkAddress(networkHandoff?.homeAddress || v.home_address);
+    networkDestination.hidden=!address || (next==="direct"?!v.direct_key_ready:!v.configured);
+    if(address){networkDestination.href="http://"+address+"/";networkDestination.textContent=(next==="direct"?"Open Direct: ":"Open last known home address: ")+address;}
+  }
+  networkControls.addEventListener("submit",event=>event.preventDefault());
+  networkControls.addEventListener("click",async event=>{
+    const button=event.target,action=button.dataset.networkAction;
+    if(!["home","direct","cancel"].includes(action) || button.disabled) return;
+    if(action!=="cancel") {
+      const destination=action==="direct"?"join SpeakingClock and open 192.168.4.1":
+        "join "+networkView.home_ssid+" and open its last known clock address";
+      if(!confirm("Switch Wi-Fi mode in 5 seconds? This connection will end. After switching, "+destination+". Unapplied edits remain only in this page."))return;
+      networkHandoff={target:action,homeAddress:networkView.home_address};renderNetwork();
+    }
+    await sendCommand("network",action,0);
   });
   clockControls.addEventListener("submit", event => event.preventDefault());
   clockControls.addEventListener("input", () => {clockDirty=true;});
@@ -1062,6 +1135,16 @@
           }
         } catch {} // A missing list must not hide timer/alarm controls or reuse stale peers.
       }
+      networkView=null;
+      if(data.network_control) {
+        try {
+          const netResponse=await fetch("/network.json",{cache:"no-store",signal:request.signal});
+          if(netResponse.ok) {
+            const net=await netResponse.json();
+            if(net.epoch===data.epoch)networkView=net;
+          }
+        } catch {} // Keep unrelated controls usable if this optional snapshot fails.
+      }
       showAbout(data.firmware);
       showOverview(data.overview, data);
       if (refreshingSliders) settingsNeedStatus = false;
@@ -1081,6 +1164,7 @@
       labels.output.textContent = data.output;
       if (pending && data.epoch === pending.epoch && data.command_id === pending.id &&
           data.command_nonce === pending.nonce && data.command_result !== "pending" &&
+          (pending.target !== "network" || data.command_result !== "applied" || networkView?.snapshot_id>=pending.id) &&
           (pending.target !== "bluetooth" || data.command_result !== "applied" ||
             bluetoothView?.snapshot_id >= pending.id) &&
           (pending.target !== "clock" || data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
@@ -1088,7 +1172,16 @@
             data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
           (pending.target !== "settings" && pending.target !== "control" && pending.action !== "stop_sound" && !pending.editor || data.command_result !== "applied" ||
             data.settings?.snapshot_id >= pending.id)) {
-        if(pending.target === "bluetooth") {
+        if(pending.target === "network") {
+          if(data.command_result==="applied") {
+            feedback.textContent=pending.action==="cancel"?"Cancellation requested; check network status.":"Network switch scheduled. Follow the Wi-Fi instructions.";
+            if(pending.action==="cancel")networkHandoff=null;
+          } else {
+            networkHandoff=null;
+            feedback.textContent=data.command_result==="network_unavailable"?"Prepare saved home Wi-Fi and the Direct password on the clock first.":
+              "Network switch refused. Stop audio/timers, close editors or cancel an existing switch.";
+          }
+        } else if(pending.target === "bluetooth") {
           const messages={scan:"Scan started. The previous speaker stays disconnected.",cancel:"Scan cancelled. No reconnection was requested.",
             disconnect:"Disconnected. Saved speakers retained.",connect:"Connection requested. Watch Bluetooth status for the result.",forget:"Speaker forgotten; settings save pending."};
           feedback.textContent=data.command_result==="applied"?messages[pending.action]:
@@ -1169,6 +1262,7 @@
     } catch {
       live = null;
       bluetoothView=null;
+      networkView=null;
       if(!authorizedLayout) {
         showAbout(null);
         showOverview(null);
