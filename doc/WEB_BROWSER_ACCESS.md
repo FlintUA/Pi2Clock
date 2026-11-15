@@ -1,6 +1,6 @@
 # Browser access management
 
-Status: installed as `1.0.0+40.g9b20f8b` on November 15, 2026. The user reported general functionality, with a flickering open permission picker. The option-node fix was installed as `1.0.0+41.g9fd19ab`, but the user still reported approximately one flicker per second. The broader background-render hold below is the next software-verified candidate, awaiting installation and Android visual acceptance. This stage follows user-accepted HOME/Direct mode switching in 1.0.0+37.ga1f576b.
+Status: installed as `1.0.0+40.g9b20f8b` on November 15, 2026. The user reported general functionality, with a flickering open permission picker. The option-node fix was installed as `1.0.0+41.g9fd19ab`, but the user still reported approximately one flicker per second. The broader background-render hold was installed as `1.0.0+42.g95c7ca5`; the user confirmed on November 15 that the flicker was resolved. This stage follows user-accepted HOME/Direct mode switching in 1.0.0+37.ga1f576b.
 
 ## What the list means
 
@@ -49,3 +49,5 @@ The new candidate keeps the existing background HTTP polling, data updates and a
 Loss of the connection or current authorization bypasses the hold and immediately applies the existing disabled/hidden controls. Pending-command timeouts are not written into the page during the hold; results are reconciled with status after it ends. Background fetches do not stop, so this is not a timed suspension of access checking. Audio, network mode, settings and Flash behavior are unchanged.
 
 Full-body Chrome fixtures now observe zero body/select mutations across five unchanged polls at each width, compared with 1,105 body mutations in +41. They verify continued background data acquisition with a frozen displayed clock, latest-clock catch-up on blur, deferred registry changes, blocked stale selection removal, existing confirmation/revocation/failure isolation and no navigation. Production-script checks additionally verify immediate connection-loss and self-revocation handling during focus. The actual Android picker must still be retested by the user after separately approved installation.
+
+The user accepted +42 Android picker behavior after installation. Browser home Wi-Fi setup follows as a separate uninstalled candidate; see WEB_WIFI_SETUP.md.

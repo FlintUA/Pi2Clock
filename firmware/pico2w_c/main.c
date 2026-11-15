@@ -2368,9 +2368,9 @@ static phone_command_result_t service_phone_timer_sound(uint32_t expected) {
     return PHONE_COMMAND_APPLIED;
 }
 
-static bool phone_settings_idle(void) {
+static bool phone_audio_idle(void) {
     bool idle = !timer.running && alarm_active_index < 0 && !music_ui_open &&
-        menu_state == MENU_CLOSED && alarm_ui_state == ALARM_UI_CLOSED &&
+        alarm_ui_state == ALARM_UI_CLOSED &&
         audio_queue_idle(&audio_queue) && !dfplayer_busy() &&
         !mp3_play_active() && !mp3_probe_active() && !sd_fat32_stream_active();
 #ifdef CLOCK_ENABLE_A2DP
@@ -2378,6 +2378,8 @@ static bool phone_settings_idle(void) {
 #endif
     return idle;
 }
+
+static bool phone_settings_idle(void) { return menu_state==MENU_CLOSED && phone_audio_idle(); }
 
 static bool service_phone_settings(const phone_command_t *request) {
     if (menu_state != MENU_CLOSED || alarm_ui_state != ALARM_UI_CLOSED) return false;
@@ -2510,6 +2512,8 @@ static phone_command_result_t service_phone_control(const phone_command_t *reque
 }
 
 static phone_network_plan_t phone_network_plan;
+static phone_wifi_plan_t phone_wifi_plan;
+static bool phone_wifi_wait_old_home;
 static bool phone_network_idle(void) {
     return phone_settings_idle()
 #ifdef CLOCK_ENABLE_A2DP
@@ -2518,6 +2522,7 @@ static bool phone_network_idle(void) {
         ;
 }
 static phone_command_result_t service_phone_network(const phone_command_t *request,uint64_t now) {
+    if(phone_wifi_busy(&phone_wifi_plan)) return PHONE_COMMAND_BLOCKED;
     if(request->action==PHONE_NET_CANCEL) {phone_network_cancel(&phone_network_plan);return PHONE_COMMAND_APPLIED;}
     if(!phone_network_idle()) return PHONE_COMMAND_BLOCKED;
     bool direct=request->action==PHONE_NET_DIRECT;
@@ -2532,13 +2537,73 @@ static void service_phone_network_plan(uint64_t now) {
     if(!ok) phone_network_plan.state=PHONE_NET_FAILED;
     printf("[PHONE-NET] mode change=%s target=%s\n",ok?"OK":"FAILED",phone_network_plan.to_direct?"DIRECT":"HOME");
 }
+static bool phone_wifi_idle(void) {
+    return phone_audio_idle() && (menu_state==MENU_CLOSED || menu_state==MENU_PHONE_WEB)
+#ifdef CLOCK_ENABLE_A2DP
+        && !clock_a2dp_scan_active()
+#endif
+        ;
+}
+static phone_command_result_t service_phone_wifi(const phone_command_t *request,uint64_t now) {
+    if(request->action==PHONE_WIFI_CANCEL) {
+        phone_wifi_cancel(&phone_wifi_plan,WIFI_REASON_CANCEL);return PHONE_COMMAND_APPLIED;
+    }
+    if(request->action!=PHONE_WIFI_TEST || !phone_web_direct() || !phone_network_idle()) return PHONE_COMMAND_BLOCKED;
+    if(phone_network_plan.state==PHONE_NET_PENDING) return PHONE_COMMAND_CONFLICT;
+    return phone_wifi_schedule(&phone_wifi_plan,&request->wifi,phone_web_epoch(),request->id,now)?PHONE_COMMAND_APPLIED:PHONE_COMMAND_CONFLICT;
+}
+static void service_phone_wifi_plan(uint64_t now) {
+    if(!phone_wifi_busy(&phone_wifi_plan) && !phone_wifi_wait_old_home) return;
+    if(phone_wifi_wait_old_home && (phone_web_direct() || (network_time_connection_ready() && phone_web_address()[0]))) {
+        phone_web_wifi_trial(false);phone_wifi_wait_old_home=false;
+        if(phone_web_direct()) phone_wifi_recovered(&phone_wifi_plan,true);
+    }
+    bool home_ready=network_time_connection_ready() && phone_web_address()[0]!=0;
+    phone_wifi_action_t action=phone_wifi_step(&phone_wifi_plan,now,phone_wifi_idle(),phone_web_direct(),phone_web_epoch(),home_ready);
+    if(action==WIFI_ACTION_START) {
+        phone_web_wifi_trial(true); // Do not trust the candidate network before acceptance.
+        if(!phone_web_set_direct(false)) {phone_wifi_cancel(&phone_wifi_plan,WIFI_REASON_RADIO);return;}
+        network_time_configure(phone_wifi_plan.candidate.ssid,phone_wifi_plan.candidate.password);
+        puts("[WIFI-SETUP] Testing candidate; old saved configuration retained");
+    } else if(action==WIFI_ACTION_SAVE) {
+        bool changed=strcmp(saved_wifi_ssid,phone_wifi_plan.candidate.ssid)!=0 ||
+            strcmp(saved_wifi_password,phone_wifi_plan.candidate.password)!=0;
+        if(changed) {
+            phone_web_set_home_trusted(false);
+            memcpy(saved_wifi_ssid,phone_wifi_plan.candidate.ssid,sizeof(saved_wifi_ssid));
+            memcpy(saved_wifi_password,phone_wifi_plan.candidate.password,sizeof(saved_wifi_password));
+            settings_mark_changed();
+        }
+        phone_wifi_clear_secret(&phone_wifi_plan);phone_web_wifi_trial(false);
+        puts("[WIFI-SETUP] Candidate joined with IPv4; configuration accepted for autosave");
+    } else if(action==WIFI_ACTION_RESTORE) {
+        network_time_configure(saved_wifi_ssid,saved_wifi_password);
+        bool recovered=phone_web_set_direct(true);
+        phone_wifi_wait_old_home=!recovered;
+        if(recovered) phone_web_wifi_trial(false);
+        phone_wifi_recovered(&phone_wifi_plan,recovered);
+        puts(recovered?"[WIFI-SETUP] Previous configuration retained; Direct restored":"[WIFI-SETUP] Direct recovery failed; previous configuration retained");
+    }
+}
+static void phone_snapshot_wifi(uint64_t now) {
+    static phone_wifi_view_t view;
+    view=(phone_wifi_view_t){.state=phone_wifi_plan.state,.reason=phone_wifi_plan.reason,
+        .request_id=phone_wifi_plan.request_id,.direct=phone_web_direct(),
+        .available=phone_web_direct() && phone_network_idle() && !phone_wifi_busy(&phone_wifi_plan) && phone_network_plan.state!=PHONE_NET_PENDING};
+    if((phone_wifi_plan.state==WIFI_SETUP_PENDING || phone_wifi_plan.state==WIFI_SETUP_TESTING) && now<phone_wifi_plan.due_ms)
+        view.seconds=(uint32_t)((phone_wifi_plan.due_ms-now+999u)/1000u);
+    snprintf(view.saved_ssid,sizeof(view.saved_ssid),"%s",saved_wifi_ssid);
+    snprintf(view.test_ssid,sizeof(view.test_ssid),"%s",phone_wifi_plan.candidate.ssid);
+    snprintf(view.address,sizeof(view.address),"%s",phone_web_address());
+    phone_web_publish_wifi(&view);
+}
 static void phone_snapshot_network(uint64_t now) {
     static phone_network_view_t view;
     static char last_home_address[16];
     bool direct=phone_web_direct();
     const char *address=phone_web_address();
-    if(!direct && address[0]) snprintf(last_home_address,sizeof(last_home_address),"%s",address);
-    view=(phone_network_view_t){.supported=true,.available=phone_network_idle(),.direct=direct,
+    if(!direct && !phone_wifi_busy(&phone_wifi_plan) && !phone_wifi_wait_old_home && address[0]) snprintf(last_home_address,sizeof(last_home_address),"%s",address);
+    view=(phone_network_view_t){.supported=true,.available=phone_network_idle() && !phone_wifi_busy(&phone_wifi_plan),.direct=direct,
         .configured=saved_wifi_ssid[0]!=0,.direct_key_ready=phone_web_password()[0]!=0,
         .home=network_time_home_status(now),.plan=phone_network_plan,.now_ms=now};
     snprintf(view.home_ssid,sizeof(view.home_ssid),"%s",saved_wifi_ssid);
@@ -2639,9 +2704,14 @@ static void service_phone_command(uint64_t now) {
         phone_web_command_complete(request.id, service_phone_schedule(&request));
         return;
     }
+    if(request.action==PHONE_WIFI_TEST || request.action==PHONE_WIFI_CANCEL) {
+        phone_web_command_complete(request.id,service_phone_wifi(&request,now));return;
+    }
     if(request.action==PHONE_BROWSER_FORGET) {
         phone_command_result_t result=phone_web_forget_browser(&request);
-        if(result==PHONE_COMMAND_APPLIED) phone_network_cancel(&phone_network_plan);
+        if(result==PHONE_COMMAND_APPLIED) {
+            phone_network_cancel(&phone_network_plan);phone_wifi_cancel(&phone_wifi_plan,WIFI_REASON_CHANGED);
+        }
         phone_web_command_complete(request.id,result);
         return;
     }
@@ -2902,6 +2972,7 @@ static void menu_commit(uint64_t now) {
             return; // Information only; rotate TIMER to change pages.
 #ifdef CLOCK_ENABLE_PHONE_WEB
         case MENU_PHONE_WEB:
+            if(phone_wifi_busy(&phone_wifi_plan)) {puts("[WIFI-SETUP] Wait for setup or recovery to finish");return;}
             if (phone_menu_page == 1u) {
                 bool direct = !phone_web_direct();
                 phone_menu_page = phone_web_set_direct(direct) && direct ? PHONE_PASSWORD_PAGE : 0u;
@@ -4439,6 +4510,9 @@ static void handle_command(char *line) {
     } else if (strcmp(line, "wifi-config") == 0) {
         puts("[WIFI] Usage: wifi-config SSID|password (empty password for an open network)");
     } else if (strncmp(line, "wifi-config ",12) == 0) {
+#ifdef CLOCK_ENABLE_PHONE_WEB
+        if(phone_wifi_busy(&phone_wifi_plan)) {puts("[WIFI-SETUP] USB configuration blocked during setup");return;}
+#endif
 #ifdef CLOCK_ENABLE_WIFI
         const char *ssid=line+12, *separator=strchr(ssid,'|');
         size_t n=separator?(size_t)(separator-ssid):0;
@@ -4470,6 +4544,9 @@ static void handle_command(char *line) {
         puts("[WIFI] Network support is disabled in this build");
 #endif
     } else if (strcmp(line,"wifi-clear") == 0) {
+#ifdef CLOCK_ENABLE_PHONE_WEB
+        if(phone_wifi_busy(&phone_wifi_plan)) {puts("[WIFI-SETUP] USB configuration blocked during setup");return;}
+#endif
         memset(saved_wifi_ssid,0,sizeof(saved_wifi_ssid));
         memset(saved_wifi_password,0,sizeof(saved_wifi_password));
 #ifdef CLOCK_ENABLE_PHONE_WEB
@@ -5149,6 +5226,7 @@ int main(void) {
         if (phone_web_take_changes()) settings_mark_changed();
         service_phone_command(now);
         service_phone_network_plan(now);
+        service_phone_wifi_plan(now);
 #endif
         countdown_service(&timer, now);
         // countdown_service clears timer.running at zero; the finish
@@ -5355,6 +5433,7 @@ int main(void) {
             phone_web_publish(&snapshot);
             phone_snapshot_bluetooth();
             phone_snapshot_network(now);
+            phone_snapshot_wifi(now);
         }
 #endif
 #ifdef CLOCK_ENABLE_A2DP
@@ -5487,7 +5566,12 @@ int main(void) {
                 snprintf(top, sizeof(top), "%s Wi-Fi", direct ? "Direct" : "Home");
                 network_home_status_t connection = network_time_home_status(now);
                 unsigned long seconds = connection.seconds > 9999u ? 9999u : connection.seconds;
-                if (direct) {
+                if(phone_wifi_busy(&phone_wifi_plan)) {
+                    snprintf(top,sizeof(top),"%s",phone_wifi_plan.state==WIFI_SETUP_PENDING?"Wi-Fi scheduled":phone_wifi_plan.state==WIFI_SETUP_TESTING?"Testing Wi-Fi":"Restore: idle?");
+                    unsigned seconds=now<phone_wifi_plan.due_ms?(unsigned)((phone_wifi_plan.due_ms-now+999u)/1000u):0u;
+                    if(phone_wifi_plan.state==WIFI_SETUP_RESTORE) snprintf(bottom,sizeof(bottom),"Stop audio/timer");
+                    else snprintf(bottom,sizeof(bottom),"Wait %us",seconds);
+                } else if (direct) {
                     snprintf(bottom, sizeof(bottom), "%s", *ip ? ip : "Starting...");
                 } else switch (connection.state) {
                     case NETWORK_HOME_READY:

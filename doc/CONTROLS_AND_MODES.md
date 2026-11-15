@@ -204,3 +204,7 @@ Physical date/time confirmation and the development browser clock panel share RT
 ## Browser Bluetooth follow-up
 
 The next candidate adds saved-device direct Connect, discovery/Cancel, Disconnect and confirmed Forget. MACs remain internal/USB identities. Browser new-device connection at four saved entries requires explicit Forget first; physical/USB FIFO replacement is retained. Audio preferences remain separate. See [Bluetooth controls](WEB_BLUETOOTH.md); installation and hardware acceptance are pending.
+
+## Browser home Wi-Fi setup (candidate)
+
+From Direct, Home Wi-Fi setup offers Test and save network and Cancel Wi-Fi test. The five-second grace is followed by at most 45 seconds to join with IPv4. Old credentials stay saved until success; failure restores Direct with the same key. Phone Control status can show progress/IP without cancelling the test. Physical mode/access/key changes and USB wifi-config/wifi-clear are blocked while it is running; audio priorities remain active and can defer recovery. Changed accepted credentials disable home trust and use existing autosave. The implementation is uninstalled and needs hardware acceptance. See WEB_WIFI_SETUP.md.

@@ -99,3 +99,7 @@ The browser now has deliberate full date/time setting and a separate NTP request
 ## Browser network mode stage 1
 
 The next candidate exposes state and confirmed/deferred HOME/Direct switches with cancellation and phone handoff instructions. It reuses current radio/NTP behavior and does not edit credentials or browser access. See [network stage 1](WEB_NETWORK_MODES.md); installation and radio handoff acceptance pending.
+
+## Browser credential testing (candidate)
+
+[Home Wi-Fi setup](WEB_WIFI_SETUP.md) tests candidates from Direct without copying them into saved settings until a new join has IP readiness. Connection qualification requires an attempted join since configuration/resume; an old cached link cannot qualify. NTP/Internet success is not a saving prerequisite. Failed/aborted tests restore the old configuration and Direct; changed accepted credentials turn home trust OFF as USB configuration already does. No settings-sector or schema change is introduced. Actual radio/save/recovery acceptance is pending.

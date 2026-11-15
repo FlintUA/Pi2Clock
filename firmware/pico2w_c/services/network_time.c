@@ -9,7 +9,7 @@
 
 static bool ready, configured, joining, waiting, dns_pending, request_now, home_suspended;
 static bool received, anchor_valid, apply_pending;
-static bool request_failed;
+static bool request_failed, connection_confirmed;
 static char ssid_value[33], password_value[65];
 static uint64_t join_started, next_join, deadline, next_ntp;
 static uint64_t sample_epoch, sample_ms, anchor_epoch, anchor_ms;
@@ -68,7 +68,7 @@ void network_time_init(bool radio_ready) {
 void network_time_configure(const char *ssid, const char *password) {
     snprintf(ssid_value,sizeof(ssid_value),"%s",ssid?ssid:"");
     snprintf(password_value,sizeof(password_value),"%s",password?password:"");
-    configured=ssid_value[0]!=0; joining=false; next_join=0; join_failures=0;
+    configured=ssid_value[0]!=0; joining=false; connection_confirmed=false; next_join=0; join_failures=0;
     join_attempts=0; last_link=CYW43_LINK_DOWN;
     if (ready) {
         cyw43_arch_lwip_begin();
@@ -94,6 +94,7 @@ void network_time_manual_adjusted(void) {
 void network_time_suspend_home(bool suspended) {
     home_suspended = suspended;
     joining = false;
+    connection_confirmed = false;
     next_join = 0;
     join_failures = 0;
     join_attempts = 0;
@@ -165,6 +166,7 @@ bool network_time_service(uint64_t now, bool idle, bool join_allowed, ds1302_dat
         int link=cyw43_tcpip_link_status(&cyw43_state,CYW43_ITF_STA);
         last_link=link;
         if (link!=CYW43_LINK_UP) {
+            connection_confirmed=false;
             if (joining && (now-join_started>=15000 || link<0)) {
                 joining=false; ++join_failures;
                 next_join=now+(join_failures<3?10000:60000);
@@ -183,7 +185,7 @@ bool network_time_service(uint64_t now, bool idle, bool join_allowed, ds1302_dat
             }
         } else {
             if (joining) {
-                joining=false; join_failures=0;
+                joining=false; join_failures=0; connection_confirmed=true;
                 printf("[WIFI] Connected attempt=%u elapsed=%llums; IPv4 ready\n",
                     join_attempts, (unsigned long long)(now-join_started));
             }
@@ -220,4 +222,8 @@ void network_time_applied(bool success) {
         next_apply=now_ms()+60000;
         puts("[NTP] RTC write failed; retry in 60 seconds when idle");
     }
+}
+
+bool network_time_connection_ready(void) {
+    return ready && configured && !home_suspended && connection_confirmed && join_attempts>0u && last_link==CYW43_LINK_UP && !joining;
 }

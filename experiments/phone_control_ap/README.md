@@ -318,3 +318,7 @@ Version `1.0.0+40.g9b20f8b` lists the four saved Home/Direct permissions, marks 
 The user reported general function with flickering while the native permission picker was open. A separate candidate avoids unchanged option replacement and defers actual list changes until the picker loses focus; Android visual acceptance of that fix is pending.
 
 The first option-node fix was installed as +41, but Android flicker persisted. The next candidate holds whole-page periodic rendering while the permission select has focus, retains background polling/access checks, and resumes latest-state display on selection/blur. Connection/authentication loss still takes effect immediately. Full-body Chrome verification is separate from pending Android acceptance.
+
+## Home Wi-Fi setup (installation pending)
+
+The +42 permission-picker background hold is installed and user-accepted. The next candidate adds Direct-only Test and save with a five-second cancellation period, bounded new-join/IP validation and old-credential/Direct recovery on failure. It preserves the Direct key/browser keys, pauses trust during testing, disables home trust on changed accepted credentials, and uses the existing autosave. See [workflow, limits and tests](../../doc/WEB_WIFI_SETUP.md).

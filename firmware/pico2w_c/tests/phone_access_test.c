@@ -61,8 +61,39 @@ static void browser_registry_tests(void) {
     puts("browser_registry_tests: PASS");
 }
 
+static void wifi_request_tests(void) {
+    phone_access_t a={0};phone_access_reset(&a,99);
+    phone_access_begin(&a,42,1);assert(phone_access_pair(&a,"000042 " TOKEN,2,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    const char *body=TOKEN " 99 1 11 test 486f6d65 70617373776f7264";
+    assert(phone_access_wifi(&a,body,PHONE_SCOPE_HOME,false)==PHONE_DENIED);
+    assert(phone_access_wifi(&a,"- 99 1 11 test 486f6d65 -",PHONE_SCOPE_DIRECT,true)==PHONE_DENIED);
+    assert(phone_access_network(&a,body,PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,TOKEN " 99 1 11 test 486f6d65 00",PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,body,PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(a.last.action==PHONE_WIFI_TEST && !strcmp(a.last.wifi.ssid,"Home") && !strcmp(a.last.wifi.password,"password"));
+    a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_wifi(&a,body,PHONE_SCOPE_DIRECT,false)==PHONE_OK && a.result==PHONE_COMMAND_APPLIED);
+    assert(phone_access_wifi(&a,TOKEN " 99 1 11 test 486f6d65 -",PHONE_SCOPE_DIRECT,false)==PHONE_BUSY);
+    assert(phone_access_wifi(&a,TOKEN " 99 2 12 cancel 1",PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,TOKEN " 99 2 12 cancel 0",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(!a.last.wifi.password[0] && a.last.action==PHONE_WIFI_CANCEL);
+    a.epoch=UINT32_MAX;a.last.id=UINT32_MAX-1u;a.result=PHONE_COMMAND_APPLIED;
+    char maximum[288];int prefix=snprintf(maximum,sizeof(maximum),TOKEN " %u %u %u test ",UINT32_MAX,UINT32_MAX,UINT32_MAX);
+    assert(prefix>0);memset(maximum+prefix,'6',64);maximum[prefix+64]=' ';
+    memset(maximum+prefix+65,'3',128);maximum[prefix+193]=0;
+    assert(strlen(maximum)==264u);
+    assert(phone_access_wifi(&a,maximum,PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(strlen(a.last.wifi.ssid)==32u && strlen(a.last.wifi.password)==64u);
+    char metadata[512];assert(phone_access_browsers_json(metadata,sizeof(metadata),&a)>0);
+    assert(!strstr(metadata,"password") && !strstr(metadata,"33333333"));
+    phone_access_reset(&a,100);assert(!a.last.wifi.password[0] && !a.last.wifi.ssid[0]);
+    puts("wifi_request_tests: PASS");
+}
+
 int main(void) {
     browser_registry_tests();
+    wifi_request_tests();
     const char headers[] = "HTTP/1.1\r\nHoSt: 192.168.4.1\r\nOrigin: http://192.168.4.1";
     const char wrong[] = "HTTP/1.1\r\nHost: 192.168.4.1\r\nOrigin: https://192.168.4.1";
     const char duplicate[] = "HTTP/1.1\r\nHost: 192.168.4.1\r\nHost: 192.168.4.1\r\nOrigin: http://192.168.4.1";

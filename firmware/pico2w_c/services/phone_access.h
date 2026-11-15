@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "phone_settings.h"
+#include "phone_wifi.h"
 #include "alarm_engine.h"
 #include "birthday.h"
 
@@ -27,7 +28,7 @@ typedef enum {
     PHONE_CLOCK_SET, PHONE_CLOCK_SYNC,
     PHONE_BT_SCAN, PHONE_BT_CANCEL, PHONE_BT_DISCONNECT, PHONE_BT_CONNECT, PHONE_BT_FORGET,
     PHONE_NET_HOME, PHONE_NET_DIRECT, PHONE_NET_CANCEL,
-    PHONE_BROWSER_FORGET,
+    PHONE_BROWSER_FORGET, PHONE_WIFI_TEST, PHONE_WIFI_CANCEL,
     PHONE_SET_ALARM, PHONE_SET_BIRTHDAY, PHONE_ACTION_COUNT
 } phone_action_t;
 typedef enum { PHONE_OK, PHONE_INVALID, PHONE_DENIED, PHONE_BUSY } phone_reply_t;
@@ -49,6 +50,7 @@ typedef struct {
     alarm_entry_t alarm;
     birthday_t birthday;
     bool birthday_year_supplied;
+    phone_wifi_config_t wifi;
 } phone_command_t;
 
 typedef struct {
@@ -86,3 +88,5 @@ unsigned phone_access_browser_slot(const phone_access_t *access, const char *tok
 int phone_access_browsers_json(char *out, size_t capacity, const phone_access_t *access);
 phone_reply_t phone_access_browsers(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_command_result_t phone_access_forget_browser(phone_access_t *access, const phone_command_t *request);
+
+phone_reply_t phone_access_wifi(phone_access_t *access,const char *body,uint8_t scope,bool home_peer);

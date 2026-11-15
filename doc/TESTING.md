@@ -286,3 +286,7 @@ The installed +40 page caused five focused-select child-list replacements over f
 ### Continued picker flicker: background-render hold
 
 The +41 select-only fix failed user visual acceptance. Full-body observation, rather than select-only observation, measured 1,105 mutations over five unchanged polls; the new hold measures zero body/select mutations at 360/412/960 pixels. Background polling/data stay current while the displayed clock is held, then catch up on blur/selection. Native JS checks cover deferred removal, connection loss and self-revocation while focused. Pending-command timeout text is also deferred. Actual Android cancellation/focus behavior and visual stability still require user acceptance after installation. See WEB_BROWSER_ACCESS.md.
+
+## Browser home Wi-Fi Test and save
+
+See WEB_WIFI_SETUP.md for Direct-only admission, five-second grace, bounded new-join/IP test, no-save-before-success, recovery and acceptance. Twenty-five registered checks include a new phone_wifi state/decoder test, extended access maximum-body/idempotence/secret checks, new-join readiness and production-script workflow. Main-handler and real Chrome/HTTP fixtures cover preservation and response/UI bounds. Actual wrong-SSID recovery, real-network success, Home trust/new-origin pairing, interrupted saves, power-cycle persistence, four real clients and Wi-Fi/BT resource margins remain hardware tests. No real Wi-Fi credentials are sent during build or installation verification.

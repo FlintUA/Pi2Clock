@@ -30,7 +30,7 @@ target_include_directories(speech_plan_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/.
 target_include_directories(audio_queue_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../audio" "${CMAKE_CURRENT_LIST_DIR}/../drivers")
 add_executable(settings_store_test settings_store_test.c "${APP}/alarm_engine.c" "${APP}/clock_time.c" "${APP}/birthday.c")
 add_executable(lcd_cursor_test lcd_cursor_test.c "${CMAKE_CURRENT_LIST_DIR}/../drivers/lcd1602_i2c.c")
-add_executable(phone_access_test phone_access_test.c "${SERVICES}/phone_access.c"
+add_executable(phone_access_test phone_access_test.c "${SERVICES}/phone_access.c" "${SERVICES}/phone_wifi.c"
     "${APP}/alarm_engine.c" "${APP}/birthday.c" "${APP}/clock_time.c")
 add_executable(network_time_test network_time_test.c "${APP}/clock_time.c")
 add_executable(phone_overview_test phone_overview_test.c "${SERVICES}/phone_overview.c"
@@ -38,13 +38,14 @@ add_executable(phone_overview_test phone_overview_test.c "${SERVICES}/phone_over
 add_executable(phone_control_test phone_control_test.c "${SERVICES}/phone_control.c" "${APP}/alarm_engine.c" "${APP}/clock_time.c")
 add_executable(phone_bluetooth_test phone_bluetooth_test.c "${SERVICES}/phone_bluetooth.c" "${SERVICES}/phone_overview.c"
     "${APP}/alarm_engine.c" "${APP}/clock_time.c")
+add_executable(phone_wifi_test phone_wifi_test.c "${SERVICES}/phone_wifi.c")
 add_executable(phone_network_test phone_network_test.c "${SERVICES}/phone_network.c" "${SERVICES}/phone_overview.c"
     "${APP}/alarm_engine.c" "${APP}/clock_time.c")
 target_include_directories(network_time_test PRIVATE network_mocks)
 target_compile_definitions(network_time_test PRIVATE CLOCK_ENABLE_PHONE_WEB=1)
 target_include_directories(lcd_cursor_test PRIVATE mocks "${CMAKE_CURRENT_LIST_DIR}/../drivers")
 target_include_directories(settings_store_test PRIVATE mocks)
-foreach(test timer_warning music_catalog sd_catalog alarm_engine clock_time bt_catalog bt_policy settings_store timer_controls music_playlist music_sleep audio_queue speech_plan birthday lcd_cursor phone_access network_time phone_overview phone_control phone_bluetooth phone_network)
+foreach(test timer_warning music_catalog sd_catalog alarm_engine clock_time bt_catalog bt_policy settings_store timer_controls music_playlist music_sleep audio_queue speech_plan birthday lcd_cursor phone_access network_time phone_overview phone_control phone_bluetooth phone_network phone_wifi)
     add_test(NAME ${test} COMMAND ${test}_test)
 endforeach()
 add_test(NAME git_version COMMAND "${CMAKE_COMMAND}"

@@ -31,3 +31,6 @@ void network_time_suspend_home(bool suspended);
 bool network_time_service(uint64_t now_ms, bool idle, bool join_allowed, ds1302_datetime_t *local);
 void network_time_applied(bool success);
 bool network_time_is_dst_change(void);
+
+// Requires an attempted join since configure/resume; excludes an old cached link.
+bool network_time_connection_ready(void);

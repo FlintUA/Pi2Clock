@@ -226,7 +226,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
         {"set ", 946684800u, 4102444799u}, {"sync ", 0, 0},
         {"scan ",0,0}, {"cancel ",0,0}, {"disconnect ",0,0}, {"connect ",0,0}, {"forget ",0,0},
         {"home ",0,0}, {"direct ",0,0}, {"cancel ",0,0},
-        {"forget ",1,PHONE_BROWSER_MAX},
+        {"forget ",1,PHONE_BROWSER_MAX}, {"test ",0,0}, {"cancel ",0,0},
         {"set ", 0, 0}, {"set ", 0, 0}
     };
     _Static_assert(sizeof(actions) / sizeof(actions[0]) == PHONE_ACTION_COUNT, "Missing phone action");
@@ -242,6 +242,8 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
     if (i == limit) return PHONE_INVALID;
     if (request.action >= PHONE_SET_ALARM) {
         if (!read_schedule(p, &request)) return PHONE_INVALID;
+    } else if (request.action == PHONE_WIFI_TEST) {
+        if(!phone_wifi_decode(p,&request.wifi)) return PHONE_INVALID;
     } else if (request.action == PHONE_BROWSER_FORGET) {
         uint32_t slot;
         if (!read_number(&p,&slot) || slot<1u || slot>PHONE_BROWSER_MAX || *p++!=' ' ||
@@ -263,6 +265,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
                request.value == access->last.value && request.slot == access->last.slot &&
                request.expected == access->last.expected &&
                request.birthday_year_supplied == access->last.birthday_year_supplied &&
+               memcmp(&request.wifi,&access->last.wifi,sizeof(request.wifi))==0 &&
                phone_alarm_revision(&request.alarm) == phone_alarm_revision(&access->last.alarm) &&
                phone_birthday_revision(&request.birthday) == phone_birthday_revision(&access->last.birthday) ?
                PHONE_OK : PHONE_BUSY;
@@ -313,7 +316,7 @@ unsigned phone_access_browser_slot(const phone_access_t *access,const char *toke
     return phone_access_check(access,token,scope)==PHONE_OK ? browser_index(access,token,scope)+1u : 0u;
 }
 phone_reply_t phone_access_browsers(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
-    return accept_command(access,body,scope,home_peer,PHONE_BROWSER_FORGET,PHONE_SET_ALARM);
+    return accept_command(access,body,scope,home_peer,PHONE_BROWSER_FORGET,PHONE_WIFI_TEST);
 }
 phone_command_result_t phone_access_forget_browser(phone_access_t *access,const phone_command_t *request) {
     if (request->action!=PHONE_BROWSER_FORGET || request->slot>=PHONE_BROWSER_MAX ||
@@ -341,4 +344,8 @@ int phone_access_browsers_json(char *out,size_t capacity,const phone_access_t *a
     }
     n=snprintf(out+used,capacity-used,"]}");
     return n<0 || (size_t)n>=capacity-used ? -1:(int)used+n;
+}
+
+phone_reply_t phone_access_wifi(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
+    return accept_command(access,body,scope,home_peer,PHONE_WIFI_TEST,PHONE_SET_ALARM);
 }

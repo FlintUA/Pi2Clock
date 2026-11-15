@@ -56,6 +56,7 @@ int main(void) {
     network_time_init(true);
     assert(network_time_home_status(0).state == NETWORK_HOME_UNCONFIGURED);
     network_time_configure("TestNetwork", "test-password");
+    assert(!network_time_connection_ready());
     network_time_suspend_home(true);
     assert(network_time_home_status(0).state == NETWORK_HOME_SUSPENDED);
     assert(!service(0, true, true) && connect_calls == 0);
@@ -72,6 +73,7 @@ int main(void) {
     test_link = CYW43_LINK_UP;
     assert(!service(3000, false, true) && dns_calls == 0);
     assert(network_time_home_status(3000).state == NETWORK_HOME_READY);
+    assert(network_time_connection_ready());
     anchor_valid = true; apply_pending = true; anchor_epoch = 1794384000u; anchor_ms = 3000;
     assert(!service(3250, false, true));
     assert(service(3500, true, true) && dns_calls == 1);
@@ -120,6 +122,15 @@ int main(void) {
     assert(!service(52000,true,true));assert(network_time_reference_status(52000).failed);
     received=true;sample_epoch=1794384000;sample_ms=52000;
     assert(service(52250,true,true));assert(!network_time_reference_status(52250).failed);
+    network_time_configure("TestNetwork","test-password");
+    test_link=CYW43_LINK_UP;assert(!service(53000,false,true));assert(!network_time_connection_ready());
+    test_link=CYW43_LINK_DOWN;connect_result=-1;assert(!service(54000,false,true));
+    test_link=CYW43_LINK_UP;assert(!service(54250,false,true));assert(!network_time_connection_ready());
+    network_time_configure("TestNetwork","test-password");
+    test_link=CYW43_LINK_DOWN;connect_result=0;assert(!service(55000,false,true));
+    assert(!network_time_connection_ready());
+    test_link=CYW43_LINK_UP;assert(!service(55250,false,true));assert(network_time_connection_ready());
+    network_time_suspend_home(true);assert(!network_time_connection_ready());
     puts("network_time_test: PASS");
     return 0;
 }

@@ -30,8 +30,9 @@
   .weekdays { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .75rem; padding: .4rem 0; }
   #settings-controls > div { display: grid; align-items: end; gap: .7rem; }
   #settings-controls > div { grid-template-columns: minmax(0, 1fr); }
-  #controls > div, #clock-controls > div, #bluetooth-controls > div, #network-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
-  #network-mode, #network-instructions, #network-details { overflow-wrap: anywhere; }
+  #controls > div, #clock-controls > div, #bluetooth-controls > div, #network-controls > div, #wifi-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+  #network-mode, #network-instructions, #network-details, #wifi-state, #wifi-instructions { overflow-wrap: anywhere; }
+  #wifi-controls > label { grid-column: 1 / -1; }
   #controls .timer-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; width: 100%; max-width: 25rem; margin: .5rem auto; }
   .timer-column { min-width: 0; text-align: center; }
   .timer-column > span { display: block; color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
@@ -216,7 +217,20 @@
     <p id="network-transition" role="status"></p>
     <p id="network-instructions"></p>
     <p><a id="network-destination" hidden>Open destination address</a></p>
-    <p>The current connection will end when modes change. Passwords and remembered browsers remain unchanged. Direct uses the saved SpeakingClock Wi-Fi password; open Phone Control on the clock if you need to see it. After restart the clock starts in home mode. Home Wi-Fi setup and home-trust changes remain on the clock for now.</p>
+    <p>The current connection will end when modes change. Passwords and remembered browsers remain unchanged. Direct uses the saved SpeakingClock Wi-Fi password; open Phone Control on the clock if you need to see it. After restart the clock starts in home mode. Use Home Wi-Fi setup below to test new credentials from Direct. Home-trust changes remain on the clock.</p>
+  </form>
+  <form id="wifi-controls" hidden autocomplete="off">
+    <h2>Home Wi-Fi setup</h2>
+    <p id="wifi-state" role="status">Checking Wi-Fi setup...</p>
+    <label>Network name <input name="wifi_ssid" type="text" maxlength="32" autocomplete="off"></label>
+    <label>Network password <input name="wifi_password" type="password" maxlength="64" autocomplete="new-password"></label>
+    <label class="toggle"><input name="wifi_open" type="checkbox">Open network (no password)</label>
+    <div><button id="wifi-test" type="submit">Test and save network</button>
+      <button id="wifi-cancel" type="button">Cancel Wi-Fi test</button></div>
+    <p id="wifi-instructions"></p>
+    <p><a id="wifi-destination" hidden>Open home address</a></p>
+    <p>Start from Direct Wi-Fi so a failed test can restore SpeakingClock with the same password. There is a 5-second cancellation period, then up to 45 seconds to join and obtain an IP address. The phone connection will end during the test. On success, join the new home network and read the address in Phone Control on the clock. On failure, reconnect to SpeakingClock; old saved settings are retained. Recovery waits for idle audio if needed. Internet/NTP is not required for the connection test.</p>
+    <p>Changing the saved network or password turns home trust OFF. You may need the existing physical pairing code at the new home address. Keep power connected until Settings saved appears. Passwords are never shown or filled from the clock.</p>
   </form>
   <form id="browser-controls" hidden>
     <h2>Browser access</h2>
@@ -388,6 +402,11 @@
   const networkInstructions=document.getElementById("network-instructions");
   const networkDestination=document.getElementById("network-destination");
   let networkView=null, networkHandoff=null;
+  const wifiControls=document.getElementById("wifi-controls"),wifiState=document.getElementById("wifi-state");
+  const wifiTest=document.getElementById("wifi-test"),wifiCancel=document.getElementById("wifi-cancel");
+  const wifiInstructions=document.getElementById("wifi-instructions"),wifiDestination=document.getElementById("wifi-destination");
+  let wifiView=null,wifiHandoff=null;
+
   let clockDirty = false;
   const controlMessages = {
     conflict: "State changed. Review the current status and try again.",
@@ -547,7 +566,7 @@
     if(!live && authorizedLayout) {
       // A failed poll is not loss of authorization. Preserve layout and drafts,
       // but never allow a command against stale status while reconnecting.
-      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,browserControls,
+      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,browserControls,wifiControls,
         quickControls,alarmLiveControls,...scheduleEditors.map(editor=>editor.form)]) {
         for(const field of region.querySelectorAll("input, select, button")) field.disabled=true;
       }
@@ -555,6 +574,7 @@
         wheel.setAttribute("aria-disabled","true");wheel.tabIndex=-1;
       }
       pairForm.hidden=true;logout.disabled=true;
+      if(wifiHandoff) wifiState.textContent="Wi-Fi check in progress. Follow the instructions below; reconnect to SpeakingClock if the test fails.";
       if(networkHandoff) networkTransition.textContent="Connection changing. Follow the Wi-Fi instructions below; this page will not redirect automatically.";
       return;
     }
@@ -570,6 +590,7 @@
     settingsControls.hidden = !allowed;
     networkControls.hidden=!allowed;
     renderNetwork();
+    wifiControls.hidden=!allowed;renderWifi();
     browserControls.hidden=!allowed;
     renderBrowsers();
     bluetoothControls.hidden=!allowed;
@@ -835,6 +856,52 @@
     const parts=String(value||"").split(".");
     return parts.length===4 && parts.every(p=>/^\d{1,3}$/.test(p) && Number(p)<=255) ? value : "";
   }
+  function renderWifi() {
+    const v=wifiView;
+    const usable=Boolean(live?.wifi_control && v && v.epoch===live.epoch);
+    const active=usable && ["pending","testing","restoring"].includes(v.state);
+    const locked=!usable || !v.direct || !v.available || busy || Boolean(pending);
+    for(const field of wifiControls.querySelectorAll("input")) field.disabled=locked || (field.name==="wifi_password" && wifiControls.elements.wifi_open.checked);
+    wifiTest.disabled=locked;
+    wifiCancel.disabled=!usable || !["pending","testing"].includes(v.state) || busy || Boolean(pending);
+    const reasons={busy:"Clock became busy.",timeout:"No IP address before the test deadline.",changed:"Access or mode changed.",radio:"Radio operation failed.",cancelled:"Cancelled."};
+    const messages={idle:"No Wi-Fi test running.",pending:`Starting in ${v?.seconds || 0}s; cancellation is available.`,
+      testing:`Testing ${v?.test_ssid || "network"}; up to ${v?.seconds || 0}s remaining.`,
+      restoring:"Returning to Direct when audio is idle. Saved settings are unchanged.",
+      saved:`Connected to ${v?.saved_ssid || "home Wi-Fi"}. ${live?.settings?.saving==="saved"?"Settings saved.":"Saving when idle; keep power connected."}`,
+      failed:`Test failed. ${reasons[v?.reason] || ""} Old settings retained; Direct restored.`,
+      cancelled:`Test cancelled before switching. ${reasons[v?.reason] || ""} Saved settings unchanged.`,
+      recovery_failed:"Direct recovery failed. Old settings retained; use Phone Control or USB, or restart to use the old home configuration."};
+    wifiState.textContent=!usable?"Wi-Fi setup status unavailable.":messages[v.state] || "Check Phone Control on the clock.";
+    if(usable && !active && ["failed","cancelled","recovery_failed","saved"].includes(v.state)) wifiHandoff=null;
+    wifiInstructions.textContent=wifiHandoff?`Testing ${wifiHandoff.ssid}. The current connection will end. Wait for the result on the clock: success means join that home network and read its address in Phone Control; failure means reconnect to SpeakingClock with the saved password. This page does not redirect.`:
+      !usable?"Wait for a current setup status.":!v.direct?"To change Wi-Fi, switch to Direct above, connect the phone to SpeakingClock and reopen 192.168.4.1.":
+      active?"The current connection may end. Do not remove power; failed setup restores Direct when audio is idle.":`Saved network: ${v.saved_ssid || "none"}. Enter the new network and password; they are saved only after a successful connection.`;
+    const address=usable && !v.direct && networkAddress(v.address)?v.address:"";
+    wifiDestination.hidden=!address;if(address) wifiDestination.href=`http://${address}/`;
+  }
+  wifiControls.addEventListener("change",event=>{
+    if(event.target.name==="wifi_open" && event.target.checked) wifiControls.elements.wifi_password.value="";
+    renderWifi();
+  });
+  wifiControls.addEventListener("submit",async event=>{
+    event.preventDefault();
+    if(wifiTest.disabled || !live || !wifiView || wifiView.epoch!==live.epoch) return;
+    const fields=wifiControls.elements,ssid=fields.wifi_ssid.value,key=fields.wifi_open.checked?"":fields.wifi_password.value;
+    const bytes=value=>new TextEncoder().encode(value);
+    if(bytes(ssid).length<1 || bytes(ssid).length>32 || /[\x00-\x1f\x7f]/.test(ssid)) {feedback.textContent="Enter a valid network name (up to 32 bytes).";return;}
+    if(!fields.wifi_open.checked && !((bytes(key).length>=8 && bytes(key).length<=63) || /^[0-9a-fA-F]{64}$/.test(key)) || /[\x00-\x1f\x7f]/.test(key)) {
+      feedback.textContent="Enter a valid WPA2 password (8-63 bytes or a 64-digit hexadecimal key), or explicitly choose an open network.";return;
+    }
+    const hex=value=>Array.from(bytes(value),byte=>byte.toString(16).padStart(2,"0")).join("");
+    if(!confirm(`Test and save ${ssid}${fields.wifi_open.checked?" (open network)":""}? The phone connection will end after 5 seconds. On failure, old settings are retained and SpeakingClock returns. Changed credentials turn home trust OFF.`)) return;
+    wifiHandoff={ssid};
+    try {await sendCommand("wifi","test",hex(ssid)+" "+(key?hex(key):"-"));}
+    finally {fields.wifi_password.value="";}
+  });
+  wifiCancel.addEventListener("click",async()=>{
+    if(!wifiCancel.disabled) await sendCommand("wifi","cancel",0);
+  });
   function renderBrowsers() {
     const view=browserView;
     const usable=Boolean(live?.browser_control && view && view.epoch===live.epoch && Number.isInteger(view.revision) && view.revision>0);
@@ -859,7 +926,7 @@
     browserForget.disabled=locked || signature!==browserSignature;
     browserState.textContent=!usable?"Browser list unavailable. Other controls remain available.":
       `${view.entries.length}/${view.capacity} saved permissions. ${live.settings?.saving==="saved"?"Settings saved.":"Changes may still be saving; keep the clock powered."}`;
-    browserPolicy.textContent=!usable?"Check Phone Control on the clock for the saved home-trust policy.":view.home_trusted?
+    browserPolicy.textContent=wifiView && !wifiView.direct && ["testing","restoring"].includes(wifiView.state)?"Home trust is temporarily suspended during the Wi-Fi test.":!usable?"Check Phone Control on the clock for the saved home-trust policy.":view.home_trusted?
       "Trusted home access is ON: devices admitted from the trusted home network can control the clock. Forgetting a saved permission does not block that home access. Direct still requires a saved permission.":
       "Trusted home access is OFF: a forgotten browser must pair again for its removed Home or Direct permission.";
   }
@@ -1156,7 +1223,7 @@
     try {
       const response = await post("/" + target, [credential, epoch, id, nonce, action, value].join(" "));
       if (response.ok) {
-        pending = {id, epoch, nonce, target, action, value, queuedSetting, editor, until: Date.now() + 5000};
+        pending = {id, epoch, nonce, target, action, value:target==="wifi"?0:value, queuedSetting, editor, until: Date.now() + 5000};
         feedback.textContent = queuedSetting ? "Adjusting…" : "Waiting for the clock…";
       } else if (response.status === 403) {
         if (credential !== "-") remember(null);
@@ -1225,6 +1292,13 @@
           }
         } catch {} // A metadata failure must not disable ordinary clock controls.
       }
+      wifiView=null;
+      if(data.wifi_control) {
+        try {
+          const response=await fetch("/wifi.json",{cache:"no-store",signal:request.signal});
+          if(response.ok) {const v=await response.json();if(v.epoch===data.epoch)wifiView=v;}
+        } catch {} // A missing setup snapshot must not hide unrelated controls.
+      }
       if (token && (checkedEpoch !== data.epoch || (browserView && checkedBrowserRevision!==browserView.revision)) && !busy) {
         const candidate = token;
         const check = await post("/access", candidate);
@@ -1260,7 +1334,10 @@
             data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
           (pending.target !== "settings" && pending.target !== "control" && pending.action !== "stop_sound" && !pending.editor || data.command_result !== "applied" ||
             data.settings?.snapshot_id >= pending.id)) {
-        if(pending.target === "browsers") {
+        if(pending.target === "wifi") {
+          if(data.command_result==="applied") feedback.textContent=pending.action==="cancel"?"Wi-Fi cancellation requested.":"Wi-Fi test scheduled. Follow the connection instructions.";
+          else {wifiHandoff=null;feedback.textContent="Wi-Fi setup refused. Use Direct, stop audio/timers, close editors and finish any pending mode switch.";}
+        } else if(pending.target === "browsers") {
           feedback.textContent=data.command_result==="applied"?
             "Browser permission forgotten. Wait for settings to save; trusted home access is unchanged.":
             "Browser list changed elsewhere. Review the refreshed list and try again.";
@@ -1354,7 +1431,7 @@
     } catch {
       live = null;
       bluetoothView=null;
-      networkView=null;
+      networkView=null;wifiView=null;
       if(!authorizedLayout) {
         showAbout(null);
         showOverview(null);

@@ -28,7 +28,7 @@ function createForm(id) {
     }
   };
 }
-for (const id of ["settings-controls", "alarm-controls", "birthday-controls", "clock-controls"]) elements.set(id, createForm(id));
+for (const id of ["settings-controls", "alarm-controls", "birthday-controls", "clock-controls", "wifi-controls"]) elements.set(id, createForm(id));
 function getElementById(id) {
   if (!elements.has(id)) elements.set(id, {
     value: "0", dataset: {}, handlers: {}, querySelectorAll: () => [],
@@ -58,6 +58,8 @@ let failBtRead=false,confirmForget=true,nextBtResult=null;
 const netFixture={epoch:123,snapshot_id:0,supported:true,available:true,mode:"home",configured:true,direct_key_ready:true,
   home_ssid:"TestNetwork",home_address:"192.168.2.116",address:"192.168.2.116",home_state:"ready",home_seconds:0,transition:"idle",target:"direct",seconds:0};
 let failNetRead=false;
+const wifiFixture={epoch:123,state:"idle",reason:"none",request_id:0,seconds:0,direct:false,available:false,saved_ssid:"OldLAN",test_ssid:"",address:"192.168.2.116"};
+let failWifiRead=false;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const posts = [], writes = [];
 const controlCalls = [];
@@ -91,9 +93,10 @@ const browserFixture={epoch:123,revision:1,home_trusted:true,capacity:4,entries:
 let failBrowserRead=false,validBrowserPermission=true,changeRegistryBeforeForget=false,accessChecks=0;
 const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:""};}};
 const context = vm.createContext({
-  Date, AbortController, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
+  Date, AbortController, TextEncoder, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
   crypto: require("node:crypto").webcrypto, localStorage: {getItem: () => null},
   fetch: async (url, options) => {
+    if(url==="/wifi.json") {if(failWifiRead)throw new Error("Wi-Fi metadata unavailable");return {ok:true,json:async()=>structuredClone(wifiFixture)};}
     if(url==="/browsers.json") {if(failBrowserRead)throw new Error("registry unavailable");return {ok:true,json:async()=>structuredClone(browserFixture)};}
     if(url==="/network.json") {if(failNetRead)throw new Error("Network info temporarily unavailable");return {ok:true,json:async()=>structuredClone(netFixture)};}
     if(url==="/bluetooth.json") {
@@ -105,7 +108,7 @@ const context = vm.createContext({
       return {ok: true, json: async () => structuredClone(state)};
     }
     if(url==="/access") {++accessChecks;return {ok:validBrowserPermission,status:validBrowserPermission?200:403,json:async()=>({slot:1,epoch:state.epoch,revision:browserFixture.revision})};}
-    assert(["/browsers", "/settings", "/player", "/control", "/timer", "/clock", "/bluetooth", "/network"].includes(url));
+    assert(["/wifi", "/browsers", "/settings", "/player", "/control", "/timer", "/clock", "/bluetooth", "/network"].includes(url));
     posts.push(options.body);
     if (rejectOnce) {
       rejectOnce = false;
@@ -120,6 +123,11 @@ const context = vm.createContext({
       state.command_id = Number(fields[2]);
       state.command_nonce = Number(fields[3]);
       state.command_result = "applied";
+      if(url==="/wifi") {
+        wifiFixture.request_id=state.command_id;
+        if(fields[4]==="test") {wifiFixture.state="pending";wifiFixture.seconds=5;wifiFixture.available=false;wifiFixture.test_ssid=Buffer.from(fields[5],"hex").toString("utf8");}
+        else {wifiFixture.state="cancelled";wifiFixture.available=true;wifiFixture.reason="cancelled";}
+      }
       if(url==="/browsers") {
         if(changeRegistryBeforeForget){++browserFixture.revision;changeRegistryBeforeForget=false;}
         if(Number(fields[6])!==browserFixture.revision) state.command_result="conflict";
@@ -684,7 +692,7 @@ async function settled() {
   state.bt_control=true;btFixture.available=true;await update();
   btSelect.value="123456789ABC";btSelect.handlers.change();
   clockForm.elements.date.value="2029-12-10";clockForm.handlers.input();
-  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","network-controls","browser-controls","alarm-controls","birthday-controls"];
+  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","network-controls","browser-controls","wifi-controls","alarm-controls","birthday-controls"];
   for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
   const beforeDropPosts=posts.length;
   failStatusReads=1;await update();
@@ -790,6 +798,40 @@ async function settled() {
   assert.equal(vm.runInContext("token",context),null);
   document.activeElement=null;
 
+  // Wi-Fi setup: Direct only, explicit confirmation, no key echo, trial/recovery feedback.
+  state.wifi_control=true;state.home_trusted=false;validBrowserPermission=true;
+  vm.runInContext('remember("0123456789abcdef0123456789abcdef")',context);await update();
+  const wifiForm=getElementById("wifi-controls"),wifiFields=wifiForm.elements;
+  const wifiSubmit=()=>wifiForm.handlers.submit({preventDefault(){}});
+  assert(getElementById("wifi-test").disabled);assert(getElementById("wifi-instructions").textContent.includes("switch to Direct"));
+  wifiFixture.direct=true;wifiFixture.available=true;await update();
+  wifiFields.wifi_ssid.value="New Home";wifiFields.wifi_password.value="short";
+  const beforeWifi=posts.length;await wifiSubmit();assert.equal(posts.length,beforeWifi);
+  wifiFields.wifi_password.value="new-password";confirmForget=false;await wifiSubmit();assert.equal(posts.length,beforeWifi);
+  confirmForget=true;dropResponses=2;await wifiSubmit();await settled();await update();
+  assert.equal(wifiFields.wifi_password.value,"");assert.equal(wifiFixture.test_ssid,"New Home");
+  assert.equal(writes.filter(w=>w.field==="test").length,1);assert(getElementById("wifi-state").textContent.includes("5s"));
+  assert(getElementById("wifi-instructions").textContent.includes("New Home"));
+  assert(!getElementById("wifi-state").textContent.includes("new-password"));
+  failStatusReads=1;await update();assert.equal(wifiForm.hidden,false);assert(getElementById("wifi-state").textContent.includes("progress"));
+  await update();await getElementById("wifi-cancel").handlers.click();await settled();await update();
+  assert.equal(wifiFixture.state,"cancelled");assert(getElementById("wifi-state").textContent.includes("unchanged"));
+  wifiFields.wifi_open.checked=true;wifiFields.wifi_password.value="ignored-key";
+  wifiForm.handlers.change({target:wifiFields.wifi_open});assert.equal(wifiFields.wifi_password.value,"");
+  await wifiSubmit();await settled();await update();assert(posts.at(-1).endsWith(" -"));
+  wifiFixture.state="failed";wifiFixture.reason="timeout";wifiFixture.available=true;await update();
+  assert(getElementById("wifi-state").textContent.includes("Old settings retained"));
+  assert(getElementById("wifi-instructions").textContent.includes("OldLAN"));
+  wifiFixture.state="testing";wifiFixture.direct=false;wifiFixture.available=false;await update();
+  assert(getElementById("browser-policy").textContent.includes("temporarily suspended"));
+  wifiFixture.state="saved";wifiFixture.saved_ssid="New Home";preferences.saving="pending";await update();
+  assert(getElementById("wifi-state").textContent.includes("Saving"));
+  preferences.saving="saved";await update();assert(getElementById("wifi-state").textContent.includes("Settings saved"));
+  assert.equal(getElementById("wifi-destination").href,"http://192.168.2.116/");
+  failWifiRead=true;await update();assert(getElementById("wifi-test").disabled);
+  assert(!getElementById("connection").textContent.includes("lost"));failWifiRead=false;
+  wifiFixture.epoch=124;await update();assert(getElementById("wifi-test").disabled);
+  state.wifi_control=false;await update();assert(getElementById("wifi-test").disabled);
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);
