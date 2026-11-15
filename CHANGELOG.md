@@ -4,7 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
-- Added a browser-permission list, current-browser identification and confirmed selective revocation with registry-revision/slot-reuse protection and existing deferred autosave. Public metadata contains no keys, passwords or device names. The page explains trusted-home access, refreshes authorization after revocation and keeps unrelated controls usable on metadata failure. No Flash migration or credential editing is introduced. Installation and device acceptance pending; see doc/WEB_BROWSER_ACCESS.md.
+- Fixed repeated permission-option replacement during browser status polling. The focused native picker retains its nodes and selection; real list changes defer until blur, with Forget blocked against an outdated displayed list. Chrome and production-script checks verify unchanged-poll stability and stale-list protection. Installation and Android visual acceptance pending; see doc/WEB_BROWSER_ACCESS.md.
+
+- Added a browser-permission list, current-browser identification and confirmed selective revocation with registry-revision/slot-reuse protection and existing deferred autosave. Public metadata contains no keys, passwords or device names. The page explains trusted-home access, refreshes authorization after revocation and keeps unrelated controls usable on metadata failure. No Flash migration or credential editing is introduced. Installed as 1.0.0+40.g9b20f8b; the user reported general function with open-picker flicker, addressed separately. See doc/WEB_BROWSER_ACCESS.md.
 
 - Added right-aligned `MUTE` and `BT`/`SPK` indicators to the normal LCD time/date screen, using the existing sound switch and volume-owner routing without changing audio behavior. Dedicated screens and RTC error guidance retain priority. Installed through 1.0.0+39.g42cc495 and user-accepted on November 15.
 

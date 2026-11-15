@@ -278,3 +278,7 @@ The candidate adds `MUTE` at columns 13-16 of row 1 only when the global sound s
 ## Browser permission administration
 
 See [scope and acceptance](WEB_BROWSER_ACCESS.md). Native access tests cover registry metadata bounds/no secrets, current-slot lookup, authorization, stale/reused-slot protection, retries and self/other revocation. Production-script tests and real Chrome fixtures cover confirmation, current-client labels, self-revocation, failure isolation and no page navigation at 360/412/960 pixels. Installation verification must not remove real browser permissions. Two-browser revocation/re-pairing, save/power-cycle persistence, four-client load and audio coexistence remain device checks.
+
+### Focused permission-picker stability
+
+The installed +40 page caused five focused-select child-list replacements over five status polls. The fix preserves option identity and value across unchanged polls, defers real registry changes while focused and blocks Forget until displayed metadata is current. Production JavaScript checks cover focus/blur and stale removal; Chrome fixtures at 360/412/960 pixels measure zero unchanged select mutations and verify deferred update, retained selection, confirmation, failure isolation and no navigation. Actual Android visual acceptance remains pending separately approved installation. See WEB_BROWSER_ACCESS.md.

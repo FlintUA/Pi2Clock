@@ -107,4 +107,4 @@ The installed `1.0.0+35.g5c09045` profile adds speaker management through /bluet
 
 The installed browser Bluetooth workflow has an installed, user-accepted reconnect-layout fix; see [reported page jump and fix](../../doc/WEB_RECONNECT.md). The UI fix is installed as `1.0.0+36.ge21b139`.
 
-Network stage 1 adds network state and confirmed/cancellable HOME/Direct switching. Version `1.0.0+37.ga1f576b` is installed; the user accepted both transitions on November 15, 2026. Browser permission listing/selective removal is prepared in the next candidate ([details](../../doc/WEB_BROWSER_ACCESS.md)). Wi-Fi credential editing follows later. See [network mode controls](../../doc/WEB_NETWORK_MODES.md).
+Network stage 1 adds network state and confirmed/cancellable HOME/Direct switching. Version `1.0.0+37.ga1f576b` is installed; the user accepted both transitions on November 15, 2026. Browser permission listing/selective removal is installed as `1.0.0+40.g9b20f8b`; an open-picker stability fix is the next candidate ([details](../../doc/WEB_BROWSER_ACCESS.md)). Wi-Fi credential editing follows later. See [network mode controls](../../doc/WEB_NETWORK_MODES.md).

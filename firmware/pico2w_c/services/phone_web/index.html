@@ -446,7 +446,7 @@
   const logout = document.getElementById("logout");
   const storageKey = "speaking-clock-browser";
   let token = null, checkedEpoch = null;
-  let browserView=null,checkedBrowserRevision=null,selfBrowserSlot=0;
+  let browserView=null,checkedBrowserRevision=null,selfBrowserSlot=0,browserSignature="";
   const browserControls=document.getElementById("browser-controls");
   const browserEntry=document.getElementById("browser-entry");
   const browserForget=document.getElementById("browser-forget");
@@ -831,25 +831,33 @@
   function renderBrowsers() {
     const view=browserView;
     const usable=Boolean(live?.browser_control && view && view.epoch===live.epoch && Number.isInteger(view.revision) && view.revision>0);
-    if(usable) {
+    const ownSlot=token && checkedEpoch===live?.epoch && checkedBrowserRevision===view?.revision ? selfBrowserSlot : 0;
+    const signature=usable?JSON.stringify([view.epoch,view.revision,view.entries,ownSlot]):"";
+    // Replacing options while a native mobile picker is open makes it flicker.
+    // Defer real changes until blur, and block removal against the old display.
+    if(usable && signature!==browserSignature && document.activeElement!==browserEntry) {
       const selected=browserEntry.value;
       const options=view.entries.map(entry=>{
         const option=document.createElement("option");option.value=String(entry.slot);
-        option.textContent=`${entry.slot} - ${entry.scope==="direct"?"Direct":"Home"}${token && checkedEpoch===live.epoch && checkedBrowserRevision===view.revision && selfBrowserSlot===entry.slot?" (this browser)":""}`;
+        option.textContent=`${entry.slot} - ${entry.scope==="direct"?"Direct":"Home"}${ownSlot===entry.slot?" (this browser)":""}`;
         return option;
       });
       browserEntry.replaceChildren(...options);
       if(view.entries.some(entry=>String(entry.slot)===selected)) browserEntry.value=selected;
       else browserEntry.value=view.entries.length?String(view.entries[0].slot):"";
+      browserSignature=signature;
     }
     const locked=!usable || busy || Boolean(pending) || !view.entries.length;
-    browserEntry.disabled=locked;browserForget.disabled=locked;
+    if(browserEntry.disabled!==locked) browserEntry.disabled=locked;
+    browserForget.disabled=locked || signature!==browserSignature;
     browserState.textContent=!usable?"Browser list unavailable. Other controls remain available.":
       `${view.entries.length}/${view.capacity} saved permissions. ${live.settings?.saving==="saved"?"Settings saved.":"Changes may still be saving; keep the clock powered."}`;
     browserPolicy.textContent=!usable?"Check Phone Control on the clock for the saved home-trust policy.":view.home_trusted?
       "Trusted home access is ON: devices admitted from the trusted home network can control the clock. Forgetting a saved permission does not block that home access. Direct still requires a saved permission.":
       "Trusted home access is OFF: a forgotten browser must pair again for its removed Home or Direct permission.";
   }
+  browserEntry.addEventListener("change",renderBrowsers);
+  browserEntry.addEventListener("blur",renderBrowsers);
   browserControls.addEventListener("submit",event=>event.preventDefault());
   browserForget.addEventListener("click",async()=>{
     if(busy || pending || !live || !browserView || browserView.epoch!==live.epoch) return;

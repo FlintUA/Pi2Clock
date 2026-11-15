@@ -733,6 +733,18 @@ async function settled() {
   const browserSelect=getElementById("browser-entry"),browserRemove=getElementById("browser-forget");
   const browserClick=browserRemove.handlers.click;
   assert(!browserRemove.disabled && browserSelect.options.length===2);
+  browserSelect.value="2";const initialOptions=browserSelect.options;
+  document.activeElement=browserSelect;
+  for(let i=0;i<5;++i)await update();
+  assert.strictEqual(browserSelect.options,initialOptions);assert.equal(browserSelect.value,"2");
+  ++browserFixture.revision;browserFixture.entries[1]={slot:2,scope:"home"};
+  await update();assert.strictEqual(browserSelect.options,initialOptions);assert(browserRemove.disabled);
+  const deferredPosts=posts.length;await browserRemove.handlers.click();assert.equal(posts.length,deferredPosts);
+  document.activeElement=null;browserSelect.handlers.blur();
+  assert.notStrictEqual(browserSelect.options,initialOptions);assert.equal(browserSelect.value,"2");
+  assert(browserSelect.options[1].textContent.includes("Home"));assert(!browserRemove.disabled);
+  const refreshedOptions=browserSelect.options;await update();assert.strictEqual(browserSelect.options,refreshedOptions);
+
   assert(getElementById("browser-policy").textContent.includes("does not block"));
   browserSelect.value="2";confirmForget=false;const beforeBrowser=posts.length;
   await browserClick();assert.equal(posts.length,beforeBrowser);confirmForget=true;
