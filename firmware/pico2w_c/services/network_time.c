@@ -11,6 +11,8 @@ static bool ready, configured, joining, waiting, dns_pending, request_now, home_
 static bool received, anchor_valid, apply_pending;
 static bool request_failed, connection_confirmed;
 static char ssid_value[33], password_value[65];
+static char profile_ssids[2][33],profile_keys[2][65];
+static unsigned active_profile;
 static uint64_t join_started, next_join, deadline, next_ntp;
 static uint64_t sample_epoch, sample_ms, anchor_epoch, anchor_ms;
 static uint64_t last_sync_ms;
@@ -65,7 +67,7 @@ void network_time_init(bool radio_ready) {
     cyw43_arch_lwip_end();
     ready=pcb!=NULL;
 }
-void network_time_configure(const char *ssid, const char *password) {
+static void configure_current(const char *ssid, const char *password) {
     snprintf(ssid_value,sizeof(ssid_value),"%s",ssid?ssid:"");
     snprintf(password_value,sizeof(password_value),"%s",password?password:"");
     configured=ssid_value[0]!=0; joining=false; connection_confirmed=false; next_join=0; join_failures=0;
@@ -79,6 +81,40 @@ void network_time_configure(const char *ssid, const char *password) {
     if (ready && !home_suspended) cyw43_wifi_leave(&cyw43_state,CYW43_ITF_STA);
     puts(configured ? "[WIFI] Configuration accepted (password hidden)" :
                       "[WIFI] Disabled; RTC continues offline");
+}
+static void store_profiles(const char *s0,const char *p0,const char *s1,const char *p1) {
+    snprintf(profile_ssids[0],33,"%s",s0?s0:"");snprintf(profile_keys[0],65,"%s",p0?p0:"");
+    snprintf(profile_ssids[1],33,"%s",s1?s1:"");snprintf(profile_keys[1],65,"%s",p1?p1:"");
+}
+static void select_profile(unsigned index) {
+    active_profile=index;
+    snprintf(ssid_value,sizeof(ssid_value),"%s",profile_ssids[index]);
+    snprintf(password_value,sizeof(password_value),"%s",profile_keys[index]);
+}
+void network_time_configure(const char *ssid,const char *password) {
+    store_profiles(ssid,password,"","");active_profile=0;
+    configure_current(profile_ssids[0],profile_keys[0]);
+}
+void network_time_configure_profiles(const char *s0,const char *p0,const char *s1,const char *p1) {
+    store_profiles(s0,p0,s1,p1);active_profile=profile_ssids[0][0]?0u:1u;
+    configure_current(profile_ssids[active_profile],profile_keys[active_profile]);
+}
+void network_time_adopt_profiles(const char *s0,const char *p0,const char *s1,const char *p1,unsigned connected) {
+    store_profiles(s0,p0,s1,p1);select_profile(connected<2u?connected:0u);
+    configured=ssid_value[0]!=0;
+}
+const char *network_time_ssid(void){return ssid_value;}
+unsigned network_time_profile_index(void){return active_profile;}
+static void failed_join(uint64_t now) {
+    joining=false;connection_confirmed=false;++join_failures;
+    unsigned other=active_profile^1u;bool alternative=profile_ssids[other][0]!=0;
+    if(alternative) {
+        cyw43_wifi_leave(&cyw43_state,CYW43_ITF_STA);select_profile(other);last_link=CYW43_LINK_DOWN;
+        cyw43_arch_lwip_begin();waiting=false;received=false;cyw43_arch_lwip_end();request_now=true;next_ntp=0;
+    }
+    uint64_t delay=alternative?(join_failures%2u?1000u:30000u):(join_failures<3u?10000u:60000u);
+    next_join=now+delay;
+    printf("[WIFI] Retry in %llus; next profile=%u\n",(unsigned long long)(delay/1000u),active_profile+1u);
 }
 void network_time_request(void) { request_now=true; request_failed=false; }
 void network_time_manual_adjusted(void) {
@@ -113,7 +149,7 @@ network_home_status_t network_time_home_status(uint64_t now) {
     if (!ready) status.state = NETWORK_HOME_OFFLINE;
     else if (!configured) status.state = NETWORK_HOME_UNCONFIGURED;
     else if (home_suspended) status.state = NETWORK_HOME_SUSPENDED;
-    else if (last_link == CYW43_LINK_UP) status.state = NETWORK_HOME_READY;
+    else if (last_link == CYW43_LINK_UP && connection_confirmed) status.state = NETWORK_HOME_READY;
     else if (joining) {
         status.state = last_link == CYW43_LINK_JOIN || last_link == CYW43_LINK_NOIP ?
             NETWORK_HOME_ADDRESS : NETWORK_HOME_CONNECTING;
@@ -164,12 +200,15 @@ bool network_time_service(uint64_t now, bool idle, bool join_allowed, ds1302_dat
     if (timed_out) puts("[NTP] Request timed out; RTC remains active");
     if (configured && !home_suspended) {
         int link=cyw43_tcpip_link_status(&cyw43_state,CYW43_ITF_STA);
+        if(link==CYW43_LINK_UP && !joining && !connection_confirmed) {
+            cyw43_wifi_leave(&cyw43_state,CYW43_ITF_STA);link=CYW43_LINK_DOWN;
+        }
         last_link=link;
         if (link!=CYW43_LINK_UP) {
+            if(connection_confirmed) {next_join=now;join_failures=0;}
             connection_confirmed=false;
             if (joining && (now-join_started>=15000 || link<0)) {
-                joining=false; ++join_failures;
-                next_join=now+(join_failures<3?10000:60000);
+                failed_join(now);
                 printf("[WIFI] Join attempt=%u failed link=%d elapsed=%llums; retry in %llus\n",
                     join_attempts, link, (unsigned long long)(now-join_started),
                     (unsigned long long)((next_join-now)/1000u));
@@ -180,6 +219,7 @@ bool network_time_service(uint64_t now, bool idle, bool join_allowed, ds1302_dat
                 joining=rc==0; join_started=now;
                 next_join=now+60000;
                 ++join_attempts;
+                if(rc!=0 && profile_ssids[active_profile^1u][0]) failed_join(now);
                 printf("[WIFI] Join attempt=%u started status=%d%s\n", join_attempts, rc,
                     joining ? "" : "; retry in 60s");
             }

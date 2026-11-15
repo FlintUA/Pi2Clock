@@ -408,7 +408,7 @@ int main(void) {
     assert(settings_store_load(&expanded)==SETTINGS_STORE_OK && !expanded.timer_warning);
     assert(settings_store_save(&off)==SETTINGS_STORE_OK);
     settings_record_v17_t v17;memcpy(&v17,test_flash+SLOT1_OFFSET,sizeof(v17));
-    assert(v17.prefix.prefix.prefix.prefix.version==RECORD_VERSION && sizeof(v17)==640 && record_v17_valid(test_flash+SLOT1_OFFSET));
+    assert(v17.prefix.prefix.prefix.prefix.version==RECORD_V17 && sizeof(v17)==640 && record_v17_valid(test_flash+SLOT1_OFFSET));
     assert(!memcmp(prior_random,test_flash+SLOT0_OFFSET,sizeof(prior_random)));
     assert(settings_store_load(&expanded)==SETTINGS_STORE_OK && expanded.timer_warning==1);
     assert(expanded.alarms[4].sound==ALARM_SOUND_RANDOM && expanded.timer_track==off.timer_track);
@@ -433,5 +433,24 @@ int main(void) {
     birthday_defaults(cfg.birthdays);
     assert(settings_store_save(&cfg)==SETTINGS_STORE_OCCUPIED);
     assert(test_flash[SLOT0_OFFSET]==0x42);
+    // Old records default backup to empty without a migration write.
+    memset(test_flash,0xff,sizeof(test_flash));
+    cfg.timer_warning=1;strcpy(cfg.wifi_ssid,"Primary");strcpy(cfg.wifi_password,"primary-key");
+    assert(settings_store_save(&cfg)==SETTINGS_STORE_OK);
+    assert(settings_store_load(&expanded)==SETTINGS_STORE_OK && !expanded.wifi_backup_ssid[0]);
+    assert(!strcmp(expanded.wifi_ssid,"Primary") && expanded.timer_warning);
+    strcpy(cfg.wifi_backup_ssid,"Backup");strcpy(cfg.wifi_backup_password,"backup-key");
+    assert(settings_store_save(&cfg)==SETTINGS_STORE_OK);
+    settings_record_v18_t v18;memcpy(&v18,test_flash+SLOT1_OFFSET,sizeof(v18));
+    assert(sizeof(v18)==744 && v18.prefix.prefix.prefix.prefix.prefix.version==RECORD_VERSION && record_v18_valid(test_flash+SLOT1_OFFSET));
+    assert(settings_store_load(&expanded)==SETTINGS_STORE_OK);
+    assert(!strcmp(expanded.wifi_ssid,"Primary")&&!strcmp(expanded.wifi_backup_ssid,"Backup")&&!strcmp(expanded.wifi_backup_password,"backup-key")&&expanded.timer_warning);
+    v18.wifi_backup_ssid[0]^=1;memcpy(test_flash+SLOT1_OFFSET,&v18,sizeof(v18));
+    assert(!sector_owned(1));assert(settings_store_load(&expanded)==SETTINGS_STORE_OK && !expanded.wifi_backup_ssid[0]);
+    assert(settings_store_save(&cfg)==SETTINGS_STORE_OCCUPIED);
+    memset(test_flash,0xff,sizeof(test_flash));assert(settings_store_save(&cfg)==SETTINGS_STORE_OK);
+    cfg.wifi_backup_ssid[0]=cfg.wifi_backup_password[0]=0;
+    assert(settings_store_save(&cfg)==SETTINGS_STORE_OK);
+    assert(settings_store_load(&expanded)==SETTINGS_STORE_OK && !expanded.wifi_backup_ssid[0] && !strcmp(expanded.wifi_ssid,"Primary"));
     puts("settings_store_test: PASS");
 }

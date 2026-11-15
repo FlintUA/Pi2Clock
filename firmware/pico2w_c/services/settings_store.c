@@ -34,7 +34,8 @@ _Static_assert(LEGACY_SLOT_OFFSET + FLASH_SECTOR_SIZE <= PICO_FLASH_BANK_STORAGE
                "Legacy clock Flash overlaps BTstack storage");
 #endif
 #define RECORD_MAGIC 0x53434c4bu /* SCLK */
-#define RECORD_VERSION 17u
+#define RECORD_VERSION 18u
+#define RECORD_V17 17u
 #define RECORD_V16 16u
 #define RECORD_V15 15u
 #define RECORD_V14 14u
@@ -251,6 +252,15 @@ typedef struct {
     uint8_t reserved[3];
     uint32_t crc32;
 } settings_record_v17_t;
+// v18 preserves the complete v17 prefix; its embedded CRC is FF.
+typedef struct {
+    settings_record_v17_t prefix;
+    char wifi_backup_ssid[33], wifi_backup_password[65];
+    uint8_t reserved[2];
+    uint32_t crc32;
+} settings_record_v18_t;
+_Static_assert(sizeof(settings_record_v18_t)==744u,"Unexpected v18 size");
+_Static_assert(sizeof(settings_record_v18_t)<=3u*FLASH_PAGE_SIZE,"v18 exceeds three pages");
 _Static_assert(offsetof(settings_record_v17_t,crc32)==636u,"Unexpected v17 CRC offset");
 _Static_assert(sizeof(settings_record_v17_t)==640u,"Unexpected v17 size");
 _Static_assert(sizeof(settings_record_v17_t)<=3u*FLASH_PAGE_SIZE,"v17 exceeds three pages");
@@ -338,7 +348,7 @@ static bool record_valid(const settings_record_current_t *r) {
     if (r->version != RECORD_V3 && r->version != RECORD_V4 &&
          r->version != RECORD_V5 && r->version != RECORD_V6 && r->version != RECORD_V7 && r->version != RECORD_V8 && r->version != RECORD_V9 &&
          r->version != RECORD_V10 && r->version != RECORD_V11 &&
-         r->version != RECORD_V12 && r->version != RECORD_V13 && r->version != RECORD_V14 && r->version != RECORD_V15 && r->version != RECORD_V16 &&
+         r->version != RECORD_V12 && r->version != RECORD_V13 && r->version != RECORD_V14 && r->version != RECORD_V15 && r->version != RECORD_V16 && r->version != RECORD_V17 &&
          r->version != RECORD_VERSION) return false;
     if (r->quiet_enabled > 1u || r->quiet_start > 23u ||
         r->quiet_end > 23u || r->half_hour_enabled > 1u ||
@@ -472,9 +482,18 @@ static bool record_v16_valid(const uint8_t *bytes) {
 }
 static bool record_v17_valid(const uint8_t *bytes) {
     settings_record_v17_t r;memcpy(&r,bytes,sizeof(r));
-    return record_v16_valid(bytes) && r.prefix.prefix.prefix.prefix.version==RECORD_VERSION &&
+    return record_v16_valid(bytes) && r.prefix.prefix.prefix.prefix.version>=RECORD_V17 &&
         r.timer_warning<=1u && r.reserved[0]==0xffu && r.reserved[1]==0xffu && r.reserved[2]==0xffu &&
-        r.crc32==record_crc_bytes(&r,offsetof(settings_record_v17_t,crc32));
+        (r.prefix.prefix.prefix.prefix.version==RECORD_V17?
+            r.crc32==record_crc_bytes(&r,offsetof(settings_record_v17_t,crc32)):r.crc32==UINT32_MAX);
+}
+static bool record_v18_valid(const uint8_t *bytes) {
+    settings_record_v18_t r;memcpy(&r,bytes,sizeof(r));
+    return record_v17_valid(bytes) && r.prefix.prefix.prefix.prefix.prefix.version==RECORD_VERSION &&
+        memchr(r.wifi_backup_ssid,0,sizeof(r.wifi_backup_ssid)) &&
+        memchr(r.wifi_backup_password,0,sizeof(r.wifi_backup_password)) &&
+        r.reserved[0]==0xffu && r.reserved[1]==0xffu &&
+        r.crc32==record_crc_bytes(&r,offsetof(settings_record_v18_t,crc32));
 }
 static size_t record_size(const settings_record_current_t *r) {
     if (r->version == RECORD_V1) return sizeof(settings_record_v1_t);
@@ -492,7 +511,8 @@ static size_t record_size(const settings_record_current_t *r) {
     if (r->version == RECORD_V14) return sizeof(settings_record_v14_t);
     if (r->version == RECORD_V15) return sizeof(settings_record_v15_t);
     if (r->version == RECORD_V16) return sizeof(settings_record_v16_t);
-    if (r->version == RECORD_VERSION) return sizeof(settings_record_v17_t);
+    if (r->version == RECORD_V17) return sizeof(settings_record_v17_t);
+    if (r->version == RECORD_VERSION) return sizeof(settings_record_v18_t);
     return sizeof(settings_record_current_t);
 }
 
@@ -513,7 +533,8 @@ static bool sector_owned(unsigned slot) {
     if (!record_valid(&r) || (r.version == RECORD_V14 && !record_v14_valid(bytes)) ||
         (r.version == RECORD_V15 && !record_v15_valid(bytes)) ||
         (r.version == RECORD_V16 && !record_v16_valid(bytes)) ||
-        (r.version == RECORD_VERSION && !record_v17_valid(bytes))) return false;
+        (r.version == RECORD_V17 && !record_v17_valid(bytes)) ||
+        (r.version == RECORD_VERSION && !record_v18_valid(bytes))) return false;
     for (size_t i = record_size(&r); i < FLASH_SECTOR_SIZE; ++i) {
         if (bytes[i] != 0xffu) return false;
     }
@@ -671,9 +692,14 @@ settings_store_result_t settings_store_load(clock_settings_t *out) {
             settings_record_v16_t extended; memcpy(&extended,slot_bytes(slot),sizeof(extended));
             out->timer_random=extended.timer_random;
         }
-        if (r.version == RECORD_VERSION) {
+        if (r.version >= RECORD_V17) {
             settings_record_v17_t extended;memcpy(&extended,slot_bytes(slot),sizeof(extended));
             out->timer_warning=extended.timer_warning;
+        }
+        if(r.version==RECORD_VERSION) {
+            settings_record_v18_t extended;memcpy(&extended,slot_bytes(slot),sizeof(extended));
+            memcpy(out->wifi_backup_ssid,extended.wifi_backup_ssid,sizeof(out->wifi_backup_ssid));
+            memcpy(out->wifi_backup_password,extended.wifi_backup_password,sizeof(out->wifi_backup_password));
         }
         out->language = r.language;
         out->volume = r.volume;
@@ -768,7 +794,10 @@ settings_store_result_t settings_store_save(const clock_settings_t *cfg) {
         !phone_settings_valid(&cfg->phone))
         return SETTINGS_STORE_UNSUPPORTED;
     if (!memchr(cfg->wifi_ssid,0,sizeof(cfg->wifi_ssid)) ||
-        !memchr(cfg->wifi_password,0,sizeof(cfg->wifi_password)))
+        !memchr(cfg->wifi_password,0,sizeof(cfg->wifi_password)) ||
+        !memchr(cfg->wifi_backup_ssid,0,sizeof(cfg->wifi_backup_ssid)) ||
+        !memchr(cfg->wifi_backup_password,0,sizeof(cfg->wifi_backup_password)) ||
+        (!cfg->wifi_backup_ssid[0] && cfg->wifi_backup_password[0]))
         return SETTINGS_STORE_UNSUPPORTED;
     for (unsigned i = 0; i < cfg->bt_known_count; ++i) {
         if (!memchr(cfg->bt_known[i].name, 0, CLOCK_BT_NAME_SIZE))
@@ -804,13 +833,14 @@ settings_store_result_t settings_store_save(const clock_settings_t *cfg) {
         have_extra |= b->enabled || b->month != 1u || b->day != 1u ||
             b->hour != 9u || b->minute || b->last_year || b->birth_year;
     }
+    bool have_backup=cfg->wifi_backup_ssid[0]!=0;
     bool have_warning=cfg->timer_warning!=0;
     bool have_random = cfg->timer_random != 0;
     for(unsigned i=0;i<CLOCK_ALARM_COUNT;++i) have_random |= cfg->alarms[i].sound==ALARM_SOUND_RANDOM;
     bool have_timer = cfg->timer_sound != 0u || cfg->timer_track != 1u || cfg->timer_voice != 1u;
     settings_record_current_t r = {
         .magic = RECORD_MAGIC,
-        .version = have_warning ? RECORD_VERSION : have_random ? RECORD_V16 : have_timer ? RECORD_V15 : have_extra ? RECORD_V14 : have_birth_year ? RECORD_V13 :
+        .version = have_backup ? RECORD_VERSION : have_warning ? RECORD_V17 : have_random ? RECORD_V16 : have_timer ? RECORD_V15 : have_extra ? RECORD_V14 : have_birth_year ? RECORD_V13 :
             have_phone ? RECORD_V12 : RECORD_V11,
         .sequence = valid ? current.sequence + 1u : 1u,
         .language = cfg->language,
@@ -861,7 +891,7 @@ settings_store_result_t settings_store_save(const clock_settings_t *cfg) {
         have_phone ? RECORD_V12_CRC_OFFSET : RECORD_V11_CRC_OFFSET;
     r.phone = cfg->phone;
     size_t length;
-    if (have_extra || have_timer || have_random || have_warning) {
+    if (have_extra || have_timer || have_random || have_warning || have_backup) {
         settings_record_v14_t extended;
         memset(&extended, 0xff, sizeof(extended));
         r.crc32 = UINT32_MAX;
@@ -875,21 +905,30 @@ settings_store_result_t settings_store_save(const clock_settings_t *cfg) {
             dst[5] = (uint8_t)b->last_year; dst[6] = (uint8_t)(b->last_year >> 8);
             extended.birth_years[j] = b->birth_year;
         }
-        if (have_timer || have_random || have_warning) {
+        if (have_timer || have_random || have_warning || have_backup) {
             settings_record_v15_t latest;
             memset(&latest, 0xff, sizeof(latest));
             latest.prefix = extended;
             latest.timer_voice = cfg->timer_voice;
             latest.timer_sound = cfg->timer_sound;
             latest.timer_track = cfg->timer_track;
-            if (have_random || have_warning) {
+            if (have_random || have_warning || have_backup) {
                 settings_record_v16_t newest; memset(&newest,0xff,sizeof(newest));
                 newest.prefix=latest; newest.timer_random=cfg->timer_random;
-                if(have_warning) {
+                if(have_warning || have_backup) {
                     settings_record_v17_t warning;memset(&warning,0xff,sizeof(warning));
                     warning.prefix=newest;warning.timer_warning=cfg->timer_warning;
-                    warning.crc32=record_crc_bytes(&warning,offsetof(settings_record_v17_t,crc32));
-                    length=sizeof(warning);memcpy(context.page,&warning,length);
+                    if(have_backup) {
+                        settings_record_v18_t profiles;memset(&profiles,0xff,sizeof(profiles));
+                        profiles.prefix=warning;
+                        memcpy(profiles.wifi_backup_ssid,cfg->wifi_backup_ssid,sizeof(profiles.wifi_backup_ssid));
+                        memcpy(profiles.wifi_backup_password,cfg->wifi_backup_password,sizeof(profiles.wifi_backup_password));
+                        profiles.crc32=record_crc_bytes(&profiles,offsetof(settings_record_v18_t,crc32));
+                        length=sizeof(profiles);memcpy(context.page,&profiles,length);
+                    } else {
+                        warning.crc32=record_crc_bytes(&warning,offsetof(settings_record_v17_t,crc32));
+                        length=sizeof(warning);memcpy(context.page,&warning,length);
+                    }
                 } else {
                     newest.crc32=record_crc_bytes(&newest,offsetof(settings_record_v16_t,crc32));
                     length=sizeof(newest);memcpy(context.page,&newest,length);

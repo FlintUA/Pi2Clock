@@ -34,3 +34,9 @@ bool network_time_is_dst_change(void);
 
 // Requires an attempted join since configure/resume; excludes an old cached link.
 bool network_time_connection_ready(void);
+
+void network_time_configure_profiles(const char *main_ssid,const char *main_key,const char *backup_ssid,const char *backup_key);
+// Remap a validated, live candidate without dropping its connection.
+void network_time_adopt_profiles(const char *main_ssid,const char *main_key,const char *backup_ssid,const char *backup_key,unsigned connected);
+const char *network_time_ssid(void);
+unsigned network_time_profile_index(void);

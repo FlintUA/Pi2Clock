@@ -1,4 +1,7 @@
 #include <assert.h>
+#ifdef _MSC_VER
+#include <stdlib.h>
+#endif
 #include "../services/network_time.c"
 
 int cyw43_state;
@@ -19,7 +22,9 @@ int cyw43_tcpip_link_status(int *state, int interface) {
     (void)state; (void)interface; return test_link;
 }
 int cyw43_arch_wifi_connect_async(const char *ssid, const char *password, uint32_t auth) {
-    assert(!strcmp(ssid, "TestNetwork") && !strcmp(password, "test-password"));
+    assert((!strcmp(ssid,"TestNetwork") && !strcmp(password,"test-password")) ||
+        (!strcmp(ssid,"Primary") && !strcmp(password,"primary-key")) ||
+        (!strcmp(ssid,"Backup") && !strcmp(password,"backup-key")));
     assert(auth == CYW43_AUTH_WPA2_AES_PSK);
     ++connect_calls;
     return connect_result;
@@ -50,6 +55,10 @@ static bool service(uint64_t now, bool idle, bool join_allowed) {
 }
 
 int main(void) {
+#ifdef _MSC_VER
+    _set_error_mode(_OUT_TO_STDERR);
+    _set_abort_behavior(0,_WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
     network_time_init(false);
     assert(!network_time_reference_status(0).available);
     assert(network_time_home_status(0).state == NETWORK_HOME_OFFLINE);
@@ -105,6 +114,9 @@ int main(void) {
     assert(!service(39250, false, true) && connect_calls == 4);
     assert(network_time_home_status(39250).seconds == 60);
     assert(network_time_reference_status(UINT64_MAX).sync_age==UINT32_MAX);
+    // NTP/manual-edit cases start with an actually confirmed association.
+    network_time_configure("TestNetwork","test-password");connect_result=0;test_link=CYW43_LINK_DOWN;
+    assert(!service(49500,false,true));test_link=CYW43_LINK_UP;assert(!service(49750,false,true));
     test_now=50000;test_link=CYW43_LINK_UP;
     waiting=true;dns_pending=true;received=true;anchor_valid=true;apply_pending=true;
     request_now=true;request_failed=true;applied_offset=3600;next_apply=90000;
@@ -124,6 +136,7 @@ int main(void) {
     assert(service(52250,true,true));assert(!network_time_reference_status(52250).failed);
     network_time_configure("TestNetwork","test-password");
     test_link=CYW43_LINK_UP;assert(!service(53000,false,true));assert(!network_time_connection_ready());
+    network_time_configure("TestNetwork","test-password");
     test_link=CYW43_LINK_DOWN;connect_result=-1;assert(!service(54000,false,true));
     test_link=CYW43_LINK_UP;assert(!service(54250,false,true));assert(!network_time_connection_ready());
     network_time_configure("TestNetwork","test-password");
@@ -131,6 +144,24 @@ int main(void) {
     assert(!network_time_connection_ready());
     test_link=CYW43_LINK_UP;assert(!service(55250,false,true));assert(network_time_connection_ready());
     network_time_suspend_home(true);assert(!network_time_connection_ready());
+    network_time_suspend_home(false);network_time_configure_profiles("Primary","primary-key","Backup","backup-key");
+    test_link=CYW43_LINK_DOWN;connect_result=0;assert(!service(60000,false,true));assert(network_time_profile_index()==0);
+    test_link=CYW43_LINK_FAIL;assert(!service(60250,false,true));assert(network_time_profile_index()==1 && !strcmp(network_time_ssid(),"Backup"));
+    test_link=CYW43_LINK_DOWN;assert(!service(61250,false,true));
+    test_link=CYW43_LINK_UP;assert(!service(61500,false,true));assert(network_time_connection_ready());
+    unsigned stable=connect_calls;assert(!service(999999,false,true));assert(connect_calls==stable && network_time_profile_index()==1);
+    network_time_configure("Primary","primary-key");assert(!strcmp(profile_ssids[1],"")); // Candidate tests cannot validate through fallback.
+    test_link=CYW43_LINK_DOWN;assert(!service(1000000,false,true));test_link=CYW43_LINK_UP;assert(!service(1000250,false,true));
+    stable=connect_calls;network_time_adopt_profiles("Primary","primary-key","Backup","backup-key",0);
+    assert(network_time_connection_ready() && connect_calls==stable && !strcmp(profile_ssids[1],"Backup"));
+    network_time_configure_profiles("","","Backup","backup-key");assert(network_time_profile_index()==1 && !strcmp(network_time_ssid(),"Backup"));
+    network_time_configure_profiles("Primary","primary-key","Backup","backup-key");
+    connect_result=-1;test_link=CYW43_LINK_DOWN;stable=connect_calls;
+    assert(!service(1100000,false,true));assert(network_time_profile_index()==1 && next_join==1101000);
+    assert(!service(1100999,false,true) && connect_calls==stable+1);
+    assert(!service(1101000,false,true));assert(network_time_profile_index()==0 && next_join==1131000);
+    assert(!service(1130999,false,true) && connect_calls==stable+2);
+    assert(!service(1131000,false,true) && connect_calls==stable+3);
     puts("network_time_test: PASS");
     return 0;
 }

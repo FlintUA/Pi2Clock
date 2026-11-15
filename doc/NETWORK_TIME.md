@@ -103,3 +103,7 @@ The next candidate exposes state and confirmed/deferred HOME/Direct switches wit
 ## Browser credential testing (candidate)
 
 [Home Wi-Fi setup](WEB_WIFI_SETUP.md) tests candidates from Direct without copying them into saved settings until a new join has IP readiness. Connection qualification requires an attempted join since configuration/resume; an old cached link cannot qualify. NTP/Internet success is not a saving prerequisite. Failed/aborted tests restore the old configuration and Direct; changed accepted credentials turn home trust OFF as USB configuration already does. No settings-sector or schema change is introduced. Actual radio/save/recovery acceptance is pending.
+
+## Main and Backup profiles (phone-control candidate)
+
+The current candidate adds a second persisted home profile and asynchronous network search in the web profile. Boot tries Main first; failed joins try Backup, with 1-second handoff and 30-second backoff after both fail. A healthy Backup connection stays selected. Candidate provisioning tests only its requested network and saves only after fresh join/IP readiness. USB wifi-config changes Main and retains Backup; wifi-clear clears both. See [browser setup](WEB_WIFI_SETUP.md) for conditional Flash v18, downgrade precautions and pending radio/persistence acceptance. This expansion is not installed yet.

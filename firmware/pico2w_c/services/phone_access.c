@@ -226,7 +226,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
         {"set ", 946684800u, 4102444799u}, {"sync ", 0, 0},
         {"scan ",0,0}, {"cancel ",0,0}, {"disconnect ",0,0}, {"connect ",0,0}, {"forget ",0,0},
         {"home ",0,0}, {"direct ",0,0}, {"cancel ",0,0},
-        {"forget ",1,PHONE_BROWSER_MAX}, {"test ",0,0}, {"cancel ",0,0},
+        {"forget ",1,PHONE_BROWSER_MAX}, {"test ",0,0}, {"cancel ",0,0}, {"forget ",1,2}, {"scan ",0,0},
         {"set ", 0, 0}, {"set ", 0, 0}
     };
     _Static_assert(sizeof(actions) / sizeof(actions[0]) == PHONE_ACTION_COUNT, "Missing phone action");
@@ -243,7 +243,11 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
     if (request.action >= PHONE_SET_ALARM) {
         if (!read_schedule(p, &request)) return PHONE_INVALID;
     } else if (request.action == PHONE_WIFI_TEST) {
+        if((p[0]=='1' || p[0]=='2') && p[1]==' ') {request.slot=(uint8_t)(p[0]-'1');p+=2;}
         if(!phone_wifi_decode(p,&request.wifi)) return PHONE_INVALID;
+    } else if(request.action==PHONE_WIFI_FORGET){
+        if(!read_number(&p,&request.value) || request.value<1u || request.value>2u || *p++!=' ' ||
+            !read_revision(&p,&request.expected) || *p || !request.expected || request.expected>UINT32_MAX)return PHONE_INVALID;
     } else if (request.action == PHONE_BROWSER_FORGET) {
         uint32_t slot;
         if (!read_number(&p,&slot) || slot<1u || slot>PHONE_BROWSER_MAX || *p++!=' ' ||

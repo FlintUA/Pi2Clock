@@ -42,6 +42,8 @@ typedef struct {
     // v8: provisioned over USB; never printed by status/diagnostics.
     char wifi_ssid[33];
     char wifi_password[65];
+    char wifi_backup_ssid[33]; // v18: optional fallback network.
+    char wifi_backup_password[65];
     birthday_t birthdays[CLOCK_BIRTHDAY_COUNT]; // v10; v1-v9 default disabled.
     display_light_t display_light; // v11; older records default to OFF.
     uint8_t timer_sound; // v15: 0=signal, 1=music, 2=no extra sound.
@@ -71,6 +73,7 @@ void settings_store_inspect(void);
 void settings_store_dump_tail(void);
 settings_store_result_t settings_store_load(clock_settings_t *out);
 // Writes occur only when requested by the application; load never migrates.
+// A nonempty backup network uses v18 (v1-v17 read compatibility, unchanged sectors).
 // Nondefault timer message/sound/track uses v15; random music uses v16, enabled pre-warning uses v17.
 // With pre-warning OFF, retain the existing conditional v11-v16 encodings.
 // A v17-aware build is required to read records saved with pre-warning enabled.

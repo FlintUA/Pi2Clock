@@ -1,5 +1,6 @@
 #include "phone_web.h"
 #include "network_time.h"
+#include "wifi_scan.h"
 #include "firmware_version.h"
 
 #include <inttypes.h>
@@ -29,6 +30,9 @@ static phone_network_view_t published_network;
 static uint32_t published_network_id;
 static phone_wifi_view_t published_wifi;
 static bool wifi_trial;
+static wifi_scan_t wifi_scan;
+static bool wifi_scan_owned;
+static uint64_t wifi_scan_deadline;
 
 typedef enum {
     POST_PAIR, POST_TIMER, POST_PLAYER, POST_SETTINGS, POST_ALARM, POST_BIRTHDAY, POST_ACCESS, POST_LOGOUT, POST_CONTROL, POST_CLOCK, POST_BLUETOOTH, POST_NETWORK, POST_BROWSERS, POST_WIFI
@@ -119,7 +123,7 @@ void phone_web_set_home_trusted(bool enabled) {
     if (ready) cyw43_arch_lwip_begin();
     if (access.settings.home_trusted != (uint8_t)enabled) {
         access.settings.home_trusted = (uint8_t)enabled;
-        if (ready) reset_requests_locked();
+        if (ready && !direct_active) reset_requests_locked(); // Direct admission is unchanged by Home policy.
         access.changed = true;
     }
     if (ready) cyw43_arch_lwip_end();
@@ -390,26 +394,45 @@ static int schedule_json(char *buffer, size_t capacity) {
 
 static int wifi_json(char *out,size_t capacity) {
     char saved[193],trial[193];
-    if(!phone_json_text(saved,sizeof(saved),published_wifi.saved_ssid,32) ||
-       !phone_json_text(trial,sizeof(trial),published_wifi.test_ssid,32)) return -1;
+    if(!phone_json_text(saved,sizeof(saved),published_wifi.saved_ssid,32) || !phone_json_text(trial,sizeof(trial),published_wifi.test_ssid,32))return -1;
     int n=snprintf(out,capacity,"{\"epoch\":%" PRIu32 ",\"state\":\"%s\",\"reason\":\"%s\",\"request_id\":%" PRIu32
-        ",\"seconds\":%" PRIu32 ",\"direct\":%s,\"available\":%s,\"saved_ssid\":\"%s\",\"test_ssid\":\"%s\",\"address\":\"%s\"}",
-        access.epoch,phone_wifi_state_name(published_wifi.state),phone_wifi_reason_name(published_wifi.reason),
-        published_wifi.request_id,published_wifi.seconds,published_wifi.direct?"true":"false",published_wifi.available?"true":"false",
-        saved,trial,published_wifi.address);
-    return n<0 || (size_t)n>=capacity?-1:n;
+        ",\"seconds\":%" PRIu32 ",\"direct\":%s,\"available\":%s,\"saved_ssid\":\"%s\",\"test_ssid\":\"%s\",\"address\":\"%s\","
+        "\"profile\":%u,\"profiles_revision\":%" PRIu32 ",\"connected_profile\":%u,\"scan_supported\":true,\"scan_available\":%s,\"profiles\":[",
+        access.epoch,phone_wifi_state_name(published_wifi.state),phone_wifi_reason_name(published_wifi.reason),published_wifi.request_id,published_wifi.seconds,
+        published_wifi.direct?"true":"false",published_wifi.available?"true":"false",saved,trial,published_wifi.address,
+        (unsigned)published_wifi.profile,published_wifi.profiles_revision,(unsigned)published_wifi.connected_profile,published_wifi.scan_available?"true":"false");
+    if(n<0 || (size_t)n>=capacity)return -1;size_t used=(size_t)n;
+    for(unsigned i=0;i<2;++i){
+        if(!phone_json_text(saved,sizeof(saved),published_wifi.profiles[i].ssid,32))return -1;
+        n=snprintf(out+used,capacity-used,"%s{\"slot\":%u,\"ssid\":\"%s\",\"open\":%s}",i?",":"",i+1u,saved,published_wifi.profiles[i].open?"true":"false");
+        if(n<0 || (size_t)n>=capacity-used)return -1;used+=(size_t)n;
+    }
+    n=snprintf(out+used,capacity-used,"]}");return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
 }
+static int wifi_scan_json(char *out,size_t capacity){
+    static const char *const states[]={"idle","scanning","done","failed","timeout"};
+    int n=snprintf(out,capacity,"{\"epoch\":%" PRIu32 ",\"revision\":%" PRIu32 ",\"state\":\"%s\",\"entries\":[",access.epoch,wifi_scan.revision,
+        wifi_scan.state<5u?states[wifi_scan.state]:states[0]);
+    if(n<0 || (size_t)n>=capacity)return -1;size_t used=(size_t)n;char name[193];
+    for(unsigned i=0;i<wifi_scan.count;++i){const wifi_scan_entry_t *e=&wifi_scan.entries[i];if(!phone_json_text(name,sizeof(name),e->ssid,32))return -1;
+        n=snprintf(out+used,capacity-used,"%s{\"ssid\":\"%s\",\"rssi\":%d,\"open\":%s,\"supported\":%s}",i?",":"",name,(int)e->rssi,e->auth==0?"true":"false",e->auth==0 || (e->auth&4u)?"true":"false");
+        if(n<0 || (size_t)n>=capacity-used)return -1;used+=(size_t)n;
+    }
+    n=snprintf(out+used,capacity-used,"]}");return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
+}
+
 int fs_open_custom(struct fs_file *file, const char *name) {
     const bool snapshot = strcmp(name, "/status.json") == 0;
     const bool bluetooth=strcmp(name,"/bluetooth.json")==0;
     const bool network=strcmp(name,"/network.json")==0;
     const bool browsers=strcmp(name,"/browsers.json")==0;
     const bool wifi=strcmp(name,"/wifi.json")==0;
+    const bool scan=strcmp(name,"/wifi-scan.json")==0;
     unsigned self=0;
     if(strlen(name)==20u && strncmp(name,"/browser-self-",14u)==0 &&
         name[14]>='1' && name[14]<='4' && strcmp(name+15,".json")==0) self=(unsigned)(name[14]-'0');
     const char *status = NULL;
-    if (!snapshot && !bluetooth && !network && !browsers && !self && !wifi) {
+    if (!snapshot && !bluetooth && !network && !browsers && !self && !wifi && !scan) {
         static const char *const codes[] = {"200 OK", "400 Bad Request", "403 Forbidden", "409 Conflict"};
         for (unsigned i = 0; i < sizeof(codes) / sizeof(codes[0]); ++i)
             if (strcmp(name, reply_path((phone_reply_t)i)) == 0) status = codes[i];
@@ -419,13 +442,15 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     char *response = mem_malloc(capacity);
     if (!response) return 0;
     int len = snprintf(response, capacity, "HTTP/1.0 %s\r\nContent-Type: application/json\r\n"
-        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network || browsers || self || wifi ? "200 OK" : status);
+        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network || browsers || self || wifi || scan ? "200 OK" : status);
     if (len < 0 || (size_t)len >= capacity) {
         mem_free(response);
         return 0;
     }
     int body_length;
-    if(wifi) {
+    if(scan) {
+        body_length=wifi_scan_json(response+len,capacity-(size_t)len);
+    } else if(wifi) {
         body_length=wifi_json(response+len,capacity-(size_t)len);
     } else if(browsers) {
         body_length=phone_access_browsers_json(response+len,capacity-(size_t)len,&access);
@@ -525,4 +550,31 @@ void phone_web_wifi_trial(bool active) {
     cyw43_arch_lwip_begin();
     if(wifi_trial!=active) {wifi_trial=active;reset_requests_locked();}
     cyw43_arch_lwip_end();
+}
+
+static int wifi_scan_result(void *env,const cyw43_ev_scan_result_t *result){
+    (void)env;if(result->ssid_len==sizeof(PHONE_WEB_SSID)-1u && !memcmp(result->ssid,PHONE_WEB_SSID,sizeof(PHONE_WEB_SSID)-1u))return 0;
+    wifi_scan_add(&wifi_scan,result->ssid,result->ssid_len,result->rssi,result->auth_mode);return 0;
+}
+bool phone_web_wifi_scan_start(uint64_t now){
+    if(!ready)return false;cyw43_arch_lwip_begin();
+    if(wifi_scan.active || (wifi_scan_owned && cyw43_wifi_scan_active(&cyw43_state))){cyw43_arch_lwip_end();return false;}
+    wifi_scan_begin(&wifi_scan);cyw43_wifi_scan_options_t options={0};
+    int rc=cyw43_wifi_scan(&cyw43_state,&options,NULL,wifi_scan_result);wifi_scan_owned=rc==0;wifi_scan_deadline=now+15000u;
+    if(rc)wifi_scan_finish(&wifi_scan,WIFI_SCAN_FAILED);
+    cyw43_arch_lwip_end();printf("[WIFI-SCAN] start=%s\n",rc?"FAILED":"OK");return rc==0;
+}
+bool phone_web_wifi_scan_busy(void){return wifi_scan.active;}
+void phone_web_wifi_scan_service(uint64_t now){
+    if(!wifi_scan_owned)return;cyw43_arch_lwip_begin();
+    if(!cyw43_wifi_scan_active(&cyw43_state)){if(wifi_scan.active)wifi_scan_finish(&wifi_scan,WIFI_SCAN_DONE);wifi_scan_owned=false;}
+    else if(wifi_scan.active && now>=wifi_scan_deadline)wifi_scan_finish(&wifi_scan,WIFI_SCAN_TIMEOUT);
+    cyw43_arch_lwip_end();
+}
+
+bool phone_web_wifi_scan_available(void){
+    if(!ready)return false;
+    cyw43_arch_lwip_begin();
+    bool available=!wifi_scan.active && (!wifi_scan_owned || !cyw43_wifi_scan_active(&cyw43_state));
+    cyw43_arch_lwip_end();return available;
 }

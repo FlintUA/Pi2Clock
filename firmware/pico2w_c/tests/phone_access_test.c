@@ -88,6 +88,14 @@ static void wifi_request_tests(void) {
     char metadata[512];assert(phone_access_browsers_json(metadata,sizeof(metadata),&a)>0);
     assert(!strstr(metadata,"password") && !strstr(metadata,"33333333"));
     phone_access_reset(&a,100);assert(!a.last.wifi.password[0] && !a.last.wifi.ssid[0]);
+    phone_access_begin(&a,42,1);assert(phone_access_pair(&a,"000042 " TOKEN,2,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    assert(phone_access_wifi(&a,TOKEN " 100 1 11 test 2 4261636b7570 70617373776f7264",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(a.last.slot==1 && !strcmp(a.last.wifi.ssid,"Backup"));a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_wifi(&a,TOKEN " 100 2 12 test 3 4261636b7570 -",PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,TOKEN " 100 2 12 scan 0",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(a.last.action==PHONE_WIFI_SCAN);a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_wifi(&a,TOKEN " 100 3 13 forget 2 17",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(a.last.action==PHONE_WIFI_FORGET && a.last.value==2 && a.last.expected==17);
     puts("wifi_request_tests: PASS");
 }
 

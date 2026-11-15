@@ -4,6 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Added Main/Backup home Wi-Fi profiles, bounded asynchronous SSID search, automatic fallback without healthy-link roaming, selective forgetting, and a clearer Direct-only setup editor with current-password Show/Hide. Candidate validation cannot succeed through fallback. Conditional Flash v18 preserves prior settings; see [setup and rollback limits](doc/WEB_WIFI_SETUP.md). Software checks pass; installation/radio acceptance remains pending.
+- Recorded +43 installation and the user's general successful home-network setup report; detailed recovery/persistence cases remain separately pending.
+
 - Added Direct-only browser home Wi-Fi Test and save with a five-second cancellation period, 45-second new-join/IP check, retained old credentials until success and recovery to the same Direct key on failure. Candidate home trust is suspended, changed accepted credentials disable saved home trust, and storage uses existing deferred autosave without a Flash migration. Passwords are private POST data, cleared from submitted inputs and excluded from metadata/logs. Twenty-five tests, main-handler/HTTP/browser fixtures and both builds are separate from pending device acceptance; see doc/WEB_WIFI_SETUP.md.
 
 - Addressed remaining permission-picker background repaint after +41: periodic visual updates of the whole page defer while the native permission select holds focus, with background polling/access checks retained and current-state rendering resumed after selection/blur. Connection or authorization loss bypasses the hold. Full-body Chrome checks measure zero mutations over five unchanged polls versus 1,105 before; Installed as 1.0.0+42.g95c7ca5; the user confirmed Android flicker resolved on November 15. See doc/WEB_BROWSER_ACCESS.md.

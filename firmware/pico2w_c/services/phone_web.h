@@ -65,3 +65,9 @@ phone_command_result_t phone_web_forget_browser(const phone_command_t *request);
 
 void phone_web_publish_wifi(const phone_wifi_view_t *view);
 void phone_web_wifi_trial(bool active);
+
+bool phone_web_wifi_scan_start(uint64_t now);
+bool phone_web_wifi_scan_busy(void);
+void phone_web_wifi_scan_service(uint64_t now);
+
+bool phone_web_wifi_scan_available(void);
