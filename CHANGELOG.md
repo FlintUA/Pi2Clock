@@ -4,6 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Simplified network setup into one Connection section with contextual actions, collapsed saved-network/browser administration, explicit profile editing and compact search results. During mode/credential handoff, show only relevant progress/reconnection steps; clear stale ready state and bound offline progress. Previous-attempt results no longer prematurely dismiss a new handoff. Protocol, radio policy and Flash encoding are unchanged. Installation acceptance is pending.
+- Recorded +44 installation with unchanged settings/alarms/birthdays/speakers/browser entries and Home/NTP reconnection. User screenshots confirm Direct discovery; Backup persistence and real failover remain separate checks.
+
 - Added Main/Backup home Wi-Fi profiles, bounded asynchronous SSID search, automatic fallback without healthy-link roaming, selective forgetting, and a clearer Direct-only setup editor with current-password Show/Hide. Candidate validation cannot succeed through fallback. Conditional Flash v18 preserves prior settings; see [setup and rollback limits](doc/WEB_WIFI_SETUP.md). Software checks pass; installation/radio acceptance remains pending.
 - Recorded +43 installation and the user's general successful home-network setup report; detailed recovery/persistence cases remain separately pending.
 

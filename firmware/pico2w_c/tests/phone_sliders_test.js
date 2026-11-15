@@ -98,7 +98,7 @@ getElementById("browser-entry").blur=function(){document.activeElement=null;this
 getElementById("browser-controls").querySelectorAll=()=>[getElementById("browser-entry"),getElementById("browser-forget")];
 const browserFixture={epoch:123,revision:1,home_trusted:true,capacity:4,entries:[{slot:1,scope:"home"},{slot:2,scope:"direct"}]};
 let failBrowserRead=false,validBrowserPermission=true,changeRegistryBeforeForget=false,accessChecks=0;
-const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:"",dataset:{},setAttribute(name,value){this[name]=value;}};}};
+const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:"",dataset:{},append(...children){this.children=children;},closest(){return this;},setAttribute(name,value){this[name]=value;}};}};
 const context = vm.createContext({
   Date, AbortController, TextEncoder, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
   crypto: require("node:crypto").webcrypto, localStorage: {getItem: () => null},
@@ -731,12 +731,12 @@ async function settled() {
   failStatusReads=1;await update();
   assert.equal(getElementById("network-controls").hidden,false);assert(netButtons.every(b=>b.disabled));
   assert(getElementById("network-instructions").textContent.includes("SpeakingClock"));
-  assert(getElementById("network-transition").textContent.includes("Connection changing"));
+  assert(getElementById("network-transition").textContent.includes("Allow up to"));
   await update();await netClick({target:netButtons[2]});await settled();await update();
   assert.equal(netFixture.transition,"cancelled");assert(getElementById("network-transition").textContent.includes("cancelled"));
   netFixture.mode="direct";netFixture.transition="done";netFixture.address="192.168.4.1";await update();
   assert(netButtons[0].disabled && !netButtons[1].disabled);
-  assert.equal(getElementById("network-destination").href,"http://192.168.2.116/");
+  assert(getElementById("network-destination").hidden);
   await netClick({target:netButtons[1]});await settled();await update();assert.equal(netFixture.target,"home");
   netFixture.transition="cancelled_busy";netFixture.available=false;await update();
   assert(getElementById("network-transition").textContent.includes("became busy"));
@@ -815,6 +815,14 @@ async function settled() {
   const wifiSubmit=()=>wifiForm.handlers.submit({preventDefault(){}});
   assert(getElementById("wifi-test").disabled);assert(getElementById("wifi-home-guide").hidden===false);
   wifiFixture.direct=true;wifiFixture.available=true;await update();
+  assert(getElementById("wifi-editor").hidden);
+  await getElementById("wifi-main").handlers.click({currentTarget:getElementById("wifi-main")});
+  assert(!getElementById("wifi-editor").hidden);
+  wifiFields.wifi_password.value="close-secret";await getElementById("wifi-show-password").handlers.click();
+  const postsBeforeClose=posts.length;await getElementById("wifi-close").handlers.click();
+  assert(getElementById("wifi-editor").hidden && !wifiFields.wifi_password.value && wifiFields.wifi_password.type==="password");
+  assert.equal(posts.length,postsBeforeClose);
+  await getElementById("wifi-main").handlers.click({currentTarget:getElementById("wifi-main")});
   wifiFields.wifi_password.value="draft-secret";
   await getElementById("wifi-show-password").handlers.click();assert.equal(wifiFields.wifi_password.type,"text");
   await getElementById("wifi-show-password").handlers.click();assert.equal(wifiFields.wifi_password.type,"password");
@@ -824,7 +832,7 @@ async function settled() {
   wifiFields.wifi_ssid.value="Draft backup";await update();assert.equal(wifiFields.wifi_ssid.value,"Draft backup");
   scanFixture.state="done";scanFixture.revision=2;scanFixture.entries=[{ssid:"Nearby",rssi:-42,open:false,supported:true}];await update();
   const scanButton=getElementById("wifi-scan-list").children[0];
-  await getElementById("wifi-scan-list").handlers.click({target:scanButton});assert.equal(wifiFields.wifi_ssid.value,"Nearby");
+  await getElementById("wifi-scan-list").handlers.click({target:scanButton});assert.equal(wifiFields.wifi_ssid.value,"Nearby");assert(getElementById("wifi-scan-list").hidden);
   await update();assert.strictEqual(getElementById("wifi-scan-list").children[0],scanButton);
   await getElementById("wifi-main").handlers.click({currentTarget:getElementById("wifi-main")});
   assert.equal(wifiFields.wifi_ssid.value,"OldLAN");
@@ -833,10 +841,14 @@ async function settled() {
   wifiFields.wifi_password.value="new-password";confirmForget=false;await wifiSubmit();assert.equal(posts.length,beforeWifi);
   confirmForget=true;dropResponses=2;await wifiSubmit();await settled();await update();
   assert.equal(wifiFields.wifi_password.value,"");assert.equal(wifiFixture.test_ssid,"New Home");
-  assert.equal(writes.filter(w=>w.field==="test").length,1);assert(getElementById("wifi-state").textContent.includes("5s"));
-  assert(getElementById("wifi-instructions").textContent.includes("New Home"));
+  assert.equal(writes.filter(w=>w.field==="test").length,1);assert(getElementById("network-transition").textContent.includes("5s"));
+  assert(getElementById("network-mode").textContent.includes("New Home"));
+  assert(getElementById("wifi-settings").hidden && getElementById("browser-settings").hidden);
   assert(!getElementById("wifi-state").textContent.includes("new-password"));
-  failStatusReads=1;await update();assert.equal(wifiForm.hidden,false);assert(getElementById("wifi-state").textContent.includes("progress"));
+  failStatusReads=1;await update();assert.equal(wifiForm.hidden,false);assert(getElementById("network-transition").textContent.includes("Allow up to"));
+  assert(!getElementById("network-details").textContent.includes("ready"));
+  vm.runInContext("wifiHandoff.until=Date.now()-1;updateControls();",context);
+  assert(getElementById("network-transition").textContent.includes("Reconnect"));
   await update();await getElementById("wifi-cancel").handlers.click();await settled();await update();
   assert.equal(wifiFixture.state,"cancelled");assert(getElementById("wifi-state").textContent.includes("unchanged"));
   wifiFields.wifi_open.checked=true;wifiFields.wifi_password.value="ignored-key";
