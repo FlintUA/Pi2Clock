@@ -270,3 +270,7 @@ See [reconnect reproduction and acceptance](WEB_RECONNECT.md). Verify preserved 
 ## Browser network mode stage 1
 
 Follow [network handoff acceptance](WEB_NETWORK_MODES.md): confirm/cancel first, then HOME/Direct round trip, remembered destination access, unchanged keys and busy cancellation. The old page should retain guidance during expected disconnection and should not redirect automatically. Radio-mode switching is not part of read-only installation verification. Credential rollback/access administration remain separate later stages.
+
+## Normal-clock LCD audio status
+
+The candidate adds `MUTE` at columns 13-16 of row 1 only when the global sound switch is OFF, and right-aligned `BT`/`LOC` on row 2 using the existing volume-owner routing. Check both outputs, connected-but-LOCAL routing, disconnected Bluetooth fallback, physical/web mute and return from volume/speech/menu/player/timer/alarm/snooze screens. Time/date must remain intact, indicators must clear without leftover characters, and RTC error guidance must remain complete. Quiet hours and zero volume alone must not display `MUTE`. Installation and physical LCD acceptance are pending.

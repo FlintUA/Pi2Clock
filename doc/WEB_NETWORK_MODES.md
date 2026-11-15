@@ -1,6 +1,6 @@
 # Browser network modes: stage 1
 
-Status: implemented and software-tested; installation and hardware acceptance pending. This stage adds state and HOME/Direct switching, not Wi-Fi credential editing or browser-access administration.
+Status: installed as `1.0.0+37.ga1f576b` on November 14; the user confirmed successful Direct and home transitions on November 15, 2026. Explicit cancellation, busy cancellation and four-client/resource acceptance remain separate checks. This stage adds state and HOME/Direct switching, not Wi-Fi credential editing or browser-access administration.
 
 ## Workflow
 

@@ -5689,6 +5689,13 @@ int main(void) {
         } else {
             snprintf(top, sizeof(top), "%s", rtc_top);
             snprintf(bottom, sizeof(bottom), "%s", rtc_bottom);
+            // Only decorate the normal clock; preserve full RTC error guidance.
+            if (strlen(rtc_top) == 8u && strlen(rtc_bottom) == 10u) {
+                snprintf(top, sizeof(top), "%-12.12s%4s", rtc_top,
+                         sound_enabled ? "" : "MUTE");
+                snprintf(bottom, sizeof(bottom), "%-13.13s%3s", rtc_bottom,
+                         volume_for_bluetooth() ? "BT" : "LOC");
+            }
         }
 
         if (lcd_ok) {

@@ -10,6 +10,8 @@ Firmware versions are derived automatically from local Git release tags. The LCD
 
 The clock uses an I2C LCD1602, DS1302 RTC, DFPlayer Mini, two rotary encoders and five additional buttons. For Bluetooth playback, Pico reads MP3 files from a separate SPI1 microSD card, decodes them with Helix and sends SBC audio to a Bluetooth Classic A2DP speaker.
 
+The normal LCD clock screen shows `MUTE` at the upper right when sound is switched off and `BT`/`LOC` at the lower right for the current volume-owner output (Manual preference when idle, LOCAL fallback without A2DP). See [screen and controls](doc/CONTROLS_AND_MODES.md#normal-clock-screen).
+
 ## Features and validation
 
 - One countdown timer (1..86,399 seconds on this development branch), five alarms with selectable weekdays and three-minute snooze, Russian and German speech, and quiet hours.
@@ -173,4 +175,4 @@ Browser Bluetooth speaker management is installed as `1.0.0+35.g5c09045`; focuse
 
 The installed browser Bluetooth workflow has an installed, user-accepted reconnect-layout fix; see [reported page jump and fix](doc/WEB_RECONNECT.md). The UI fix is installed as `1.0.0+36.ge21b139`.
 
-Network stage 1 adds network state and confirmed/cancellable HOME/Direct switching in the next candidate; installation/acceptance pending. Access administration and Wi-Fi credential editing are later stages. See [network mode controls](doc/WEB_NETWORK_MODES.md).
+Network stage 1 adds network state and confirmed/cancellable HOME/Direct switching. Version `1.0.0+37.ga1f576b` is installed; the user accepted both transitions on November 15, 2026. Access administration and Wi-Fi credential editing are later stages. See [network mode controls](doc/WEB_NETWORK_MODES.md).

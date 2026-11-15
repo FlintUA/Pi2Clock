@@ -309,4 +309,4 @@ Simple Settings controls now apply automatically; Apply remains for complete ala
 
 ## Browser network mode stage 1
 
-State/address display and confirmed/cancellable HOME/Direct requests are implemented in the next candidate. The current connection is expected to end; the page retains explicit phone Wi-Fi/address instructions and does not redirect automatically. See [stage scope and acceptance](../../doc/WEB_NETWORK_MODES.md). Wi-Fi credentials and browser-access management are not edited in this stage. Installation/radio handoff acceptance pending.
+State/address display and confirmed/cancellable HOME/Direct requests are installed as `1.0.0+37.ga1f576b`. The current connection is expected to end; the page retains explicit phone Wi-Fi/address instructions and does not redirect automatically. See [stage scope and acceptance](../../doc/WEB_NETWORK_MODES.md). Wi-Fi credentials and browser-access management are not edited in this stage. The user accepted Direct and home transitions on November 15, 2026; explicit/busy cancellation and four-client checks remain separate.
