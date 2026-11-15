@@ -4,7 +4,7 @@ This document describes the current C firmware working tree on `codex/phone-cont
 
 ## Normal clock screen
 
-The normal time/date screen reserves the right edge for audio status. `MUTE` occupies columns 13-16 of the first row while the global sound switch is OFF; otherwise that area is blank. `BT` or `LOC` is right-aligned on the second row. This output indicator follows the existing volume-encoder routing: an active audio owner has priority, otherwise the Manual preference is used, with LOCAL fallback when A2DP is unavailable. It is not merely a Bluetooth connection indicator. Quiet hours and a zero output volume do not set `MUTE`. Menus, player, timer, alarm, snooze and temporary overlays retain their dedicated screens; full RTC error guidance takes precedence over these indicators. No audio routing or volume behavior is changed.
+The normal time/date screen reserves the right edge for audio status. `MUTE` occupies columns 13-16 of the first row while the global sound switch is OFF; otherwise that area is blank. `BT` (Bluetooth) or `SPK` (built-in speaker) is right-aligned on the second row. This output indicator follows the existing volume-encoder routing: an active audio owner has priority, otherwise the Manual preference is used, with LOCAL fallback when A2DP is unavailable. It is not merely a Bluetooth connection indicator. Quiet hours and a zero output volume do not set `MUTE`. Menus, player, timer, alarm, snooze and temporary overlays retain their dedicated screens; full RTC error guidance takes precedence over these indicators. No audio routing or volume behavior is changed.
 
 Example with sound disabled and Bluetooth selected:
 

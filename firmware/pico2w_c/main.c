@@ -5694,7 +5694,7 @@ int main(void) {
                 snprintf(top, sizeof(top), "%-12.12s%4s", rtc_top,
                          sound_enabled ? "" : "MUTE");
                 snprintf(bottom, sizeof(bottom), "%-13.13s%3s", rtc_bottom,
-                         volume_for_bluetooth() ? "BT" : "LOC");
+                         volume_for_bluetooth() ? "BT" : "SPK");
             }
         }
 

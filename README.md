@@ -10,7 +10,7 @@ Firmware versions are derived automatically from local Git release tags. The LCD
 
 The clock uses an I2C LCD1602, DS1302 RTC, DFPlayer Mini, two rotary encoders and five additional buttons. For Bluetooth playback, Pico reads MP3 files from a separate SPI1 microSD card, decodes them with Helix and sends SBC audio to a Bluetooth Classic A2DP speaker.
 
-The normal LCD clock screen shows `MUTE` at the upper right when sound is switched off and `BT`/`LOC` at the lower right for the current volume-owner output (Manual preference when idle, LOCAL fallback without A2DP). See [screen and controls](doc/CONTROLS_AND_MODES.md#normal-clock-screen).
+The normal LCD clock screen shows `MUTE` at the upper right when sound is switched off and `BT`/`SPK` at the lower right for the current volume-owner output (Manual preference when idle, LOCAL fallback without A2DP). See [screen and controls](doc/CONTROLS_AND_MODES.md#normal-clock-screen).
 
 ## Features and validation
 
