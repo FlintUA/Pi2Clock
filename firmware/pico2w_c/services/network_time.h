@@ -40,3 +40,6 @@ void network_time_configure_profiles(const char *main_ssid,const char *main_key,
 void network_time_adopt_profiles(const char *main_ssid,const char *main_key,const char *backup_ssid,const char *backup_key,unsigned connected);
 const char *network_time_ssid(void);
 unsigned network_time_profile_index(void);
+
+// Restore normal fallback policy, trying the previous live profile first.
+void network_time_configure_profiles_from(const char *s0,const char *p0,const char *s1,const char *p1,unsigned first);

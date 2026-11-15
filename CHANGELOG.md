@@ -4,6 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Added explicit Connect and separate Edit/Add beside saved home networks, following known-network UI conventions. Connect works from Home and Direct without requesting a password, verifies the selected profile only, retains settings/priority/trust, and restores the previous Home profile or Direct mode on failure. Pending cancellation and bounded handoff feedback are retained. New Wi-Fi metadata remains separate from root status; Flash v18 is unchanged. Installation acceptance is pending.
+- Recorded +45 installation, unchanged preferences/alarms/birthdays/speakers/browser permissions and both Wi-Fi profiles, with Backup association and NTP ready. The user identified the missing saved-network connection action; full compact UI acceptance was not claimed.
+
 - Simplified network setup into one Connection section with contextual actions, collapsed saved-network/browser administration, explicit profile editing and compact search results. During mode/credential handoff, show only relevant progress/reconnection steps; clear stale ready state and bound offline progress. Previous-attempt results no longer prematurely dismiss a new handoff. Protocol, radio policy and Flash encoding are unchanged. Installation acceptance is pending.
 - Recorded +44 installation with unchanged settings/alarms/birthdays/speakers/browser entries and Home/NTP reconnection. User screenshots confirm Direct discovery; Backup persistence and real failover remain separate checks.
 

@@ -107,3 +107,7 @@ The next candidate exposes state and confirmed/deferred HOME/Direct switches wit
 ## Main and Backup profiles (phone-control)
 
 Version 1.0.0+44.gad0e10e adds a second persisted home profile and asynchronous network search in the web profile. Boot tries Main first; failed joins try Backup, with 1-second handoff and 30-second backoff after both fail. A healthy Backup connection stays selected. Candidate provisioning tests only its requested network and saves only after fresh join/IP readiness. USB wifi-config changes Main and retains Backup; wifi-clear clears both. See [browser setup](WEB_WIFI_SETUP.md) for conditional Flash v18, downgrade precautions and pending radio/persistence acceptance. This expansion is installed; the user supplied Direct discovery results. Actual Backup failover and persistence remain separately unconfirmed.
+
+## Manual saved-network Connect candidate
+
+The new browser Connect command temporarily tests only the selected saved profile. On success, network_time_adopt_profiles restores both profiles without dropping that connection or changing startup priority. On failure from Home, network_time_configure_profiles_from restores the previous runtime profile first, then normal fallback. From Direct, the previous AP is restored. No settings write or Home-trust change is part of saved Connect; normal credential-edit rules remain separate. See WEB_WIFI_SETUP.md for the uninstalled candidate and device checks.

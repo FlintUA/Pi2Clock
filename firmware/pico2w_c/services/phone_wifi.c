@@ -37,6 +37,12 @@ bool phone_wifi_schedule(phone_wifi_plan_t *p,const phone_wifi_config_t *config,
     *p=(phone_wifi_plan_t){.candidate=*config,.state=WIFI_SETUP_PENDING,.epoch=epoch,.request_id=id,.due_ms=now+5000u};
     return true;
 }
+bool phone_wifi_schedule_saved(phone_wifi_plan_t *p,const phone_wifi_config_t *c,unsigned slot,unsigned restore_profile,
+    bool from_direct,uint32_t epoch,uint32_t id,uint64_t now) {
+    if(slot>1u || restore_profile>1u || !phone_wifi_schedule(p,c,epoch,id,now))return false;
+    p->saved_connect=true;p->from_direct=from_direct;p->slot=(uint8_t)slot;p->restore_profile=(uint8_t)restore_profile;
+    return true;
+}
 void phone_wifi_cancel(phone_wifi_plan_t *p,phone_wifi_reason_t reason) {
     if(p->state==WIFI_SETUP_PENDING) {p->state=WIFI_SETUP_CANCELLED;phone_wifi_clear_secret(p);}
     else if(p->state==WIFI_SETUP_TESTING) p->state=WIFI_SETUP_RESTORE;
@@ -45,7 +51,7 @@ void phone_wifi_cancel(phone_wifi_plan_t *p,phone_wifi_reason_t reason) {
 }
 phone_wifi_action_t phone_wifi_step(phone_wifi_plan_t *p,uint64_t now,bool idle,bool direct,uint32_t epoch,bool home_ready) {
     if(p->state==WIFI_SETUP_PENDING) {
-        if(epoch!=p->epoch || !direct) phone_wifi_cancel(p,WIFI_REASON_CHANGED);
+        if(epoch!=p->epoch || direct!=(p->saved_connect?p->from_direct:true)) phone_wifi_cancel(p,WIFI_REASON_CHANGED);
         else if(!idle) phone_wifi_cancel(p,WIFI_REASON_BUSY);
         else if(now>=p->due_ms) {
             p->state=WIFI_SETUP_TESTING;p->due_ms=now+45000u;return WIFI_ACTION_START;

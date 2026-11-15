@@ -2556,6 +2556,18 @@ static phone_command_result_t service_phone_wifi(const phone_command_t *request,
         return phone_web_wifi_scan_start(now)?PHONE_COMMAND_APPLIED:PHONE_COMMAND_CONFLICT;
     }
     if(request->action==PHONE_WIFI_CANCEL){phone_wifi_cancel(&phone_wifi_plan,WIFI_REASON_CANCEL);return PHONE_COMMAND_APPLIED;}
+    if(request->action==PHONE_WIFI_CONNECT) {
+        if(!phone_network_idle() || phone_wifi_busy(&phone_wifi_plan) || phone_wifi_wait_old_home)return PHONE_COMMAND_BLOCKED;
+        if(phone_network_plan.state==PHONE_NET_PENDING || request->expected!=wifi_profiles_revision || request->value<1u || request->value>2u)return PHONE_COMMAND_CONFLICT;
+        unsigned slot=request->value-1u;
+        if(!phone_web_direct() && network_time_connection_ready() && network_time_profile_index()==slot)return PHONE_COMMAND_CONFLICT;
+        phone_wifi_config_t config={0};
+        snprintf(config.ssid,sizeof(config.ssid),"%s",slot?saved_wifi_backup_ssid:saved_wifi_ssid);
+        snprintf(config.password,sizeof(config.password),"%s",slot?saved_wifi_backup_password:saved_wifi_password);
+        bool scheduled=phone_wifi_schedule_saved(&phone_wifi_plan,&config,slot,network_time_profile_index(),phone_web_direct(),phone_web_epoch(),request->id,now);
+        memset(config.password,0,sizeof(config.password));
+        return scheduled?PHONE_COMMAND_APPLIED:PHONE_COMMAND_CONFLICT;
+    }
     if(!phone_web_direct() || !phone_network_idle() || phone_wifi_busy(&phone_wifi_plan))return PHONE_COMMAND_BLOCKED;
     if(phone_network_plan.state==PHONE_NET_PENDING)return PHONE_COMMAND_CONFLICT;
     if(request->action==PHONE_WIFI_FORGET){
@@ -2581,21 +2593,28 @@ static void service_phone_wifi_plan(uint64_t now) {
     bool home_ready=network_time_connection_ready() && phone_web_address()[0]!=0;
     phone_wifi_action_t action=phone_wifi_step(&phone_wifi_plan,now,phone_wifi_idle(),phone_web_direct(),phone_web_epoch(),home_ready);
     if(action==WIFI_ACTION_START) {
-        phone_web_wifi_trial(true); // Do not trust the candidate network before acceptance.
+        if(!phone_wifi_plan.saved_connect)phone_web_wifi_trial(true); // New credentials must not inherit Home trust.
         if(!phone_web_set_direct(false)) {phone_wifi_cancel(&phone_wifi_plan,WIFI_REASON_RADIO);return;}
         network_time_configure(phone_wifi_plan.candidate.ssid,phone_wifi_plan.candidate.password);
-        puts("[WIFI-SETUP] Testing candidate; old saved configuration retained");
+        puts(phone_wifi_plan.saved_connect?"[WIFI-CONNECT] Connecting saved profile; settings unchanged":"[WIFI-SETUP] Testing candidate; old saved configuration retained");
     } else if(action==WIFI_ACTION_SAVE) {
         char *ssid=phone_wifi_plan.slot?saved_wifi_backup_ssid:saved_wifi_ssid;
         char *key=phone_wifi_plan.slot?saved_wifi_backup_password:saved_wifi_password;
         bool changed=strcmp(ssid,phone_wifi_plan.candidate.ssid)!=0 || strcmp(key,phone_wifi_plan.candidate.password)!=0;
-        if(changed){
+        if(changed && !phone_wifi_plan.saved_connect){
             phone_web_set_home_trusted(false);memcpy(ssid,phone_wifi_plan.candidate.ssid,33);memcpy(key,phone_wifi_plan.candidate.password,65);wifi_profiles_changed();settings_mark_changed();
         }
         network_time_adopt_profiles(saved_wifi_ssid,saved_wifi_password,saved_wifi_backup_ssid,saved_wifi_backup_password,phone_wifi_plan.slot);
         phone_wifi_clear_secret(&phone_wifi_plan);phone_web_wifi_trial(false);
-        puts("[WIFI-SETUP] Candidate joined with IPv4; configuration accepted for autosave");
+        puts(phone_wifi_plan.saved_connect?"[WIFI-CONNECT] Saved profile connected with IPv4; settings unchanged":"[WIFI-SETUP] Candidate joined with IPv4; configuration accepted for autosave");
     } else if(action==WIFI_ACTION_RESTORE) {
+        if(phone_wifi_plan.saved_connect) {
+            network_time_configure_profiles_from(saved_wifi_ssid,saved_wifi_password,saved_wifi_backup_ssid,saved_wifi_backup_password,phone_wifi_plan.restore_profile);
+            bool recovered=!phone_wifi_plan.from_direct || phone_web_set_direct(true);
+            phone_wifi_recovered(&phone_wifi_plan,recovered);
+            puts(recovered?"[WIFI-CONNECT] Target failed; previous connection policy restored":"[WIFI-CONNECT] Direct recovery failed; saved home profiles retained");
+            return;
+        }
         network_time_configure_profiles(saved_wifi_ssid,saved_wifi_password,saved_wifi_backup_ssid,saved_wifi_backup_password);
         bool recovered=phone_web_set_direct(true);
         phone_wifi_wait_old_home=!recovered;
@@ -2607,13 +2626,15 @@ static void service_phone_wifi_plan(uint64_t now) {
 static void phone_snapshot_wifi(uint64_t now) {
     static phone_wifi_view_t view;
     view=(phone_wifi_view_t){.state=phone_wifi_plan.state,.reason=phone_wifi_plan.reason,
-        .request_id=phone_wifi_plan.request_id,.profiles_revision=wifi_profiles_revision,.direct=phone_web_direct(),
+        .request_id=phone_wifi_plan.request_id,.request_epoch=phone_wifi_plan.epoch,.profiles_revision=wifi_profiles_revision,.direct=phone_web_direct(),
+        .saved_connect=phone_wifi_plan.saved_connect,.return_direct=!phone_wifi_plan.saved_connect || phone_wifi_plan.from_direct,
+        .connect_available=phone_network_idle() && !phone_wifi_busy(&phone_wifi_plan) && !phone_wifi_wait_old_home && phone_network_plan.state!=PHONE_NET_PENDING,
         .available=phone_web_direct() && phone_network_idle() && !phone_wifi_busy(&phone_wifi_plan) && phone_network_plan.state!=PHONE_NET_PENDING};
     if((phone_wifi_plan.state==WIFI_SETUP_PENDING || phone_wifi_plan.state==WIFI_SETUP_TESTING) && now<phone_wifi_plan.due_ms)
         view.seconds=(uint32_t)((phone_wifi_plan.due_ms-now+999u)/1000u);
     snprintf(view.saved_ssid,sizeof(view.saved_ssid),"%s",saved_wifi_ssid);
     snprintf(view.test_ssid,sizeof(view.test_ssid),"%s",phone_wifi_plan.candidate.ssid);
-    snprintf(view.address,sizeof(view.address),"%s",phone_web_address());
+    snprintf(view.address,sizeof(view.address),"%s",phone_web_direct() || network_time_connection_ready()?phone_web_address():"");
     snprintf(view.profiles[0].ssid,33,"%s",saved_wifi_ssid);view.profiles[0].open=saved_wifi_ssid[0] && !saved_wifi_password[0];
     snprintf(view.profiles[1].ssid,33,"%s",saved_wifi_backup_ssid);view.profiles[1].open=saved_wifi_backup_ssid[0] && !saved_wifi_backup_password[0];
     view.profile=phone_wifi_plan.request_id?(uint8_t)(phone_wifi_plan.slot+1u):0u;
@@ -2626,7 +2647,7 @@ static void phone_snapshot_network(uint64_t now) {
     static phone_network_view_t view;
     static char last_home_address[16];
     bool direct=phone_web_direct();
-    const char *address=phone_web_address();
+    const char *address=direct || network_time_connection_ready()?phone_web_address():"";
     if(!direct && !phone_wifi_busy(&phone_wifi_plan) && !phone_wifi_wait_old_home && address[0]) snprintf(last_home_address,sizeof(last_home_address),"%s",address);
     view=(phone_network_view_t){.supported=true,.available=phone_network_idle() && !phone_wifi_busy(&phone_wifi_plan),.direct=direct,
         .configured=saved_wifi_ssid[0]!=0 || saved_wifi_backup_ssid[0]!=0,.direct_key_ready=phone_web_password()[0]!=0,
@@ -5600,7 +5621,7 @@ int main(void) {
                 network_home_status_t connection = network_time_home_status(now);
                 unsigned long seconds = connection.seconds > 9999u ? 9999u : connection.seconds;
                 if(phone_wifi_busy(&phone_wifi_plan)) {
-                    snprintf(top,sizeof(top),"%s",phone_wifi_plan.state==WIFI_SETUP_PENDING?"Wi-Fi scheduled":phone_wifi_plan.state==WIFI_SETUP_TESTING?"Testing Wi-Fi":"Restore: idle?");
+                    snprintf(top,sizeof(top),"%s",phone_wifi_plan.state==WIFI_SETUP_PENDING?"Wi-Fi scheduled":phone_wifi_plan.state==WIFI_SETUP_TESTING?(phone_wifi_plan.saved_connect?"Connecting Wi-Fi":"Testing Wi-Fi"):"Restore: idle?");
                     unsigned seconds=now<phone_wifi_plan.due_ms?(unsigned)((phone_wifi_plan.due_ms-now+999u)/1000u):0u;
                     if(phone_wifi_plan.state==WIFI_SETUP_RESTORE) snprintf(bottom,sizeof(bottom),"Stop audio/timer");
                     else snprintf(bottom,sizeof(bottom),"Wait %us",seconds);

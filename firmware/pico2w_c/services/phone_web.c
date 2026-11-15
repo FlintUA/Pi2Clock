@@ -407,7 +407,7 @@ static int wifi_json(char *out,size_t capacity) {
         n=snprintf(out+used,capacity-used,"%s{\"slot\":%u,\"ssid\":\"%s\",\"open\":%s}",i?",":"",i+1u,saved,published_wifi.profiles[i].open?"true":"false");
         if(n<0 || (size_t)n>=capacity-used)return -1;used+=(size_t)n;
     }
-    n=snprintf(out+used,capacity-used,"]}");return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
+    n=snprintf(out+used,capacity-used,"],\"connect_available\":%s,\"saved_connect\":%s,\"return_direct\":%s,\"request_epoch\":%" PRIu32 "}",published_wifi.connect_available?"true":"false",published_wifi.saved_connect?"true":"false",published_wifi.return_direct?"true":"false",published_wifi.request_epoch);return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
 }
 static int wifi_scan_json(char *out,size_t capacity){
     static const char *const states[]={"idle","scanning","done","failed","timeout"};

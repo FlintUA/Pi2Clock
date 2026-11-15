@@ -132,8 +132,9 @@ const context = vm.createContext({
       state.command_nonce = Number(fields[3]);
       state.command_result = "applied";
       if(url==="/wifi") {
-        wifiFixture.request_id=state.command_id;
+        if(["test","connect"].includes(fields[4])){wifiFixture.request_id=state.command_id;wifiFixture.request_epoch=state.epoch;}
         if(fields[4]==="test") {wifiFixture.state="pending";wifiFixture.seconds=5;wifiFixture.available=false;wifiFixture.profile=Number(fields[5]);wifiFixture.test_ssid=Buffer.from(fields[6],"hex").toString("utf8");}
+        else if(fields[4]==="connect"){wifiFixture.saved_connect=true;wifiFixture.return_direct=wifiFixture.direct;wifiFixture.state="pending";wifiFixture.seconds=5;wifiFixture.profile=Number(fields[5]);wifiFixture.test_ssid=wifiFixture.profiles[Number(fields[5])-1].ssid;wifiFixture.connect_available=false;}
         else if(fields[4]==="scan"){scanFixture.state="scanning";wifiFixture.scan_available=false;}
         else if(fields[4]==="forget"){const profile=wifiFixture.profiles[Number(fields[5])-1];if(Number(fields[6])!==wifiFixture.profiles_revision)state.command_result="conflict";else{profile.ssid="";++wifiFixture.profiles_revision;}}
         else {wifiFixture.state="cancelled";wifiFixture.available=true;wifiFixture.reason="cancelled";}
@@ -813,7 +814,10 @@ async function settled() {
   vm.runInContext('remember("0123456789abcdef0123456789abcdef")',context);await update();
   const wifiForm=getElementById("wifi-controls"),wifiFields=wifiForm.elements;
   const wifiSubmit=()=>wifiForm.handlers.submit({preventDefault(){}});
-  assert(getElementById("wifi-test").disabled);assert(getElementById("wifi-home-guide").hidden===false);
+  assert(getElementById("wifi-test").disabled);assert(getElementById("wifi-home-guide").hidden===true);
+  await getElementById("wifi-main").handlers.click({currentTarget:getElementById("wifi-main")});
+  assert(!getElementById("wifi-home-guide").hidden);
+  await getElementById("wifi-edit-cancel").handlers.click();assert(getElementById("wifi-home-guide").hidden);
   wifiFixture.direct=true;wifiFixture.available=true;await update();
   assert(getElementById("wifi-editor").hidden);
   await getElementById("wifi-main").handlers.click({currentTarget:getElementById("wifi-main")});
@@ -867,6 +871,18 @@ async function settled() {
   assert(!getElementById("connection").textContent.includes("lost"));failWifiRead=false;
   wifiFixture.epoch=124;await update();assert(getElementById("wifi-test").disabled);
   state.wifi_control=false;await update();assert(getElementById("wifi-test").disabled);
+  state.wifi_control=true;wifiFixture.epoch=123;wifiFixture.state="idle";wifiFixture.direct=false;
+  wifiFixture.connect_available=true;wifiFixture.saved_connect=true;wifiFixture.return_direct=false;
+  wifiFixture.state="saved";wifiFixture.request_id=state.command_id+1;wifiFixture.request_epoch=122;
+  wifiFixture.connected_profile=2;wifiFixture.profiles[1]={slot:2,ssid:"BackupLAN",open:false};await update();
+  assert(!getElementById("wifi-connect-main").hidden && !getElementById("wifi-connect-main").disabled);
+  assert(getElementById("wifi-connect-backup").hidden);
+  confirmForget=false;const savedConnectPosts=posts.length;await getElementById("wifi-connect-main").handlers.click();assert.equal(posts.length,savedConnectPosts);
+  confirmForget=true;await getElementById("wifi-connect-main").handlers.click();await settled();await update();
+  assert(posts.at(-1).includes(" connect 1 "));assert(!posts.at(-1).includes("password"));
+  assert(getElementById("network-instructions").textContent.includes("previous network"));
+  assert(getElementById("wifi-settings").hidden); // Old history reused the new ID under an older epoch.
+  wifiFixture.state="saved";wifiFixture.connected_profile=1;await update();assert(!getElementById("wifi-settings").hidden);
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

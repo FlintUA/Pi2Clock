@@ -96,6 +96,16 @@ static void wifi_request_tests(void) {
     assert(a.last.action==PHONE_WIFI_SCAN);a.result=PHONE_COMMAND_APPLIED;
     assert(phone_access_wifi(&a,TOKEN " 100 3 13 forget 2 17",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
     assert(a.last.action==PHONE_WIFI_FORGET && a.last.value==2 && a.last.expected==17);
+    a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_wifi(&a,TOKEN " 100 4 14 connect 0 17",PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,TOKEN " 100 4 14 connect 2 0",PHONE_SCOPE_DIRECT,false)==PHONE_INVALID);
+    assert(phone_access_wifi(&a,TOKEN " 100 4 14 connect 2 17",PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(a.last.action==PHONE_WIFI_CONNECT && a.last.value==2 && a.last.expected==17 && !a.last.wifi.password[0]);a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_wifi(&a,TOKEN " 100 4 14 connect 1 17",PHONE_SCOPE_DIRECT,false)==PHONE_BUSY);
+    a.settings.home_trusted=1;
+    assert(phone_access_wifi(&a,"- 100 5 15 connect 1 17",PHONE_SCOPE_HOME,true)==PHONE_OK);
+    assert(a.last.action==PHONE_WIFI_CONNECT && a.last.value==1);
+    assert(phone_access_browsers(&a,"- 100 6 16 connect 1 17",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
     puts("wifi_request_tests: PASS");
 }
 

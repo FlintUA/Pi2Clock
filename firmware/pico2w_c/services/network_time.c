@@ -96,7 +96,11 @@ void network_time_configure(const char *ssid,const char *password) {
     configure_current(profile_ssids[0],profile_keys[0]);
 }
 void network_time_configure_profiles(const char *s0,const char *p0,const char *s1,const char *p1) {
-    store_profiles(s0,p0,s1,p1);active_profile=profile_ssids[0][0]?0u:1u;
+    network_time_configure_profiles_from(s0,p0,s1,p1,0u);
+}
+void network_time_configure_profiles_from(const char *s0,const char *p0,const char *s1,const char *p1,unsigned first) {
+    store_profiles(s0,p0,s1,p1);active_profile=first<2u?first:0u;
+    if(!profile_ssids[active_profile][0])active_profile^=1u;
     configure_current(profile_ssids[active_profile],profile_keys[active_profile]);
 }
 void network_time_adopt_profiles(const char *s0,const char *p0,const char *s1,const char *p1,unsigned connected) {

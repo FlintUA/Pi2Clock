@@ -35,10 +35,14 @@
   #wifi-controls > label { grid-column: 1 / -1; }
   .network-help { grid-column: 1 / -1; color: var(--muted); font-size: .9rem; }
   .network-help summary { cursor: pointer; min-height: 2.75rem; display: list-item; padding: .5rem 0; }
-  #wifi-controls .wifi-profiles { display: grid; grid-template-columns: minmax(0,1fr); gap: .4rem; }
-  .wifi-profiles button { text-align: left; display: grid; grid-template-columns: 4.5rem minmax(0,1fr); gap: .15rem .5rem; padding: .5rem .6rem; overflow-wrap: anywhere; }
-  .wifi-profiles button[aria-pressed=true] { background: #e8f0f4; border-width: 2px; }
-  .wifi-profiles strong { color: var(--ink); font-weight: 600; }.wifi-profiles small { grid-column: 2; color: var(--muted); font-size: .8rem; }
+  #wifi-controls .wifi-profiles { display: grid; grid-template-columns: minmax(0,1fr); gap: .5rem; }
+  .wifi-profile { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: .25rem .5rem; align-items: center; border-bottom: 1px solid var(--line); padding: .5rem 0; }
+  .wifi-profile-name { min-width: 0; overflow-wrap: anywhere; }
+  .wifi-profile-name span, .wifi-profile-name small { display: block; color: var(--muted); font-size: .8rem; }
+  .wifi-profile-name strong { display: block; color: var(--ink); font-weight: 600; }
+  .wifi-profile button { padding: .4rem .6rem; }
+  .wifi-profile [data-wifi-connect] { background: var(--accent); color: #fff; }
+  .wifi-profile [data-wifi-profile][aria-pressed=true] { background: #e8f0f4; }
   #wifi-controls .wifi-editor, #wifi-controls .wifi-notice { display: grid; gap: .85rem; }
   .wifi-editor h3 { margin: .35rem 0 0; font-size: 1.05rem; }
   .wifi-password { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .4rem; }
@@ -245,14 +249,15 @@
     <p><a id="network-destination" hidden>Open destination address</a></p>
     <details class="network-help"><summary>Connection help</summary><p>Home Wi-Fi connects the clock through your router. Direct connects this phone to SpeakingClock at 192.168.4.1 without a router. Switching ends the current connection. The Direct password is shown in Phone Control on the clock; remembered permissions are retained. Restart returns to Home Wi-Fi.</p></details>
   </form>
-  <details id="wifi-settings"><summary>Saved networks</summary>
+  <details id="wifi-settings" open><summary>Home networks</summary>
   <form id="wifi-controls" hidden autocomplete="off">
     <p id="wifi-state" role="status">Checking connection...</p>
-    <div class="wifi-profiles" role="group" aria-label="Choose a saved network">
-      <button type="button" id="wifi-main" data-wifi-profile="1" aria-pressed="true"><span>Main</span><strong id="wifi-main-name">Not saved</strong><small id="wifi-main-status">Tried first at startup</small></button>
-      <button type="button" id="wifi-backup" data-wifi-profile="2" aria-pressed="false"><span>Backup</span><strong id="wifi-backup-name">Not saved</strong><small id="wifi-backup-status">Used if Main is unavailable</small></button>
+    <p>Main is tried first after restart. Connect switches now without changing that order.</p>
+    <div class="wifi-profiles" role="group" aria-label="Saved home networks">
+      <div class="wifi-profile"><div class="wifi-profile-name"><span>Main</span><strong id="wifi-main-name">Not saved</strong><small id="wifi-main-status">First choice</small></div><button type="button" id="wifi-connect-main" data-wifi-connect="1">Connect</button><button type="button" id="wifi-main" data-wifi-profile="1" aria-pressed="false">Edit</button></div>
+      <div class="wifi-profile"><div class="wifi-profile-name"><span>Backup</span><strong id="wifi-backup-name">Not saved</strong><small id="wifi-backup-status">Fallback</small></div><button type="button" id="wifi-connect-backup" data-wifi-connect="2">Connect</button><button type="button" id="wifi-backup" data-wifi-profile="2" aria-pressed="false">Edit</button></div>
     </div>
-    <div id="wifi-home-guide" class="wifi-notice"><p>Use Connect directly above to edit these networks.</p></div>
+    <div id="wifi-home-guide" class="wifi-notice" hidden><p id="wifi-edit-guide">Editing requires a direct connection to the clock.</p><button id="wifi-edit-direct" type="button">Connect directly to edit</button><button id="wifi-edit-cancel" type="button">Close</button></div>
     <div id="wifi-editor" class="wifi-editor" hidden>
       <h3 id="wifi-editor-title">Edit Main</h3>
       <div class="wifi-search"><button id="wifi-scan" type="button">Find networks</button><p id="wifi-scan-state" role="status"></p></div>
@@ -915,6 +920,16 @@
     wifiControls.elements.wifi_password.value="";wifiControls.elements.wifi_open.checked=Boolean(selected.ssid && selected.open);
     hideWifiPassword();renderWifi();
   }
+  async function connectSavedWifi(slot) {
+    const v=wifiView,profile=wifiProfiles[slot-1];
+    if(!live || !v || v.epoch!==live.epoch || !v.connect_available || !profile?.ssid || v.connected_profile===slot || busy || pending || settingChanges.size || dirtySettings.size)return;
+    if(!confirm(`Connect to ${profile.ssid}? If this page disconnects, join that Wi-Fi and check the address in Phone Control. Saved passwords and startup order stay unchanged. Unapplied browser edits are not saved.`))return;
+    wifiControls.elements.wifi_password.value="";hideWifiPassword();wifiEditing=false;
+    wifiHandoff={ssid:profile.ssid,fromRequest:v.request_id,epoch:live.epoch,requestId:live.command_id+1,until:Date.now()+50000,saved:true,returnDirect:v.direct};
+    renderConnectionHandoff();networkControls.scrollIntoView?.({block:"start"});
+    await sendCommand("wifi","connect",slot+" "+v.profiles_revision);
+  }
+  for(const [id,slot] of [["wifi-connect-main",1],["wifi-connect-backup",2]])document.getElementById(id).addEventListener("click",()=>connectSavedWifi(slot));
   for(const id of ["wifi-main","wifi-backup"]) document.getElementById(id).addEventListener("click",event=>chooseWifiProfile(Number(event.currentTarget.dataset.wifiProfile)));
   function renderWifi() {
     const v=wifiView,usable=Boolean(live?.wifi_control && v && v.epoch===live.epoch);
@@ -925,16 +940,23 @@
       if(!wifiDraftLoaded) {wifiControls.elements.wifi_ssid.value=wifiProfiles[wifiSelectedProfile-1]?.ssid || "";wifiDraftLoaded=true;}
     }
     const fields=wifiControls.elements,locked=!usable || !v.direct || !v.available || busy || Boolean(pending);
-    wifiEditor.hidden=!wifiLastDirect || !wifiEditing || active || Boolean(wifiHandoff || networkHandoff);wifiHomeGuide.hidden=wifiLastDirect;
+    wifiEditor.hidden=!wifiLastDirect || !wifiEditing || active || Boolean(wifiHandoff || networkHandoff);wifiHomeGuide.hidden=wifiLastDirect || !wifiEditing;
+    wifiText("wifi-edit-guide","To edit "+(wifiSelectedProfile===1?"Main":"Backup")+", connect directly to SpeakingClock first. Saved passwords are kept.");
+    document.getElementById("wifi-edit-direct").disabled=!usable || !networkView?.available || !networkView?.direct_key_ready || busy || Boolean(pending) || active;
     for(const field of wifiControls.querySelectorAll("input"))field.disabled=locked || (field.name==="wifi_password" && fields.wifi_open.checked);
-    document.getElementById("wifi-close").disabled=busy || Boolean(pending) || active || !usable;
+    for(const id of ["wifi-close","wifi-edit-cancel"])document.getElementById(id).disabled=busy || Boolean(pending) || active || !usable;
     wifiTest.disabled=locked;wifiShow.disabled=locked || fields.wifi_open.checked;wifiPasswordRow.hidden=fields.wifi_open.checked;
     wifiCancel.hidden=!active;wifiCancel.disabled=!usable || !["pending","testing"].includes(v.state) || busy || Boolean(pending);
     wifiForget.hidden=!wifiLastDirect || !wifiProfiles[wifiSelectedProfile-1]?.ssid || active;wifiForget.disabled=locked;
     wifiScan.disabled=!usable || !v.scan_supported || !v.scan_available || busy || Boolean(pending);
     for(const [i,id] of ["wifi-main","wifi-backup"].entries()) {
       const button=document.getElementById(id);button.disabled=!usable || active || busy || Boolean(pending);
-      button.setAttribute("aria-pressed",String(wifiSelectedProfile===i+1));
+      button.setAttribute("aria-pressed",String(wifiEditing && wifiSelectedProfile===i+1));
+      button.textContent=wifiProfiles[i]?.ssid?"Edit":"Add";
+      const connect=document.getElementById(i===0?"wifi-connect-main":"wifi-connect-backup");
+      connect.hidden=!wifiProfiles[i]?.ssid || v?.connected_profile===i+1 || typeof v?.connect_available!=="boolean";
+      connect.disabled=!usable || !v.connect_available || active || busy || Boolean(pending) || settingChanges.size>0 || dirtySettings.size>0;
+      connect.setAttribute("aria-label","Connect to "+(wifiProfiles[i]?.ssid || "network"));
       wifiText(id+"-name",wifiProfiles[i]?.ssid || "Not saved");
       wifiText(id+"-status",usable && v.connected_profile===i+1?"Connected":i===0?"First choice":"Fallback");
     }
@@ -944,9 +966,14 @@
       pending:`Starting in ${v?.seconds || 0}s. You can cancel below.`,testing:`Trying ${v?.test_ssid || "network"}: ${v?.seconds || 0}s remaining.`,
       restoring:"Waiting for audio to finish, then restoring Direct.",saved:`Connected to ${v?.saved_ssid || "home Wi-Fi"}. ${live?.settings?.saving==="saved"?"Settings saved.":"Saving - keep power connected."}`,
       failed:`Could not connect. ${reasons[v?.reason] || ""} Previous networks kept; Direct restored.`,
-      cancelled:`Test cancelled. ${reasons[v?.reason] || ""} Saved networks unchanged.`,
+      cancelled:`Connection cancelled. ${reasons[v?.reason] || ""} Saved networks unchanged.`,
       recovery_failed:"Direct could not restart. Previous networks are kept. Use Phone Control or USB to reconnect."};
-    wifiText("wifi-state",!usable?"Checking saved networks...":active?"":v.state==="idle"?"Select Main or Backup to edit.":messages[v.state] || "Check Phone Control on the clock.");
+    if(v?.saved_connect) {
+      messages.saved=(v.connected_profile?"Connected to "+v.saved_ssid:"Previous connection completed")+". Saved networks unchanged.";
+      messages.failed="Could not connect to "+(v.test_ssid || "that network")+". "+(v.direct?"Using Direct.":v.connected_profile?"Using "+v.saved_ssid+".":"Retrying the saved networks.");
+      messages.recovery_failed="Direct could not restart. Saved networks are kept; check Phone Control.";
+    }
+    wifiText("wifi-state",!usable?"Checking saved networks...":active?"":v.state==="idle"?"":messages[v.state] || "Check Phone Control on the clock.");
     wifiInstructions.textContent="Connects to check the password, then saves. This phone will disconnect briefly.";
     const address=usable && !v.direct && networkAddress(v.address)?v.address:"";
     wifiDestination.hidden=true;if(address)wifiDestination.href=`http://${address}/`;
@@ -980,7 +1007,8 @@
     wifiControls.elements.wifi_ssid.value=ssid;wifiControls.elements.wifi_password.value="";
     wifiControls.elements.wifi_open.checked=entry.open;hideWifiPassword();renderWifi();
   });
-  document.getElementById("wifi-close").addEventListener("click",()=>{wifiEditing=false;wifiControls.elements.wifi_password.value="";hideWifiPassword();renderWifi();});
+  document.getElementById("wifi-edit-direct").addEventListener("click",async()=>{if(!document.getElementById("wifi-edit-direct").disabled)await switchNetwork("direct");});
+  for(const id of ["wifi-close","wifi-edit-cancel"])document.getElementById(id).addEventListener("click",()=>{wifiEditing=false;wifiControls.elements.wifi_password.value="";hideWifiPassword();renderWifi();});
   wifiShow.addEventListener("click",()=>{
     if(wifiShow.disabled)return;
     const show=wifiControls.elements.wifi_password.type==="password";
@@ -1002,7 +1030,7 @@
     }
     const hex=value=>Array.from(bytes(value),byte=>byte.toString(16).padStart(2,"0")).join("");
     if(!confirm(`Save ${ssid} as ${wifiSelectedProfile===1?"Main":"Backup"}${fields.wifi_open.checked?" (open network)":""}? Testing starts in 5 seconds and disconnects this phone. Failed tests keep both previous networks.`))return;
-    wifiHandoff={ssid,fromRequest:wifiView.request_id,until:Date.now()+50000};wifiSettings.open=true;renderConnectionHandoff();networkControls.scrollIntoView?.({block:"start"});try{await sendCommand("wifi","test",wifiSelectedProfile+" "+hex(ssid)+" "+(key?hex(key):"-"));}
+    wifiHandoff={ssid,fromRequest:wifiView.request_id,epoch:live.epoch,requestId:live.command_id+1,until:Date.now()+50000};wifiSettings.open=true;renderConnectionHandoff();networkControls.scrollIntoView?.({block:"start"});try{await sendCommand("wifi","test",wifiSelectedProfile+" "+hex(ssid)+" "+(key?hex(key):"-"));}
     finally{fields.wifi_password.value="";hideWifiPassword();}
   });
   wifiCancel.addEventListener("click",async()=>{if(!wifiCancel.disabled)await sendCommand("wifi","cancel",0);});
@@ -1057,7 +1085,8 @@
     await sendCommand("browsers","forget",`${entry.slot} ${browserView.revision}`);
   });
   function renderConnectionHandoff() {
-    if(wifiHandoff && wifiView && wifiView.epoch===live?.epoch && wifiView.request_id!==wifiHandoff.fromRequest &&
+    if(wifiHandoff && wifiView && wifiView.epoch===live?.epoch &&
+      (Number.isInteger(wifiView.request_epoch)?wifiView.request_epoch===wifiHandoff.epoch && wifiView.request_id===wifiHandoff.requestId:wifiView.request_id!==wifiHandoff.fromRequest) &&
       ["saved","failed","cancelled","recovery_failed"].includes(wifiView.state)) {
       wifiHandoff=null;wifiEditing=false;
     }
@@ -1078,10 +1107,12 @@
     networkDetails.textContent="";
     networkTransition.textContent=seconds?`Allow up to ${seconds}s. This phone may disconnect.`:"Reconnect to the clock to check the result.";
     if(live && wifiView?.state==="pending" && wifi)networkTransition.textContent=`Connecting in ${wifiView.seconds}s. Cancel now to stay here.`;
-    else if(live && wifiView?.state==="restoring" && wifi)networkTransition.textContent="Restoring Direct when audio is idle.";
+    else if(live && wifiView?.state==="restoring" && wifi)networkTransition.textContent=wifiView.saved_connect && !wifiView.return_direct?"Retrying the previous network when audio is idle.":"Restoring Direct when audio is idle.";
     const direct=!wifi && handoff?.target==="direct";
+    const savedConnection=Boolean(wifiHandoff?.saved || currentWifi && wifiView.saved_connect);
+    const returnDirect=wifiHandoff?wifiHandoff.returnDirect:currentWifi && wifiView.return_direct;
     networkInstructions.textContent=direct?"Join SpeakingClock in your phone's Wi-Fi settings, then open the link below.":
-      wifi?"Join the selected home Wi-Fi. Find the clock address in Phone Control. If connection fails, rejoin SpeakingClock and open 192.168.4.1.":
+      wifi?(savedConnection && !returnDirect?"If this page disconnects, join the selected Wi-Fi and check the address in Phone Control. If connection fails, the clock retries its previous network.":"If this page disconnects, join the selected Wi-Fi and check the address in Phone Control. If connection fails, rejoin SpeakingClock and open 192.168.4.1."):
       "Join your home Wi-Fi. Try the last known address below, or check Phone Control on the clock.";
     const address=direct?"192.168.4.1":!wifi?networkAddress(handoff?.homeAddress):"";
     networkDestination.hidden=!address;
@@ -1100,7 +1131,7 @@
     const supported=Boolean(live?.network_control && v?.supported && v.epoch===live.epoch);
     for(const button of networkControls.querySelectorAll("button[data-network-action]")) {
       const action=button.dataset.networkAction;
-      button.hidden=!supported || (action==="cancel"?v?.transition!=="pending":v?.transition==="pending" || action===v?.mode);
+      button.hidden=!supported || action==="home" && typeof wifiView?.connect_available==="boolean" || (action==="cancel"?v?.transition!=="pending":v?.transition==="pending" || action===v?.mode);
       button.disabled=busy || Boolean(pending) || !supported || settingChanges.size>0 || dirtySettings.size>0 ||
         (action==="cancel" ? v?.transition!=="pending" : !v?.available || v.transition==="pending" ||
           action===v.mode || action==="home" && !v.configured || action==="direct" && !v.direct_key_ready);
@@ -1119,7 +1150,7 @@
     networkTransition.textContent=messages[v.transition] || (!v.available?
       "Stop audio/timers, close physical editors and finish Bluetooth discovery before switching.":"");
     networkInstructions.textContent=!v.direct_key_ready && v.mode==="home"?"Start Direct once in Phone Control on the clock to prepare its password.":
-      v.mode==="direct" && !v.configured?"Add Main or Backup in Saved networks below.":"";
+      v.mode==="direct"?v.configured?"Choose Connect beside a home network below.":"Add a home network below.":"";
     networkDestination.hidden=true;
 
   }
@@ -1488,8 +1519,8 @@
           (pending.target !== "settings" && pending.target !== "control" && pending.action !== "stop_sound" && !pending.editor || data.command_result !== "applied" ||
             data.settings?.snapshot_id >= pending.id)) {
         if(pending.target === "wifi") {
-          if(data.command_result==="applied") feedback.textContent=pending.action==="cancel"?"Wi-Fi cancellation requested.":pending.action==="scan"?"Searching for nearby networks...":pending.action==="forget"?"Network forgotten. Wait for Settings saved.":"Wi-Fi test scheduled. Follow the connection instructions.";
-          else {wifiHandoff=null;feedback.textContent="Wi-Fi setup refused. Use Direct, stop audio/timers, close editors and finish any pending mode switch.";}
+          if(data.command_result==="applied") feedback.textContent=pending.action==="cancel"?"Wi-Fi cancellation requested.":pending.action==="scan"?"Searching for nearby networks...":pending.action==="forget"?"Network forgotten. Wait for Settings saved.":pending.action==="connect"?"Connection scheduled; saved networks unchanged.":"Wi-Fi test scheduled. Follow the connection instructions.";
+          else {wifiHandoff=null;feedback.textContent=pending.action==="connect"?"Connection was not started. Check the current network and saved list; stop audio/timers and close editors before retrying.":"Wi-Fi setup refused. Use Direct, stop audio/timers, close editors and finish any pending mode switch.";}
         } else if(pending.target === "browsers") {
           feedback.textContent=data.command_result==="applied"?
             "Browser permission forgotten. Wait for settings to save; trusted home access is unchanged.":

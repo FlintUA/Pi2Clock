@@ -33,3 +33,7 @@ After separately approved installation, refresh once and check the displayed SSI
 ## Compact UI follow-up candidate
 
 The current candidate groups mode, saved-network setup and browser access into one Connection section. Only the applicable mode action is shown; setup/access disclosures are collapsed until needed. During a handoff the common status replaces the saved-profile editor and clears old ready/address information. Offline countdown expiration asks the user to reconnect, without inferring success or claiming endless progress. This changes presentation only; the stage-1 delayed switching, radio admission, authorization and firmware-owned recovery remain. See [Wi-Fi setup](WEB_WIFI_SETUP.md#compact-connection-interface-candidate) for exact behavior and pending hardware acceptance.
+
+## Explicit saved-network selection candidate
+
+Version +45 compact UI is installed. The next candidate uses explicit Connect/Edit rows for Main and Backup, available from both modes for Connect. On a supporting client, those rows replace generic Use home network in Direct so returning home has an explicit target. Connect directly remains the Home-to-AP mode action. Priority, saved credentials and Home trust are unchanged by a saved Connect. Source-aware rollback and detailed acceptance are documented in [Wi-Fi setup](WEB_WIFI_SETUP.md#explicit-saved-network-connect-candidate).

@@ -54,5 +54,19 @@ int main(void) {
     phone_wifi_recovered(&p,true);
     assert(!strcmp(phone_wifi_state_name(p.state),"failed"));
     assert(!strcmp(phone_wifi_reason_name(p.reason),"cancelled"));
+    assert(phone_wifi_schedule_saved(&p,&c,0,1,false,20,8,now));
+    assert(p.saved_connect && !p.from_direct && p.restore_profile==1 && p.slot==0);
+    assert(phone_wifi_step(&p,now+4999,true,false,20,false)==WIFI_ACTION_NONE);
+    assert(phone_wifi_step(&p,now+5000,true,false,20,false)==WIFI_ACTION_START);
+    assert(phone_wifi_step(&p,now+5001,true,false,21,true)==WIFI_ACTION_SAVE);
+    assert(phone_wifi_schedule_saved(&p,&c,1,0,true,22,9,now));
+    assert(phone_wifi_step(&p,now+5000,true,true,22,false)==WIFI_ACTION_START);
+    assert(phone_wifi_step(&p,now+50000,true,false,23,false)==WIFI_ACTION_RESTORE);
+    assert(p.saved_connect && p.from_direct && p.restore_profile==0);phone_wifi_recovered(&p,true);
+    assert(phone_wifi_schedule_saved(&p,&c,0,1,false,24,10,now));phone_wifi_cancel(&p,WIFI_REASON_CANCEL);
+    assert(p.state==WIFI_SETUP_CANCELLED && !p.candidate.password[0]);
+    assert(phone_wifi_schedule_saved(&p,&c,0,1,false,24,11,now));
+    assert(phone_wifi_step(&p,now+1,true,true,24,false)==WIFI_ACTION_NONE && p.reason==WIFI_REASON_CHANGED);
+    assert(!phone_wifi_schedule_saved(&p,&c,2,0,false,24,12,now));
     puts("phone_wifi_test: PASS");return 0;
 }

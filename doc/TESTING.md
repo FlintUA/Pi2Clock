@@ -298,3 +298,9 @@ All 26 registered checks pass after a clean rebuild, including the expanded UI/p
 ## Compact connection workflow candidate
 
 The production-script checks now include profile editor closed by default, Close without a command/password retention, stable selected search results, applicable-only mode actions, pending-only cancellation, previous-result isolation, hidden editor/access controls during handoff, cleared stale ready details and bounded offline reconnection instructions. Chrome fixtures at 360/412/960 pixels with enlarged text cover idle/edit/pending/offline/cancel/recovery views and no overflow. The native-picker whole-page repaint regression remains covered. The radio and Flash paths are unchanged. +44 is installed and Direct scan is user-evidenced; the compact UI is not installed yet. Keep actual Backup failover/persistence and four-client/audio resource acceptance open.
+
+## Explicit saved Wi-Fi Connect candidate
+
+The expanded 26-check suite covers saved-connection FSM source/epoch/cancel/timeout, parser scope/revision/idempotence, previous-profile-first configuration and production UI Connect versus Edit. Actual handler fixtures verify Home Backup to Main without settings writes, concurrent/stale/current rejection, and Home/Direct recovery. Chrome checks at 360/412/960 pixels cover explicit actions, current-network indication, confirmation, no-password request, source-specific instructions and unchanged profiles. Worst-case actual HTTP Wi-Fi metadata remains bounded at 1346/2048 bytes including headers. Radio switching, audio coexistence, rollback with actual unavailable routers and four real clients remain physical acceptance items after installation approval.
+
+The explicit-Connect regression additionally reuses a command ID under a new epoch to verify stale-result isolation, and verifies that reconnecting Home metadata does not report a failed destination's cached IP.

@@ -162,6 +162,10 @@ int main(void) {
     assert(!service(1101000,false,true));assert(network_time_profile_index()==0 && next_join==1131000);
     assert(!service(1130999,false,true) && connect_calls==stable+2);
     assert(!service(1131000,false,true) && connect_calls==stable+3);
+    network_time_configure_profiles_from("Primary","primary-key","Backup","backup-key",1);
+    assert(network_time_profile_index()==1 && !strcmp(network_time_ssid(),"Backup"));
+    network_time_configure_profiles_from("Primary","primary-key","","",1);
+    assert(network_time_profile_index()==0 && !strcmp(network_time_ssid(),"Primary"));
     puts("network_time_test: PASS");
     return 0;
 }
