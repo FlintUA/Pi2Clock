@@ -4,7 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
-- Added right-aligned `MUTE` and `BT`/`SPK` indicators to the normal LCD time/date screen, using the existing sound switch and volume-owner routing without changing audio behavior. Dedicated screens and RTC error guidance retain priority. Installation and device acceptance remain pending.
+- Added a browser-permission list, current-browser identification and confirmed selective revocation with registry-revision/slot-reuse protection and existing deferred autosave. Public metadata contains no keys, passwords or device names. The page explains trusted-home access, refreshes authorization after revocation and keeps unrelated controls usable on metadata failure. No Flash migration or credential editing is introduced. Installation and device acceptance pending; see doc/WEB_BROWSER_ACCESS.md.
+
+- Added right-aligned `MUTE` and `BT`/`SPK` indicators to the normal LCD time/date screen, using the existing sound switch and volume-owner routing without changing audio behavior. Dedicated screens and RTC error guidance retain priority. Installed through 1.0.0+39.g42cc495 and user-accepted on November 15.
 
 - Added browser network state and confirmed HOME/Direct mode requests with a five-second cancellable grace period, main-loop busy/epoch/mode rechecks and persistent on-page handoff instructions. A separate bounded 2 KiB snapshot exposes SSID/state/addresses and transition status without passwords/tokens. Existing keys, authorization and home-on-boot behavior are retained; first Direct key/home setup still uses the clock/USB. Access administration and Wi-Fi credential editing remain later stages. Software/browser checks and both profiles pass. Installed as 1.0.0+37.ga1f576b; the user accepted Direct and home transitions on November 15. See doc/WEB_NETWORK_MODES.md.
 

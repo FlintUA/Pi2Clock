@@ -59,3 +59,5 @@ bool phone_web_pair_succeeded(void);
 void phone_web_revoke(void);
 bool phone_web_command_pending(phone_command_t *request);
 void phone_web_command_complete(uint32_t id, phone_command_result_t result);
+
+phone_command_result_t phone_web_forget_browser(const phone_command_t *request);

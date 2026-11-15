@@ -2,6 +2,7 @@
 #include "countdown.h"
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -48,6 +49,7 @@ void phone_access_reset(phone_access_t *access, uint32_t epoch) {
     access->attempts = 0;
     access->paired = false;
     access->epoch = epoch;
+    if (!access->browser_revision) access->browser_revision = 1;
     access->last = (phone_command_t){0};
     access->result = PHONE_COMMAND_PENDING;
 }
@@ -75,6 +77,7 @@ phone_reply_t phone_access_logout(phone_access_t *access, const char *token, uin
     unsigned i = browser_index(access, token, scope);
     if (i < PHONE_BROWSER_MAX) {
         access->settings.browsers[i] = (phone_browser_t){0};
+        phone_access_registry_changed(access);
         access->changed = true;
     }
     return PHONE_OK;
@@ -108,6 +111,7 @@ phone_reply_t phone_access_pair(phone_access_t *access, const char *body, uint64
     for (unsigned i = 0; i < PHONE_BROWSER_MAX; ++i) {
         phone_browser_t *browser = &access->settings.browsers[i];
         if (!browser->scope) {
+            phone_access_registry_changed(access);
             browser->scope = scope;
             memcpy(browser->token, token, sizeof(browser->token));
             access->code_until = 0;
@@ -222,6 +226,7 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
         {"set ", 946684800u, 4102444799u}, {"sync ", 0, 0},
         {"scan ",0,0}, {"cancel ",0,0}, {"disconnect ",0,0}, {"connect ",0,0}, {"forget ",0,0},
         {"home ",0,0}, {"direct ",0,0}, {"cancel ",0,0},
+        {"forget ",1,PHONE_BROWSER_MAX},
         {"set ", 0, 0}, {"set ", 0, 0}
     };
     _Static_assert(sizeof(actions) / sizeof(actions[0]) == PHONE_ACTION_COUNT, "Missing phone action");
@@ -237,6 +242,11 @@ static phone_reply_t accept_command(phone_access_t *access, const char *body,
     if (i == limit) return PHONE_INVALID;
     if (request.action >= PHONE_SET_ALARM) {
         if (!read_schedule(p, &request)) return PHONE_INVALID;
+    } else if (request.action == PHONE_BROWSER_FORGET) {
+        uint32_t slot;
+        if (!read_number(&p,&slot) || slot<1u || slot>PHONE_BROWSER_MAX || *p++!=' ' ||
+            !read_revision(&p,&request.expected) || *p || !request.expected || request.expected>UINT32_MAX) return PHONE_INVALID;
+        request.slot=(uint8_t)(slot-1u);
     } else if (request.action == PHONE_BT_CONNECT || request.action == PHONE_BT_FORGET) {
         if(!read_revision(&p,&request.expected) || *p || !request.expected ||
             request.expected>=UINT64_C(0xffffffffffff)) return PHONE_INVALID;
@@ -281,7 +291,7 @@ phone_reply_t phone_access_bluetooth(phone_access_t *access,const char *body,uin
     return accept_command(access,body,scope,home_peer,PHONE_BT_SCAN,PHONE_NET_HOME);
 }
 phone_reply_t phone_access_network(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
-    return accept_command(access,body,scope,home_peer,PHONE_NET_HOME,PHONE_SET_ALARM);
+    return accept_command(access,body,scope,home_peer,PHONE_NET_HOME,PHONE_BROWSER_FORGET);
 }
 
 phone_reply_t phone_access_control(phone_access_t *access, const char *body, uint8_t scope, bool home_peer) {
@@ -294,4 +304,41 @@ phone_reply_t phone_access_alarm(phone_access_t *access, const char *body, uint8
 
 phone_reply_t phone_access_birthday(phone_access_t *access, const char *body, uint8_t scope, bool home_peer) {
     return accept_command(access, body, scope, home_peer, PHONE_SET_BIRTHDAY, PHONE_ACTION_COUNT);
+}
+
+void phone_access_registry_changed(phone_access_t *access) {
+    if (++access->browser_revision == 0u) ++access->browser_revision;
+}
+unsigned phone_access_browser_slot(const phone_access_t *access,const char *token,uint8_t scope) {
+    return phone_access_check(access,token,scope)==PHONE_OK ? browser_index(access,token,scope)+1u : 0u;
+}
+phone_reply_t phone_access_browsers(phone_access_t *access,const char *body,uint8_t scope,bool home_peer) {
+    return accept_command(access,body,scope,home_peer,PHONE_BROWSER_FORGET,PHONE_SET_ALARM);
+}
+phone_command_result_t phone_access_forget_browser(phone_access_t *access,const phone_command_t *request) {
+    if (request->action!=PHONE_BROWSER_FORGET || request->slot>=PHONE_BROWSER_MAX ||
+        request->expected!=access->browser_revision) return PHONE_COMMAND_CONFLICT;
+    phone_browser_t *browser=&access->settings.browsers[request->slot];
+    if (!browser->scope) return PHONE_COMMAND_CONFLICT;
+    *browser=(phone_browser_t){0};
+    phone_access_registry_changed(access);
+    access->changed=true;
+    return PHONE_COMMAND_APPLIED;
+}
+int phone_access_browsers_json(char *out,size_t capacity,const phone_access_t *access) {
+    if (!out || !capacity) return -1;
+    int n=snprintf(out,capacity,"{\"epoch\":%" PRIu32 ",\"revision\":%" PRIu32 ",\"home_trusted\":%s,\"capacity\":%u,\"entries\":[",
+        access->epoch,access->browser_revision,access->settings.home_trusted?"true":"false",PHONE_BROWSER_MAX);
+    if(n<0 || (size_t)n>=capacity) return -1;
+    size_t used=(size_t)n;unsigned count=0;
+    for(unsigned i=0;i<PHONE_BROWSER_MAX;++i) {
+        unsigned scope=access->settings.browsers[i].scope;
+        if(scope!=PHONE_SCOPE_HOME && scope!=PHONE_SCOPE_DIRECT) continue;
+        n=snprintf(out+used,capacity-used,"%s{\"slot\":%u,\"scope\":\"%s\"}",count++?",":"",i+1u,
+            scope==PHONE_SCOPE_HOME?"home":"direct");
+        if(n<0 || (size_t)n>=capacity-used) return -1;
+        used+=(size_t)n;
+    }
+    n=snprintf(out+used,capacity-used,"]}");
+    return n<0 || (size_t)n>=capacity-used ? -1:(int)used+n;
 }

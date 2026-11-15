@@ -216,7 +216,15 @@
     <p id="network-transition" role="status"></p>
     <p id="network-instructions"></p>
     <p><a id="network-destination" hidden>Open destination address</a></p>
-    <p>The current connection will end when modes change. Passwords and remembered browsers remain unchanged. Direct uses the saved SpeakingClock Wi-Fi password; open Phone Control on the clock if you need to see it. After restart the clock starts in home mode. Home Wi-Fi setup and access management remain on the clock for now.</p>
+    <p>The current connection will end when modes change. Passwords and remembered browsers remain unchanged. Direct uses the saved SpeakingClock Wi-Fi password; open Phone Control on the clock if you need to see it. After restart the clock starts in home mode. Home Wi-Fi setup and home-trust changes remain on the clock for now.</p>
+  </form>
+  <form id="browser-controls" hidden>
+    <h2>Browser access</h2>
+    <p id="browser-state" role="status">Checking saved browsers...</p>
+    <label>Saved permission <select id="browser-entry" aria-label="Saved browser permission"></select></label>
+    <button type="button" id="browser-forget">Forget selected browser</button>
+    <p id="browser-policy"></p>
+    <p>Entries are browser permissions, not connected phones. Names and online status are not recorded. The same browser may have separate Home and Direct entries. Forgetting this browser requires pairing again unless trusted home access applies. Keep the clock powered until Settings saved appears. Use Phone Control on the clock to forget all browsers or change home trust.</p>
   </form>
   <form id="bluetooth-controls" hidden>
     <h2>Bluetooth speakers</h2>
@@ -438,6 +446,12 @@
   const logout = document.getElementById("logout");
   const storageKey = "speaking-clock-browser";
   let token = null, checkedEpoch = null;
+  let browserView=null,checkedBrowserRevision=null,selfBrowserSlot=0;
+  const browserControls=document.getElementById("browser-controls");
+  const browserEntry=document.getElementById("browser-entry");
+  const browserForget=document.getElementById("browser-forget");
+  const browserState=document.getElementById("browser-state");
+  const browserPolicy=document.getElementById("browser-policy");
   try { token = localStorage.getItem(storageKey); } catch {}
   if (!/^[0-9a-f]{32}$/.test(token || "")) token = null;
   let busy = false, pending = null, live = null, edited = false;
@@ -507,6 +521,7 @@
 
   function remember(value) {
     token = value;
+    checkedBrowserRevision=null;selfBrowserSlot=0;
     checkedEpoch = value && live ? live.epoch : null;
     if (!value) {
       authorizedLayout=false;
@@ -525,7 +540,7 @@
     if(!live && authorizedLayout) {
       // A failed poll is not loss of authorization. Preserve layout and drafts,
       // but never allow a command against stale status while reconnecting.
-      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,
+      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,browserControls,
         quickControls,alarmLiveControls,...scheduleEditors.map(editor=>editor.form)]) {
         for(const field of region.querySelectorAll("input, select, button")) field.disabled=true;
       }
@@ -548,6 +563,8 @@
     settingsControls.hidden = !allowed;
     networkControls.hidden=!allowed;
     renderNetwork();
+    browserControls.hidden=!allowed;
+    renderBrowsers();
     bluetoothControls.hidden=!allowed;
     renderBluetooth();
     clockControls.hidden = !allowed;
@@ -811,6 +828,38 @@
     const parts=String(value||"").split(".");
     return parts.length===4 && parts.every(p=>/^\d{1,3}$/.test(p) && Number(p)<=255) ? value : "";
   }
+  function renderBrowsers() {
+    const view=browserView;
+    const usable=Boolean(live?.browser_control && view && view.epoch===live.epoch && Number.isInteger(view.revision) && view.revision>0);
+    if(usable) {
+      const selected=browserEntry.value;
+      const options=view.entries.map(entry=>{
+        const option=document.createElement("option");option.value=String(entry.slot);
+        option.textContent=`${entry.slot} - ${entry.scope==="direct"?"Direct":"Home"}${token && checkedEpoch===live.epoch && checkedBrowserRevision===view.revision && selfBrowserSlot===entry.slot?" (this browser)":""}`;
+        return option;
+      });
+      browserEntry.replaceChildren(...options);
+      if(view.entries.some(entry=>String(entry.slot)===selected)) browserEntry.value=selected;
+      else browserEntry.value=view.entries.length?String(view.entries[0].slot):"";
+    }
+    const locked=!usable || busy || Boolean(pending) || !view.entries.length;
+    browserEntry.disabled=locked;browserForget.disabled=locked;
+    browserState.textContent=!usable?"Browser list unavailable. Other controls remain available.":
+      `${view.entries.length}/${view.capacity} saved permissions. ${live.settings?.saving==="saved"?"Settings saved.":"Changes may still be saving; keep the clock powered."}`;
+    browserPolicy.textContent=!usable?"Check Phone Control on the clock for the saved home-trust policy.":view.home_trusted?
+      "Trusted home access is ON: devices admitted from the trusted home network can control the clock. Forgetting a saved permission does not block that home access. Direct still requires a saved permission.":
+      "Trusted home access is OFF: a forgotten browser must pair again for its removed Home or Direct permission.";
+  }
+  browserControls.addEventListener("submit",event=>event.preventDefault());
+  browserForget.addEventListener("click",async()=>{
+    if(busy || pending || !live || !browserView || browserView.epoch!==live.epoch) return;
+    const entry=browserView.entries.find(item=>String(item.slot)===browserEntry.value);
+    if(!entry || browserForget.disabled) return;
+    const self=token && checkedEpoch===live.epoch && checkedBrowserRevision===browserView.revision && selfBrowserSlot===entry.slot;
+    const warning=browserView.home_trusted?" Trusted home access remains enabled; forgetting a permission does not block Home control. Direct needs its own permission.":" That permission will need physical pairing again.";
+    if(!confirm(`Forget Browser ${entry.slot} (${entry.scope==="direct"?"Direct":"Home"})${self?", this browser":""}?${warning}`)) return;
+    await sendCommand("browsers","forget",`${entry.slot} ${browserView.revision}`);
+  });
   function renderNetwork() {
     const v=networkView;
     const supported=Boolean(live?.network_control && v?.supported && v.epoch===live.epoch);
@@ -1145,14 +1194,29 @@
           }
         } catch {} // Keep unrelated controls usable if this optional snapshot fails.
       }
+      browserView=null;
+      if(data.browser_control) {
+        try {
+          const response=await fetch("/browsers.json",{cache:"no-store",signal:request.signal});
+          if(response.ok) {
+            const view=await response.json();
+            if(view.epoch===data.epoch && Array.isArray(view.entries)) browserView=view;
+          }
+        } catch {} // A metadata failure must not disable ordinary clock controls.
+      }
       showAbout(data.firmware);
       showOverview(data.overview, data);
       if (refreshingSliders) settingsNeedStatus = false;
-      if (token && checkedEpoch !== data.epoch && !busy) {
+      if (token && (checkedEpoch !== data.epoch || (browserView && checkedBrowserRevision!==browserView.revision)) && !busy) {
         const candidate = token;
         const check = await post("/access", candidate);
         if (token === candidate) {
-          if (check.ok) checkedEpoch = data.epoch;
+          if (check.ok) {
+            checkedEpoch = data.epoch;
+            checkedBrowserRevision=browserView?.revision ?? null;
+            selfBrowserSlot=0;
+            try {const own=await check.json();if(own.epoch===data.epoch && own.revision===checkedBrowserRevision) selfBrowserSlot=own.slot;} catch {}
+          }
           else if (check.status === 403) remember(null);
         }
       }
@@ -1172,7 +1236,11 @@
             data.command_result !== "applied" || data.settings?.snapshot_id >= pending.id) &&
           (pending.target !== "settings" && pending.target !== "control" && pending.action !== "stop_sound" && !pending.editor || data.command_result !== "applied" ||
             data.settings?.snapshot_id >= pending.id)) {
-        if(pending.target === "network") {
+        if(pending.target === "browsers") {
+          feedback.textContent=data.command_result==="applied"?
+            "Browser permission forgotten. Wait for settings to save; trusted home access is unchanged.":
+            "Browser list changed elsewhere. Review the refreshed list and try again.";
+        } else if(pending.target === "network") {
           if(data.command_result==="applied") {
             feedback.textContent=pending.action==="cancel"?"Cancellation requested; check network status.":"Network switch scheduled. Follow the Wi-Fi instructions.";
             if(pending.action==="cancel")networkHandoff=null;

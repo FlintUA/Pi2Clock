@@ -29,7 +29,7 @@ static phone_network_view_t published_network;
 static uint32_t published_network_id;
 
 typedef enum {
-    POST_PAIR, POST_TIMER, POST_PLAYER, POST_SETTINGS, POST_ALARM, POST_BIRTHDAY, POST_ACCESS, POST_LOGOUT, POST_CONTROL, POST_CLOCK, POST_BLUETOOTH, POST_NETWORK
+    POST_PAIR, POST_TIMER, POST_PLAYER, POST_SETTINGS, POST_ALARM, POST_BIRTHDAY, POST_ACCESS, POST_LOGOUT, POST_CONTROL, POST_CLOCK, POST_BLUETOOTH, POST_NETWORK, POST_BROWSERS
 } phone_post_action_t;
 
 typedef struct {
@@ -84,6 +84,7 @@ void phone_web_revoke(void) {
     if (!ready) return;
     cyw43_arch_lwip_begin();
     memset(access.settings.browsers, 0, sizeof(access.settings.browsers));
+    phone_access_registry_changed(&access);
     reset_requests_locked();
     access.changed = true;
     cyw43_arch_lwip_end();
@@ -163,6 +164,7 @@ bool phone_web_rotate_password(void) {
     if (restart_direct && !phone_web_set_direct(false)) return false;
     cyw43_arch_lwip_begin();
     new_password_locked();
+    phone_access_registry_changed(&access);
     for (unsigned i = 0; i < PHONE_BROWSER_MAX; ++i)
         if (access.settings.browsers[i].scope == PHONE_SCOPE_DIRECT)
             access.settings.browsers[i] = (phone_browser_t){0};
@@ -279,6 +281,7 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *header,
     else if (strcmp(uri, "/clock") == 0) action = POST_CLOCK;
     else if (strcmp(uri, "/bluetooth") == 0) action = POST_BLUETOOTH;
     else if (strcmp(uri, "/network") == 0) action = POST_NETWORK;
+    else if (strcmp(uri, "/browsers") == 0) action = POST_BROWSERS;
     else if (strcmp(uri, "/alarm") == 0) action = POST_ALARM;
     else if (strcmp(uri, "/birthday") == 0) action = POST_BIRTHDAY;
     else if (strcmp(uri, "/access") == 0) action = POST_ACCESS;
@@ -337,11 +340,18 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_le
             case POST_CLOCK: reply = phone_access_clock(&access, post->body, scope, post->home_peer); break;
             case POST_BLUETOOTH: reply = phone_access_bluetooth(&access,post->body,scope,post->home_peer); break;
             case POST_NETWORK: reply = phone_access_network(&access,post->body,scope,post->home_peer); break;
+            case POST_BROWSERS: reply = phone_access_browsers(&access,post->body,scope,post->home_peer); break;
             case POST_ALARM: reply = phone_access_alarm(&access, post->body, scope, post->home_peer); break;
             case POST_BIRTHDAY: reply = phone_access_birthday(&access, post->body, scope, post->home_peer); break;
             case POST_ACCESS: reply = phone_access_check(&access, post->body, scope); break;
             case POST_LOGOUT: reply = phone_access_logout(&access, post->body, scope); break;
         }
+    }
+    if (post && post->action==POST_ACCESS && reply==PHONE_OK) {
+        unsigned slot=phone_access_browser_slot(&access,post->body,direct_active?PHONE_SCOPE_DIRECT:PHONE_SCOPE_HOME);
+        snprintf(response_uri,response_length,"/browser-self-%u.json",slot);
+        memset(post,0,sizeof(*post));
+        return;
     }
     if (post) memset(post, 0, sizeof(*post));
     snprintf(response_uri, response_length, "%s", reply_path(reply));
@@ -378,24 +388,32 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     const bool snapshot = strcmp(name, "/status.json") == 0;
     const bool bluetooth=strcmp(name,"/bluetooth.json")==0;
     const bool network=strcmp(name,"/network.json")==0;
+    const bool browsers=strcmp(name,"/browsers.json")==0;
+    unsigned self=0;
+    if(strlen(name)==20u && strncmp(name,"/browser-self-",14u)==0 &&
+        name[14]>='1' && name[14]<='4' && strcmp(name+15,".json")==0) self=(unsigned)(name[14]-'0');
     const char *status = NULL;
-    if (!snapshot && !bluetooth && !network) {
+    if (!snapshot && !bluetooth && !network && !browsers && !self) {
         static const char *const codes[] = {"200 OK", "400 Bad Request", "403 Forbidden", "409 Conflict"};
         for (unsigned i = 0; i < sizeof(codes) / sizeof(codes[0]); ++i)
             if (strcmp(name, reply_path((phone_reply_t)i)) == 0) status = codes[i];
         if (!status) return 0;
     }
-    const size_t capacity = network?2048:4096;
+    const size_t capacity = network?2048:(browsers || self)?1024:4096;
     char *response = mem_malloc(capacity);
     if (!response) return 0;
     int len = snprintf(response, capacity, "HTTP/1.0 %s\r\nContent-Type: application/json\r\n"
-        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network ? "200 OK" : status);
+        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network || browsers || self ? "200 OK" : status);
     if (len < 0 || (size_t)len >= capacity) {
         mem_free(response);
         return 0;
     }
     int body_length;
-    if(network) {
+    if(browsers) {
+        body_length=phone_access_browsers_json(response+len,capacity-(size_t)len,&access);
+    } else if(self) {
+        body_length=snprintf(response+len,capacity-(size_t)len,"{\"slot\":%u,\"epoch\":%" PRIu32 ",\"revision\":%" PRIu32 "}",self,access.epoch,access.browser_revision);
+    } else if(network) {
         body_length=phone_network_json(response+len,capacity-(size_t)len,&published_network,access.epoch,published_network_id);
     } else if(bluetooth) {
         body_length=phone_bluetooth_json(response+len,capacity-(size_t)len,&published_bt,access.epoch,published_bt_id);
@@ -406,7 +424,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         _Static_assert(sizeof(results)/sizeof(results[0]) == PHONE_COMMAND_BT_REGISTRY_FULL + 1u, "Missing command result");
         body_length = snprintf(response + len, capacity - (size_t)len,
         "{\"firmware\":{\"name\":\"Speaking Clock\",\"version\":\"%s\",\"build\":\"%s\","
-        "\"board\":\"pico2_w\",\"author\":\"FlintUA\"},\"clock_control\":true,\"bt_control\":true,\"network_control\":true,"
+        "\"board\":\"pico2_w\",\"author\":\"FlintUA\"},\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,"
         "\"time\":\"%s\",\"timer_running\":%s,\"timer_seconds\":%" PRIu32
         ",\"player\":\"%s\",\"track\":%u,\"output\":\"%s\",\"timer_request\":%" PRIu32
         ",\"timer_result\":\"%s\",\"timer_nonce\":%" PRIu32 ",\"epoch\":%" PRIu32
@@ -470,4 +488,13 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 
 void fs_close_custom(struct fs_file *file) {
     mem_free((void *)file->data);
+}
+
+phone_command_result_t phone_web_forget_browser(const phone_command_t *request) {
+    cyw43_arch_lwip_begin();
+    phone_command_result_t result=PHONE_COMMAND_CONFLICT;
+    if(access.last.id==request->id && access.last.nonce==request->nonce && access.result==PHONE_COMMAND_PENDING)
+        result=phone_access_forget_browser(&access,request);
+    cyw43_arch_lwip_end();
+    return result;
 }

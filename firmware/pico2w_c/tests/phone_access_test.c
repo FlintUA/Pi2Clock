@@ -9,7 +9,60 @@
 #define FOURTH "0123456789abcdef0123456789abcde2"
 #define FIFTH "0123456789abcdef0123456789abcde3"
 
+static void browser_registry_tests(void) {
+    phone_access_t a={0};phone_access_reset(&a,777);
+    phone_access_begin(&a,42,1);
+    assert(phone_access_pair(&a,"000042 " TOKEN,2,PHONE_SCOPE_HOME)==PHONE_OK);
+    phone_access_begin(&a,42,3);
+    assert(phone_access_pair(&a,"000042 " OTHER,4,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    assert(phone_access_browser_slot(&a,TOKEN,PHONE_SCOPE_HOME)==1);
+    assert(phone_access_browser_slot(&a,TOKEN,PHONE_SCOPE_DIRECT)==0);
+    assert(phone_access_browser_slot(&a,"bad",PHONE_SCOPE_HOME)==0);
+    char json[512],body[128];
+    assert(phone_access_browsers_json(json,sizeof(json),&a)>0);
+    assert(strstr(json,"home") && strstr(json,"direct"));
+    assert(!strstr(json,TOKEN) && !strstr(json,OTHER) && !strstr(json,"password") && !strstr(json,"token"));
+    assert(phone_access_browsers_json(json,10,&a)==-1);
+    uint32_t rev=a.browser_revision;
+    snprintf(body,sizeof(body),TOKEN " 777 1 11 forget 2 %u",(unsigned)rev);
+    assert(phone_access_network(&a,body,PHONE_SCOPE_HOME,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_DIRECT,false)==PHONE_DENIED);
+    assert(phone_access_browsers(&a,"- 777 1 11 forget 2 1",PHONE_SCOPE_HOME,true)==PHONE_DENIED);
+    assert(phone_access_browsers(&a,TOKEN " 777 1 11 forget 0 1",PHONE_SCOPE_HOME,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,TOKEN " 777 1 11 forget 5 1",PHONE_SCOPE_HOME,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,TOKEN " 777 1 11 forget 2 0",PHONE_SCOPE_HOME,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,TOKEN " 777 1 11 forget 2 4294967296",PHONE_SCOPE_HOME,false)==PHONE_INVALID);
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_HOME,false)==PHONE_OK);
+    assert(phone_access_forget_browser(&a,&a.last)==PHONE_COMMAND_APPLIED);
+    a.result=PHONE_COMMAND_APPLIED;
+    assert(a.browser_revision!=rev && phone_access_check(&a,OTHER,PHONE_SCOPE_DIRECT)==PHONE_DENIED);
+    assert(phone_access_check(&a,TOKEN,PHONE_SCOPE_HOME)==PHONE_OK);
+    rev=a.browser_revision;
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_HOME,false)==PHONE_OK); // Cached response, no repeated removal.
+    assert(a.result==PHONE_COMMAND_APPLIED && a.browser_revision==rev);
+    phone_command_t stale=a.last;
+    phone_access_begin(&a,43,5);
+    assert(phone_access_pair(&a,"000043 " THIRD,6,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    assert(phone_access_forget_browser(&a,&stale)==PHONE_COMMAND_CONFLICT); // Reused slot is protected.
+    assert(phone_access_check(&a,THIRD,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    a.settings.home_trusted=1;
+    snprintf(body,sizeof(body),"- 777 2 12 forget 1 %u",(unsigned)a.browser_revision);
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_HOME,false)==PHONE_DENIED);
+    assert(phone_access_browsers(&a,body,PHONE_SCOPE_HOME,true)==PHONE_OK);
+    assert(phone_access_forget_browser(&a,&a.last)==PHONE_COMMAND_APPLIED);
+    a.result=PHONE_COMMAND_APPLIED;
+    assert(phone_access_check(&a,TOKEN,PHONE_SCOPE_HOME)==PHONE_DENIED);
+    assert(phone_access_check(&a,THIRD,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    assert(a.settings.home_trusted); // Forget does not disable trusted home access.
+    rev=a.browser_revision;
+    assert(phone_access_logout(&a,THIRD,PHONE_SCOPE_DIRECT)==PHONE_OK);
+    assert(a.browser_revision!=rev);
+    a.browser_revision=UINT32_MAX;phone_access_registry_changed(&a);assert(a.browser_revision==1);
+    puts("browser_registry_tests: PASS");
+}
+
 int main(void) {
+    browser_registry_tests();
     const char headers[] = "HTTP/1.1\r\nHoSt: 192.168.4.1\r\nOrigin: http://192.168.4.1";
     const char wrong[] = "HTTP/1.1\r\nHost: 192.168.4.1\r\nOrigin: https://192.168.4.1";
     const char duplicate[] = "HTTP/1.1\r\nHost: 192.168.4.1\r\nHost: 192.168.4.1\r\nOrigin: http://192.168.4.1";

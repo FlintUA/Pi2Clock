@@ -84,11 +84,16 @@ getElementById("bluetooth-controls").querySelectorAll=selector=>selector==="butt
 getElementById("bluetooth-device").replaceChildren=function(...options){this.options=options;};
 const netButtons=["direct","home","cancel"].map(networkAction=>({dataset:{networkAction}}));
 getElementById("network-controls").querySelectorAll=()=>netButtons;
+getElementById("browser-entry").replaceChildren=function(...options){this.options=options;};
+getElementById("browser-controls").querySelectorAll=()=>[getElementById("browser-entry"),getElementById("browser-forget")];
+const browserFixture={epoch:123,revision:1,home_trusted:true,capacity:4,entries:[{slot:1,scope:"home"},{slot:2,scope:"direct"}]};
+let failBrowserRead=false,validBrowserPermission=true,changeRegistryBeforeForget=false,accessChecks=0;
 const document = {getElementById, activeElement: null, addEventListener() {},createElement(){return {value:"",textContent:""};}};
 const context = vm.createContext({
   Date, AbortController, document, setTimeout, clearTimeout,confirm:()=>confirmForget,
   crypto: require("node:crypto").webcrypto, localStorage: {getItem: () => null},
   fetch: async (url, options) => {
+    if(url==="/browsers.json") {if(failBrowserRead)throw new Error("registry unavailable");return {ok:true,json:async()=>structuredClone(browserFixture)};}
     if(url==="/network.json") {if(failNetRead)throw new Error("Network info temporarily unavailable");return {ok:true,json:async()=>structuredClone(netFixture)};}
     if(url==="/bluetooth.json") {
       if(failBtRead)throw new Error("Bluetooth list temporarily unavailable");
@@ -98,7 +103,8 @@ const context = vm.createContext({
       if (failStatusReads) { --failStatusReads; throw new Error("Status temporarily unavailable"); }
       return {ok: true, json: async () => structuredClone(state)};
     }
-    assert(["/settings", "/player", "/control", "/timer", "/clock", "/bluetooth", "/network"].includes(url));
+    if(url==="/access") {++accessChecks;return {ok:validBrowserPermission,status:validBrowserPermission?200:403,json:async()=>({slot:1,epoch:state.epoch,revision:browserFixture.revision})};}
+    assert(["/browsers", "/settings", "/player", "/control", "/timer", "/clock", "/bluetooth", "/network"].includes(url));
     posts.push(options.body);
     if (rejectOnce) {
       rejectOnce = false;
@@ -113,6 +119,14 @@ const context = vm.createContext({
       state.command_id = Number(fields[2]);
       state.command_nonce = Number(fields[3]);
       state.command_result = "applied";
+      if(url==="/browsers") {
+        if(changeRegistryBeforeForget){++browserFixture.revision;changeRegistryBeforeForget=false;}
+        if(Number(fields[6])!==browserFixture.revision) state.command_result="conflict";
+        else {
+          const slot=Number(fields[5]);browserFixture.entries=browserFixture.entries.filter(e=>e.slot!==slot);
+          ++browserFixture.revision;if(slot===1)validBrowserPermission=false;
+        }
+      }
       if(url==="/network") {
         if(fields[4]==="cancel"){netFixture.transition="cancelled";netFixture.seconds=0;}
         else {netFixture.transition="pending";netFixture.target=fields[4];netFixture.seconds=5;}
@@ -669,7 +683,7 @@ async function settled() {
   state.bt_control=true;btFixture.available=true;await update();
   btSelect.value="123456789ABC";btSelect.handlers.change();
   clockForm.elements.date.value="2029-12-10";clockForm.handlers.input();
-  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","network-controls","alarm-controls","birthday-controls"];
+  const visibleRegions=["controls","player-controls","settings-controls","bluetooth-controls","clock-controls","network-controls","browser-controls","alarm-controls","birthday-controls"];
   for(const id of visibleRegions)assert.equal(getElementById(id).hidden,false);
   const beforeDropPosts=posts.length;
   failStatusReads=1;await update();
@@ -715,6 +729,36 @@ async function settled() {
   assert(!getElementById("connection").textContent.includes("lost"));failNetRead=false;
   netFixture.epoch=124;await update();assert(netButtons.every(b=>b.disabled));netFixture.epoch=123;
   state.network_control=false;await update();assert(netButtons.every(b=>b.disabled));
+  state.browser_control=true;await update();
+  const browserSelect=getElementById("browser-entry"),browserRemove=getElementById("browser-forget");
+  const browserClick=browserRemove.handlers.click;
+  assert(!browserRemove.disabled && browserSelect.options.length===2);
+  assert(getElementById("browser-policy").textContent.includes("does not block"));
+  browserSelect.value="2";confirmForget=false;const beforeBrowser=posts.length;
+  await browserClick();assert.equal(posts.length,beforeBrowser);confirmForget=true;
+  changeRegistryBeforeForget=true;await browserClick();await settled();await update();
+  assert.equal(browserFixture.entries.length,2);assert(getElementById("feedback").textContent.includes("changed elsewhere"));
+  const beforeBrowserWrites=writes.filter(w=>w.field==="forget").length;dropResponses=2;
+  await browserClick();await settled();await update();
+  assert.equal(browserFixture.entries.length,1);
+  assert.equal(writes.filter(w=>w.field==="forget").length,beforeBrowserWrites+1);
+  assert(getElementById("feedback").textContent.includes("Connection lost")); // Both replies lost; list still confirms removal.
+  failBrowserRead=true;await update();assert(browserRemove.disabled);
+  assert(!getElementById("connection").textContent.includes("lost"));failBrowserRead=false;
+  browserFixture.epoch=124;await update();assert(browserRemove.disabled);browserFixture.epoch=123;
+  vm.runInContext('remember("0123456789abcdef0123456789abcdef")',context);
+  await update();assert(browserSelect.options[0].textContent.includes("this browser"));assert(accessChecks>0);
+  state.home_trusted=false;await update();
+  assert(getElementById("browser-policy").textContent.includes("ON")); // Saved trust may be ON while this mode/peer still needs a key.
+  browserFixture.home_trusted=false;await update();
+  assert(getElementById("browser-policy").textContent.includes("OFF"));
+  browserSelect.value="1";await browserClick();await settled();await update();
+  assert.equal(browserFixture.entries.length,0);
+  assert(getElementById("feedback").textContent.includes("forgotten"));
+  assert.equal(getElementById("browser-controls").hidden,true); // Self-revocation is reflected without reload.
+  state.home_trusted=true;await update();assert(browserRemove.disabled);
+  assert.equal(getElementById("browser-controls").hidden,false);
+  state.browser_control=false;await update();assert(browserRemove.disabled);
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

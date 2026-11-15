@@ -2639,6 +2639,12 @@ static void service_phone_command(uint64_t now) {
         phone_web_command_complete(request.id, service_phone_schedule(&request));
         return;
     }
+    if(request.action==PHONE_BROWSER_FORGET) {
+        phone_command_result_t result=phone_web_forget_browser(&request);
+        if(result==PHONE_COMMAND_APPLIED) phone_network_cancel(&phone_network_plan);
+        phone_web_command_complete(request.id,result);
+        return;
+    }
     if(request.action>=PHONE_NET_HOME) {
         phone_web_command_complete(request.id,service_phone_network(&request,now));
         return;

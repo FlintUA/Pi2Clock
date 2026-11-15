@@ -27,6 +27,7 @@ typedef enum {
     PHONE_CLOCK_SET, PHONE_CLOCK_SYNC,
     PHONE_BT_SCAN, PHONE_BT_CANCEL, PHONE_BT_DISCONNECT, PHONE_BT_CONNECT, PHONE_BT_FORGET,
     PHONE_NET_HOME, PHONE_NET_DIRECT, PHONE_NET_CANCEL,
+    PHONE_BROWSER_FORGET,
     PHONE_SET_ALARM, PHONE_SET_BIRTHDAY, PHONE_ACTION_COUNT
 } phone_action_t;
 typedef enum { PHONE_OK, PHONE_INVALID, PHONE_DENIED, PHONE_BUSY } phone_reply_t;
@@ -55,7 +56,7 @@ typedef struct {
     uint64_t code_until;
     uint32_t code;
     unsigned attempts;
-    uint32_t epoch;
+    uint32_t epoch, browser_revision;
     bool paired, changed;
     phone_command_t last;
     phone_command_result_t result;
@@ -78,3 +79,10 @@ phone_reply_t phone_access_birthday(phone_access_t *access, const char *body, ui
 uint32_t phone_alarm_revision(const alarm_entry_t *alarm);
 uint64_t phone_birthday_revision(const birthday_t *birthday);
 bool phone_access_same_origin(const char *header, size_t length, const char *address);
+
+// Public metadata only; credentials remain private. Revision is RAM-only.
+void phone_access_registry_changed(phone_access_t *access);
+unsigned phone_access_browser_slot(const phone_access_t *access, const char *token, uint8_t scope);
+int phone_access_browsers_json(char *out, size_t capacity, const phone_access_t *access);
+phone_reply_t phone_access_browsers(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
+phone_command_result_t phone_access_forget_browser(phone_access_t *access, const phone_command_t *request);
