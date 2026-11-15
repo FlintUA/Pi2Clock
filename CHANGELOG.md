@@ -4,7 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
-- Fixed repeated permission-option replacement during browser status polling. The focused native picker retains its nodes and selection; real list changes defer until blur, with Forget blocked against an outdated displayed list. Chrome and production-script checks verify unchanged-poll stability and stale-list protection. Installation and Android visual acceptance pending; see doc/WEB_BROWSER_ACCESS.md.
+- Addressed remaining permission-picker background repaint after +41: periodic visual updates of the whole page defer while the native permission select holds focus, with background polling/access checks retained and current-state rendering resumed after selection/blur. Connection or authorization loss bypasses the hold. Full-body Chrome checks measure zero mutations over five unchanged polls versus 1,105 before; Android visual acceptance and installation remain pending. See doc/WEB_BROWSER_ACCESS.md.
+
+- Fixed repeated permission-option replacement during browser status polling. The focused native picker retains its nodes and selection; real list changes defer until blur, with Forget blocked against an outdated displayed list. Chrome and production-script checks verify unchanged-poll stability and stale-list protection. Installed as 1.0.0+41.g9fd19ab; selection worked but Android flicker persisted, requiring the broader background-render fix. See doc/WEB_BROWSER_ACCESS.md.
 
 - Added a browser-permission list, current-browser identification and confirmed selective revocation with registry-revision/slot-reuse protection and existing deferred autosave. Public metadata contains no keys, passwords or device names. The page explains trusted-home access, refreshes authorization after revocation and keeps unrelated controls usable on metadata failure. No Flash migration or credential editing is introduced. Installed as 1.0.0+40.g9b20f8b; the user reported general function with open-picker flicker, addressed separately. See doc/WEB_BROWSER_ACCESS.md.
 

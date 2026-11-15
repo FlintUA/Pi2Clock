@@ -85,6 +85,7 @@ getElementById("bluetooth-device").replaceChildren=function(...options){this.opt
 const netButtons=["direct","home","cancel"].map(networkAction=>({dataset:{networkAction}}));
 getElementById("network-controls").querySelectorAll=()=>netButtons;
 getElementById("browser-entry").replaceChildren=function(...options){this.options=options;};
+getElementById("browser-entry").blur=function(){document.activeElement=null;this.handlers.blur?.();};
 getElementById("browser-controls").querySelectorAll=()=>[getElementById("browser-entry"),getElementById("browser-forget")];
 const browserFixture={epoch:123,revision:1,home_trusted:true,capacity:4,entries:[{slot:1,scope:"home"},{slot:2,scope:"direct"}]};
 let failBrowserRead=false,validBrowserPermission=true,changeRegistryBeforeForget=false,accessChecks=0;
@@ -737,11 +738,16 @@ async function settled() {
   document.activeElement=browserSelect;
   for(let i=0;i<5;++i)await update();
   assert.strictEqual(browserSelect.options,initialOptions);assert.equal(browserSelect.value,"2");
+  assert.equal(vm.runInContext("live.command_id",context),state.command_id); // Polling still runs during the visual hold.
+  const displayedTime=getElementById("time").textContent;state.time="12:35:07";await update();
+  assert.equal(getElementById("time").textContent,displayedTime);
+  assert.equal(vm.runInContext("live.time",context),state.time);
   ++browserFixture.revision;browserFixture.entries[1]={slot:2,scope:"home"};
-  await update();assert.strictEqual(browserSelect.options,initialOptions);assert(browserRemove.disabled);
+  await update();assert.strictEqual(browserSelect.options,initialOptions);
   const deferredPosts=posts.length;await browserRemove.handlers.click();assert.equal(posts.length,deferredPosts);
-  document.activeElement=null;browserSelect.handlers.blur();
+  document.activeElement=null;browserSelect.handlers.blur();await update();
   assert.notStrictEqual(browserSelect.options,initialOptions);assert.equal(browserSelect.value,"2");
+  assert.equal(getElementById("time").textContent,state.time);
   assert(browserSelect.options[1].textContent.includes("Home"));assert(!browserRemove.disabled);
   const refreshedOptions=browserSelect.options;await update();assert.strictEqual(browserSelect.options,refreshedOptions);
 
@@ -771,6 +777,19 @@ async function settled() {
   state.home_trusted=true;await update();assert(browserRemove.disabled);
   assert.equal(getElementById("browser-controls").hidden,false);
   state.browser_control=false;await update();assert(browserRemove.disabled);
+  // Revocation and connection failure must bypass the visual hold immediately.
+  state.browser_control=true;state.home_trusted=false;validBrowserPermission=true;
+  browserFixture.entries=[{slot:1,scope:"home"}];++browserFixture.revision;
+  vm.runInContext('remember("0123456789abcdef0123456789abcdef")',context);await update();
+  document.activeElement=browserSelect;failStatusReads=1;await update();
+  assert(browserSelect.disabled && browserRemove.disabled);
+  assert(getElementById("connection").textContent.includes("Connection lost"));
+  document.activeElement=null;await update();document.activeElement=browserSelect;
+  validBrowserPermission=false;++browserFixture.revision;browserFixture.entries=[];
+  await update();assert.equal(getElementById("browser-controls").hidden,true);
+  assert.equal(vm.runInContext("token",context),null);
+  document.activeElement=null;
+
   console.log("phone_sliders_test: PASS");
 })().catch(error => {
   console.error(error);

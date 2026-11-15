@@ -316,3 +316,5 @@ State/address display and confirmed/cancellable HOME/Direct requests are install
 Version `1.0.0+40.g9b20f8b` lists the four saved Home/Direct permissions, marks the current browser and supports confirmed selective removal with stale-list protection. Existing keys/storage and home-trust policy are retained. Forgetting a saved permission does not block trusted Home access. See [behavior, protocol and acceptance](../../doc/WEB_BROWSER_ACCESS.md).
 
 The user reported general function with flickering while the native permission picker was open. A separate candidate avoids unchanged option replacement and defers actual list changes until the picker loses focus; Android visual acceptance of that fix is pending.
+
+The first option-node fix was installed as +41, but Android flicker persisted. The next candidate holds whole-page periodic rendering while the permission select has focus, retains background polling/access checks, and resumes latest-state display on selection/blur. Connection/authentication loss still takes effect immediately. Full-body Chrome verification is separate from pending Android acceptance.

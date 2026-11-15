@@ -282,3 +282,7 @@ See [scope and acceptance](WEB_BROWSER_ACCESS.md). Native access tests cover reg
 ### Focused permission-picker stability
 
 The installed +40 page caused five focused-select child-list replacements over five status polls. The fix preserves option identity and value across unchanged polls, defers real registry changes while focused and blocks Forget until displayed metadata is current. Production JavaScript checks cover focus/blur and stale removal; Chrome fixtures at 360/412/960 pixels measure zero unchanged select mutations and verify deferred update, retained selection, confirmation, failure isolation and no navigation. Actual Android visual acceptance remains pending separately approved installation. See WEB_BROWSER_ACCESS.md.
+
+### Continued picker flicker: background-render hold
+
+The +41 select-only fix failed user visual acceptance. Full-body observation, rather than select-only observation, measured 1,105 mutations over five unchanged polls; the new hold measures zero body/select mutations at 360/412/960 pixels. Background polling/data stay current while the displayed clock is held, then catch up on blur/selection. Native JS checks cover deferred removal, connection loss and self-revocation while focused. Pending-command timeout text is also deferred. Actual Android cancellation/focus behavior and visual stability still require user acceptance after installation. See WEB_BROWSER_ACCESS.md.

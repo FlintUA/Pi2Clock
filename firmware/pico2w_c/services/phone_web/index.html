@@ -533,7 +533,14 @@
       else localStorage.removeItem(storageKey);
     } catch {}
   }
+  function browserPickerFocused() {
+    return document.activeElement===browserEntry && Boolean(live &&
+      (live.home_trusted || (token && checkedEpoch===live.epoch)));
+  }
   function updateControls() {
+    // Background repaint can disturb Android's native modal picker even when
+    // its own option nodes are unchanged. Authorization loss bypasses this hold.
+    if(browserPickerFocused()) return;
     const paired = Boolean(live && token && checkedEpoch === live.epoch);
     const allowed = Boolean(live && (live.home_trusted || paired));
     if(live) authorizedLayout=allowed;
@@ -856,11 +863,17 @@
       "Trusted home access is ON: devices admitted from the trusted home network can control the clock. Forgetting a saved permission does not block that home access. Direct still requires a saved permission.":
       "Trusted home access is OFF: a forgotten browser must pair again for its removed Home or Direct permission.";
   }
-  browserEntry.addEventListener("change",renderBrowsers);
-  browserEntry.addEventListener("blur",renderBrowsers);
+  browserEntry.addEventListener("change",()=>{
+    browserEntry.blur();
+    pollStatusSoon(0);
+  });
+  browserEntry.addEventListener("blur",()=>{
+    renderBrowsers();
+    pollStatusSoon(0);
+  });
   browserControls.addEventListener("submit",event=>event.preventDefault());
   browserForget.addEventListener("click",async()=>{
-    if(busy || pending || !live || !browserView || browserView.epoch!==live.epoch) return;
+    if(busy || pending || browserPickerFocused() || !live || !browserView || browserView.epoch!==live.epoch) return;
     const entry=browserView.entries.find(item=>String(item.slot)===browserEntry.value);
     if(!entry || browserForget.disabled) return;
     const self=token && checkedEpoch===live.epoch && checkedBrowserRevision===browserView.revision && selfBrowserSlot===entry.slot;
@@ -1212,9 +1225,6 @@
           }
         } catch {} // A metadata failure must not disable ordinary clock controls.
       }
-      showAbout(data.firmware);
-      showOverview(data.overview, data);
-      if (refreshingSliders) settingsNeedStatus = false;
       if (token && (checkedEpoch !== data.epoch || (browserView && checkedBrowserRevision!==browserView.revision)) && !busy) {
         const candidate = token;
         const check = await post("/access", candidate);
@@ -1228,6 +1238,12 @@
           else if (check.status === 403) remember(null);
         }
       }
+      // Keep fetching and checking access while the native picker has focus,
+      // but apply visual updates only after it closes. No commands are replayed.
+      if(browserPickerFocused()) return;
+      showAbout(data.firmware);
+      showOverview(data.overview, data);
+      if (refreshingSliders) settingsNeedStatus = false;
       labels.connection.textContent = data.home_trusted ? "Trusted home network" : "Live status";
       labels.time.textContent = data.time || "RTC unavailable";
       labels.timer.textContent = data.overview?.timer_sound_id ? "Finished · announcement playing" : (data.timer_running ? "Running · " : "Set · ") + duration(data.timer_seconds);
@@ -1347,7 +1363,7 @@
       labels.connection.textContent = "Connection lost. Showing last received values; controls paused. Reconnecting…";
       saveStatus.textContent = "Saved state unavailable while disconnected.";
     } finally {
-      if (pending && Date.now() >= pending.until) {
+      if (!browserPickerFocused() && pending && Date.now() >= pending.until) {
         pending = null;
         feedback.textContent = "No confirmation. Check the live status before trying again.";
       }
