@@ -97,6 +97,25 @@ static bool read_number(const char **text, uint32_t *value) {
     return true;
 }
 
+phone_reply_t phone_access_ota(const phone_access_t *access,const char *body,uint8_t scope,bool home_peer,char owner[33],const char **payload) {
+    const char *p=body;
+    if(!strncmp(p,"- ",2)) {
+        if(scope!=PHONE_SCOPE_HOME || !home_peer || !access->settings.home_trusted)return PHONE_DENIED;
+        strcpy(owner,"-");p+=2;
+    } else {
+        if(strlen(p)<=PHONE_TOKEN_LEN || p[PHONE_TOKEN_LEN]!=' ')return PHONE_INVALID;
+        memcpy(owner,p,PHONE_TOKEN_LEN);owner[PHONE_TOKEN_LEN]=0;
+        phone_reply_t reply=phone_access_check(access,owner,scope);
+        if(reply!=PHONE_OK)return reply;
+        p+=PHONE_TOKEN_LEN+1;
+    }
+    uint32_t epoch;
+    if(!read_number(&p,&epoch) || *p++!=' ' || !*p)return PHONE_INVALID;
+    if(epoch!=access->epoch)return PHONE_DENIED;
+    if(access->last.id && access->result==PHONE_COMMAND_PENDING)return PHONE_BUSY;
+    *payload=p;return PHONE_OK;
+}
+
 phone_reply_t phone_access_pair(phone_access_t *access, const char *body, uint64_t now, uint8_t scope) {
     if (strlen(body) != 7u + PHONE_TOKEN_LEN || body[6] != ' ' ||
         !phone_hex_valid(body + 7, PHONE_TOKEN_LEN)) return PHONE_INVALID;

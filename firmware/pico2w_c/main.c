@@ -31,6 +31,7 @@
 #include "settings_store.h"
 #ifdef CLOCK_ENABLE_OTA_AB
 #include "ota_boot.h"
+#include "phone_ota.h"
 #endif
 #include "clock_time.h"
 #include "firmware_version.h"
@@ -4048,6 +4049,9 @@ static void handle_command(char *line) {
     size_t len = strlen(line);
     while (len && isspace((unsigned char)line[len - 1])) line[--len] = 0;
 #ifdef CLOCK_ENABLE_OTA_AB
+    if(phone_ota_busy() && strcmp(line,"ota-status") && strcmp(line,"flash-info") && strcmp(line,"version")) {
+        puts("[OTA] Update in progress; controls paused until completion/cancellation");return;
+    }
     if(!clock_ota_writes_allowed() && strcmp(line,"ota-status") && strcmp(line,"flash-info") && strcmp(line,"version") && strncmp(line,"bootsel ",8)) {
         puts("[OTA] Command refused until startup/trial is accepted");return;
     }
@@ -5321,6 +5325,22 @@ int main(void) {
             printf("[AUDIO-ROUTE] bluetooth=%s effective=%s (test routing only)\n",
                    bt_ready ? "STREAM_ACTIVE" : "OFFLINE",
                    audio_router_name(audio_router.effective));
+        }
+#endif
+#ifdef CLOCK_ENABLE_OTA_AB
+        bool ota_idle=phone_network_idle() && !autosave_pending && !phone_wifi_busy(&phone_wifi_plan) &&
+            phone_network_plan.state!=PHONE_NET_PENDING;
+#ifdef CLOCK_ENABLE_A2DP
+        ota_idle=ota_idle && !clock_a2dp_stream_active() && !clock_a2dp_autoconnect_enabled() && !bt_pending_target_valid;
+#endif
+        phone_ota_service(ota_idle,to_ms_since_boot(get_absolute_time()),phone_web_epoch());
+        if(phone_ota_busy()) {
+            if(lcd_ok && strcmp(last_top,"Firmware update")) {
+                lcd1602_set_cursor(0,0,LCD1602_CURSOR_OFF);
+                lcd1602_write_line(0,"Firmware update");lcd1602_write_line(1,"Use web browser");
+                snprintf(last_top,sizeof(last_top),"Firmware update");snprintf(last_bottom,sizeof(last_bottom),"Use web browser");
+            }
+            poll_serial();sleep_ms(5);continue;
         }
 #endif
         poll_serial();

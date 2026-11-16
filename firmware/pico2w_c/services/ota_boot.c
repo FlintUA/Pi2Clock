@@ -41,6 +41,7 @@ void clock_ota_boot_init(void){
 }
 bool clock_ota_layout_verified(void){return verified;}
 bool clock_ota_writes_allowed(void){return verified && confirmed && !pending && !failed;}
+bool clock_ota_get_layout(clock_ota_layout_t *out){if(!clock_ota_writes_allowed())return false;*out=layout;return true;}
 bool clock_ota_startup_confirm(bool healthy){
     if(!verified || failed)return false;
     if(pending){
@@ -56,7 +57,7 @@ bool clock_ota_startup_confirm(bool healthy){
     confirmed=true;return true;
 }
 void clock_ota_status(void){
-    printf("[OTA] layout=%s active=%c trial=%s accepted=%s writes=%s upload=NOT_IMPLEMENTED\n",
+    printf("[OTA] layout=%s active=%c trial=%s accepted=%s writes=%s upload=WEB\n",
         verified?"OK":"INVALID",layout.boot_partition==0?'A':layout.boot_partition==1?'B':'?',pending?"YES":"NO",confirmed?"YES":"NO",clock_ota_writes_allowed()?"YES":"NO");
 }
 bool clock_ota_trial_inactive(bool idle){

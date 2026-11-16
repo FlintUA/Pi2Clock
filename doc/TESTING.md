@@ -308,3 +308,10 @@ The explicit-Connect regression additionally reuses a command ID under a new epo
 ## OTA A/B foundation candidate
 
 Thirty host checks include exact A/B ranges/inactive-slot policy, ROM table/query/source mapping and buy/reboot error handling, physical-tail settings reads under translated-image simulation, write blocking before acceptance and UF2 package-role/order/bounds validation. The three opt-in image roles use ordered ROM versions, verified hashes and explicit trial attributes. Ordinary source behavior remains behind the opt-in guard. See OTA_FOUNDATION.md for reviewed migration, mandatory private backup, physical acceptance gates and still-unimplemented browser upload. No live Flash/OTP operation was performed during this development stage.
+
+
+## Browser OTA candidate - 2026-11-16
+
+Thirty-three registered checks pass with Node.js and Python available. New checks cover inactive A/B upload ranges, preserved active/table/tail bytes, strict offsets/chunk sizes, incomplete images, erased-until-verified first sector, cancellation/timeout and injected erase/program/validation errors. Metadata tests reject wrong CPU/non-trial/version/header blocks. Browser-script tests exercise file validation, chunk/progress flow and separate install confirmation. Package tests cover the slot-independent header, payload digest and invalid sizes/versions/build IDs. Access tests cover Home trust/peer checks, Direct token scope, stale epochs, integer overflow and pending-command exclusion. Both ordinary and OTA SDK profiles build. See [browser-update limitations and pending hardware checks](OTA_WEB_UPDATE.md).
+
+Foundation device evidence is recorded separately in [OTA_FOUNDATION.md](OTA_FOUNDATION.md). A passing host suite does not establish actual HTTP/Flash timing, memory peaks or failure recovery during radio traffic.

@@ -2,6 +2,14 @@
 #include "network_time.h"
 #include "wifi_scan.h"
 #include "firmware_version.h"
+#ifdef CLOCK_ENABLE_OTA_AB
+#define OTA_WEB_ENABLED "true"
+#else
+#define OTA_WEB_ENABLED "false"
+#endif
+#ifdef CLOCK_ENABLE_OTA_AB
+#include "phone_ota.h"
+#endif
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -35,7 +43,7 @@ static bool wifi_scan_owned;
 static uint64_t wifi_scan_deadline;
 
 typedef enum {
-    POST_PAIR, POST_TIMER, POST_PLAYER, POST_SETTINGS, POST_ALARM, POST_BIRTHDAY, POST_ACCESS, POST_LOGOUT, POST_CONTROL, POST_CLOCK, POST_BLUETOOTH, POST_NETWORK, POST_BROWSERS, POST_WIFI
+    POST_PAIR, POST_TIMER, POST_PLAYER, POST_SETTINGS, POST_ALARM, POST_BIRTHDAY, POST_ACCESS, POST_LOGOUT, POST_CONTROL, POST_CLOCK, POST_BLUETOOTH, POST_NETWORK, POST_BROWSERS, POST_WIFI, POST_OTA
 } phone_post_action_t;
 
 typedef struct {
@@ -43,7 +51,11 @@ typedef struct {
     phone_post_action_t action;
     bool home_peer;
     uint16_t length, received;
-    char body[288]; // Wi-Fi: at most 264 bytes including encoded credentials.
+#ifdef CLOCK_ENABLE_OTA_AB
+    char body[1200]; // One bounded, hex-encoded 512-byte OTA chunk.
+#else
+    char body[288];
+#endif
 } phone_post_t;
 
 static phone_post_t posts[4];
@@ -289,6 +301,9 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *header,
     else if (strcmp(uri, "/network") == 0) action = POST_NETWORK;
     else if (strcmp(uri, "/browsers") == 0) action = POST_BROWSERS;
     else if (strcmp(uri, "/wifi") == 0) action = POST_WIFI;
+#ifdef CLOCK_ENABLE_OTA_AB
+    else if (strcmp(uri, "/ota") == 0) action = POST_OTA;
+#endif
     else if (strcmp(uri, "/alarm") == 0) action = POST_ALARM;
     else if (strcmp(uri, "/birthday") == 0) action = POST_BIRTHDAY;
     else if (strcmp(uri, "/access") == 0) action = POST_ACCESS;
@@ -299,7 +314,7 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *header,
         snprintf(response_uri, response_length, "%s", reply_path(PHONE_DENIED));
         return ERR_ARG;
     }
-    if (length < 1 || (size_t)length >= sizeof(posts[0].body)) {
+    if (length < 1 || (size_t)length >= sizeof(posts[0].body) || (action!=POST_OTA && length>=288)) {
         snprintf(response_uri, response_length, "%s", reply_path(PHONE_INVALID));
         return ERR_ARG;
     }
@@ -338,7 +353,16 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_le
     if (post && post->received == post->length && !memchr(post->body, '\0', post->length)) {
         post->body[post->length] = '\0';
         uint8_t scope = direct_active ? PHONE_SCOPE_DIRECT : PHONE_SCOPE_HOME;
+#ifdef CLOCK_ENABLE_OTA_AB
+        if(post->action==POST_OTA) {
+            char owner[33];const char *payload=NULL;
+            reply=phone_access_ota(&access,post->body,scope,post->home_peer,owner,&payload);
+            if(reply==PHONE_OK && !phone_ota_submit(payload,owner,access.epoch))reply=PHONE_BUSY;
+        } else if(phone_ota_busy() && post->action!=POST_ACCESS) reply=PHONE_BUSY;
+        else
+#endif
         switch (post->action) {
+            case POST_OTA: break;
             case POST_PAIR: reply = phone_access_pair(&access, post->body, now_ms(), scope); break;
             case POST_TIMER: reply = phone_access_timer(&access, post->body, scope, post->home_peer); break;
             case POST_PLAYER: reply = phone_access_player(&access, post->body, scope, post->home_peer); break;
@@ -422,6 +446,10 @@ static int wifi_scan_json(char *out,size_t capacity){
 }
 
 int fs_open_custom(struct fs_file *file, const char *name) {
+    bool ota=false;
+#ifdef CLOCK_ENABLE_OTA_AB
+    ota=strcmp(name,"/ota.json")==0;
+#endif
     const bool snapshot = strcmp(name, "/status.json") == 0;
     const bool bluetooth=strcmp(name,"/bluetooth.json")==0;
     const bool network=strcmp(name,"/network.json")==0;
@@ -432,7 +460,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     if(strlen(name)==20u && strncmp(name,"/browser-self-",14u)==0 &&
         name[14]>='1' && name[14]<='4' && strcmp(name+15,".json")==0) self=(unsigned)(name[14]-'0');
     const char *status = NULL;
-    if (!snapshot && !bluetooth && !network && !browsers && !self && !wifi && !scan) {
+    if (!snapshot && !bluetooth && !network && !browsers && !self && !wifi && !scan && !ota) {
         static const char *const codes[] = {"200 OK", "400 Bad Request", "403 Forbidden", "409 Conflict"};
         for (unsigned i = 0; i < sizeof(codes) / sizeof(codes[0]); ++i)
             if (strcmp(name, reply_path((phone_reply_t)i)) == 0) status = codes[i];
@@ -442,13 +470,19 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     char *response = mem_malloc(capacity);
     if (!response) return 0;
     int len = snprintf(response, capacity, "HTTP/1.0 %s\r\nContent-Type: application/json\r\n"
-        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network || browsers || self || wifi || scan ? "200 OK" : status);
+        "Cache-Control: no-store\r\nConnection: close\r\n\r\n", snapshot || bluetooth || network || browsers || self || wifi || scan || ota ? "200 OK" : status);
     if (len < 0 || (size_t)len >= capacity) {
         mem_free(response);
         return 0;
     }
     int body_length;
-    if(scan) {
+    if(ota) {
+#ifdef CLOCK_ENABLE_OTA_AB
+        body_length=phone_ota_json(response+len,capacity-(size_t)len);
+#else
+        body_length=-1;
+#endif
+    } else if(scan) {
         body_length=wifi_scan_json(response+len,capacity-(size_t)len);
     } else if(wifi) {
         body_length=wifi_json(response+len,capacity-(size_t)len);
@@ -467,7 +501,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         _Static_assert(sizeof(results)/sizeof(results[0]) == PHONE_COMMAND_BT_REGISTRY_FULL + 1u, "Missing command result");
         body_length = snprintf(response + len, capacity - (size_t)len,
         "{\"firmware\":{\"name\":\"Speaking Clock\",\"version\":\"%s\",\"build\":\"%s\","
-        "\"board\":\"pico2_w\",\"author\":\"FlintUA\"},\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,\"wifi_control\":true,"
+        "\"board\":\"pico2_w\",\"author\":\"FlintUA\"},\"ota_control\":" OTA_WEB_ENABLED ",\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,\"wifi_control\":true,"
         "\"time\":\"%s\",\"timer_running\":%s,\"timer_seconds\":%" PRIu32
         ",\"player\":\"%s\",\"track\":%u,\"output\":\"%s\",\"timer_request\":%" PRIu32
         ",\"timer_result\":\"%s\",\"timer_nonce\":%" PRIu32 ",\"epoch\":%" PRIu32

@@ -68,6 +68,7 @@ void phone_access_begin(phone_access_t *access, uint32_t code, uint64_t now);
 void phone_access_reset(phone_access_t *access, uint32_t epoch);
 phone_reply_t phone_access_pair(phone_access_t *access, const char *body, uint64_t now, uint8_t scope);
 phone_reply_t phone_access_check(const phone_access_t *access, const char *token, uint8_t scope);
+phone_reply_t phone_access_ota(const phone_access_t *access,const char *body,uint8_t scope,bool home_peer,char owner[33],const char **payload);
 phone_reply_t phone_access_logout(phone_access_t *access, const char *token, uint8_t scope);
 phone_reply_t phone_access_timer(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);
 phone_reply_t phone_access_player(phone_access_t *access, const char *body, uint8_t scope, bool home_peer);

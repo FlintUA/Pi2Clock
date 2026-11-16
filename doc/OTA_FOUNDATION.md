@@ -1,6 +1,6 @@
 # OTA foundation - A/B bring-up stage
 
-Status: implemented candidate; NOT installed or hardware-accepted. This is the first gate of the OTA plan, not a completed browser updater. Firmware upload over HTTP remains unavailable and ota-status explicitly reports upload=NOT_IMPLEMENTED. The installed clock remains on the previously accepted ordinary firmware until separate migration approval.
+Status: initial migration, deliberate-rejection rollback and successful acceptance into B were installed with separate approvals on 2026-11-16. The user accepted ordinary operation after each gate and reported success after the requested power-cycle check; serial inspection then confirmed accepted B. Browser upload is a new [uninstalled candidate](OTA_WEB_UPDATE.md), separate from this foundation evidence.
 
 ## Scope and invariants
 
@@ -73,7 +73,9 @@ The serial arm/confirm path requires an idle, accepted application and saved set
 
 Thirty registered checks pass, including new partition/range tests, real boot-adapter tests with mocked ROM responses and errors, physical-versus-translated settings tests, trial write blocking and Python packaging/header/identity tests. The existing tests still cover v1-v18 records, alarms, birthdays, audio control and browser workflow. SDK builds cover ordinary, initial, TBYB-accept and TBYB-reject profiles. picotool verifies embedded image hashes, versions and trial attributes; file-only parsing verifies package address bounds.
 
-Not yet verified: physical partition boot/translation, TBYB timing/rollback/acceptance, power interruption during installation/trial, USB driver/device backup on this host, peak runtime RAM and later authenticated Home/Direct upload. No hardware acceptance is inferred from the host tests.
+Device evidence on 2026-11-16: a private full 4 MiB Flash backup was saved twice, readback-verified and SHA-256 matched before migration. Initial A booted with layout=OK/guard=OK. The deliberate-rejection B reported trial=YES accepted=NO writes=NO, then automatically returned to A about 24 seconds after the request. The corrected B was explicitly accepted and stayed active beyond that interval. Pre/post serial and HTTP comparisons preserved scalar settings, five alarms, fifteen birthdays, four saved speakers, two Wi-Fi profiles, browser entries and Home policy. The user confirmed ordinary operation after each stage. After the requested user power-cycle test, serial reported layout=OK active=B trial=NO accepted=YES writes=YES. The installed build is b7adb188bc4d-bt-mp3-wifi-phone-ota2-trial, version 1.0.0+47.gb7adb18; its historical upload status remains NOT_IMPLEMENTED. Private backups and logs are off-repository and contain no published credentials.
+
+Not yet verified: rollback in the opposite direction after accepting B, power interruption during installation/trial, peak runtime RAM and authenticated Home/Direct upload. No additional hardware acceptance is inferred from host tests.
 
 ## Follow-up after the boot gate
 

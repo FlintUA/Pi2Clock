@@ -350,6 +350,21 @@
     <p data-record-status role="status"></p>
   </form>
   <p id="feedback" role="status"></p>
+  <section id="firmware-update" hidden aria-labelledby="firmware-heading">
+    <h2 id="firmware-heading">Firmware update</h2>
+    <p id="firmware-current"></p>
+    <p>Choose a Speaking Clock update file (.clockota). During the update, clock controls and scheduled sounds are paused. Keep power connected.</p>
+    <label for="firmware-file">Update file</label>
+    <input id="firmware-file" type="file" accept=".clockota">
+    <p id="firmware-file-info"></p>
+    <progress id="firmware-progress" max="100" value="0" aria-label="Firmware upload progress" style="width:100%"></progress>
+    <p id="firmware-status" role="status">Waiting for device information.</p>
+    <div class="actions">
+      <button id="firmware-upload" type="button" disabled>Upload update</button>
+      <button id="firmware-install" type="button" disabled>Install and restart</button>
+      <button id="firmware-cancel" type="button" disabled>Cancel update</button>
+    </div>
+  </section>
   <details id="about">
     <summary>About</summary>
     <dl>
@@ -525,6 +540,99 @@
   try { token = localStorage.getItem(storageKey); } catch {}
   if (!/^[0-9a-f]{32}$/.test(token || "")) token = null;
   let busy = false, pending = null, live = null, edited = false;
+  let otaView=null, otaFile=null, otaTransfer=false, otaSession=0, otaStop=false, otaRestart=null, otaNotice="";
+  const otaPanel=document.getElementById("firmware-update"), otaInput=document.getElementById("firmware-file");
+  const otaUpload=document.getElementById("firmware-upload"), otaInstall=document.getElementById("firmware-install"), otaCancel=document.getElementById("firmware-cancel");
+  const otaMessage=document.getElementById("firmware-status"), otaProgress=document.getElementById("firmware-progress");
+  function otaLocked() {return otaTransfer || ["receiving","ready","rebooting"].includes(otaView?.state);}
+  function renderFirmware(allowed) {
+    otaPanel.hidden=!allowed || !otaView?.supported;
+    document.getElementById("firmware-current").textContent=live?.firmware ? "Installed: "+live.firmware.version+" - slot "+(otaView?.active || "?") : "";
+    otaUpload.disabled=!allowed || !otaFile || !otaView?.available || otaTransfer || busy || Boolean(pending) || dirtySettings.size>0 || settingChanges.size>0;
+    otaInstall.disabled=!allowed || otaTransfer || otaView?.state!=="ready" || otaView.session!==otaSession;
+    otaCancel.disabled=!allowed || !["receiving","ready"].includes(otaView?.state) || otaView.session!==otaSession;
+    otaInput.disabled=otaLocked();
+    if(otaView?.size) otaProgress.value=Math.floor(100*otaView.received/otaView.size);
+    if(otaRestart && live && live.epoch!==otaRestart.epoch) {
+      otaMessage.textContent=live.firmware?.build===otaRestart.build ? "Update installed. The clock is ready." :
+        "The clock restarted with a different build. The previous firmware may have been restored. Check About.";
+      otaRestart=null;
+    } else if(!otaTransfer && !otaRestart) {
+      const messages={idle:otaView?.available?"Ready for an update.":"Stop playback/timers, disconnect Bluetooth and close clock editors before updating.",
+        receiving:"Uploading update. Keep this page open.",ready:"File verified. Ready to install, or cancel to keep the current firmware.",
+        rebooting:"Restarting. Wait for the clock to reconnect.",error:"Update stopped: "+(otaView?.error || "unknown error")+". Current firmware retained."};
+      if(otaView)otaMessage.textContent=otaNotice || messages[otaView.state] || "Checking update status...";
+    }
+  }
+  const otaHex=bytes=>Array.from(bytes,x=>x.toString(16).padStart(2,"0")).join("");
+  function inspectOtaHeader(bytes,fileSize,current) {
+    if(bytes.length!==128 || String.fromCharCode(...bytes.slice(0,8))!=="CLOCKOT1")throw Error("Choose a .clockota file prepared for these clocks.");
+    const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),size=v.getUint32(12,true),sequence=v.getUint32(16,true);
+    if(v.getUint32(8,true)!==0x23500002 || v.getUint32(20,true)!==1 || size<4096 || size>0x180000 || fileSize!==128+size || sequence<=current || sequence>65535)throw Error("Wrong board, size, or update version. Select a newer compatible file.");
+    if(bytes.slice(120).some(x=>x))throw Error("Unsupported update format.");
+    const raw=bytes.slice(56,120),end=raw.indexOf(0);
+    if(end<1 || raw.slice(end).some(x=>x) || raw.slice(0,end).some(x=>x<32 || x>126))throw Error("Invalid build information.");
+    return {size,sequence,build:String.fromCharCode(...raw.slice(0,end))};
+  }
+  otaInput.addEventListener("change",async()=>{
+    otaFile=null;otaNotice="";document.getElementById("firmware-file-info").textContent="";
+    try {
+      const file=otaInput.files[0];if(!file)return;
+      const header=new Uint8Array(await file.slice(0,128).arrayBuffer());
+      const metadata=inspectOtaHeader(header,file.size,otaView?.current_sequence || 0);
+      otaFile={file,header,...metadata};
+      document.getElementById("firmware-file-info").textContent=metadata.build+" - "+Math.ceil(metadata.size/1024)+" KiB";
+    }catch(error){otaNotice=error.message;otaMessage.textContent=otaNotice;}
+    updateControls();
+  });
+  async function otaStatus() {
+    const response=await fetch("/ota.json",{cache:"no-store",signal:AbortSignal.timeout(5000)});
+    if(!response.ok)throw Error("Update status unavailable. Reconnect to the clock.");
+    otaView=await response.json();return otaView;
+  }
+  async function otaSend(action,offset=0,data="-") {
+    const credential=live?.home_trusted?"-":checkedEpoch===live?.epoch?token:null;
+    if(!credential)throw Error("Browser access required.");
+    const response=await fetch("/ota",{method:"POST",body:[credential,live.epoch,action,otaSession,offset,data].join(" "),signal:AbortSignal.timeout(8000)});
+    if(!response.ok)throw Error("Update request refused. Check access and update status.");
+    for(let i=0;i<100;i++) {
+      const s=await otaStatus();
+      if(s.state==="error")throw Error("Update stopped: "+s.error);
+      if(action==="begin" && s.session===otaSession && s.state==="receiving" ||
+         action==="chunk" && s.session===otaSession && s.received===offset+data.length/2 ||
+         action==="finish" && s.session===otaSession && s.state==="ready" ||
+         action==="cancel" && s.state==="idle" || action==="apply" && s.state==="rebooting")return;
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
+    throw Error("No confirmation. Reconnect and check the update status.");
+  }
+  otaUpload.addEventListener("click",async()=>{
+    if(otaUpload.disabled)return;
+    otaNotice="";otaTransfer=true;otaStop=false;otaSession=crypto.getRandomValues(new Uint32Array(1))[0] || 1;updateControls();
+    try {
+      await otaSend("begin",0,otaHex(otaFile.header));
+      for(let at=0;at<otaFile.size && !otaStop;at+=512) {
+        const chunk=new Uint8Array(await otaFile.file.slice(128+at,128+Math.min(at+512,otaFile.size)).arrayBuffer());
+        await otaSend("chunk",at,otaHex(chunk));
+        otaProgress.value=Math.floor(100*otaView.received/otaFile.size);
+        otaMessage.textContent="Uploading: "+otaProgress.value+"%";
+      }
+      if(otaStop)await otaSend("cancel");else await otaSend("finish");
+    }catch(error){otaNotice=error.message+" The running firmware is retained. Cancel or wait two minutes for automatic cancellation.";otaMessage.textContent=otaNotice;}
+    finally{otaTransfer=false;updateControls();}
+  });
+  otaCancel.addEventListener("click",async()=>{
+    if(otaTransfer){otaStop=true;otaMessage.textContent="Cancelling after the current block...";return;}
+    try{await otaSend("cancel");otaNotice="";}catch(error){otaNotice=error.message;otaMessage.textContent=otaNotice;}
+    updateControls();
+  });
+  otaInstall.addEventListener("click",async()=>{
+    if(otaInstall.disabled || !confirm("Install the verified update and restart the clock? Keep power connected."))return;
+    otaRestart={epoch:live.epoch,build:otaFile?.build};
+    try{await otaSend("apply");otaMessage.textContent="Restarting. This page will reconnect automatically.";}
+    catch(error){otaMessage.textContent=error.message+" Wait for reconnection and check About.";}
+    updateControls();pollStatusSoon();
+  });
   let authorizedLayout=false;
   const timerWheels = [];
   for (const field of [hours, minutes, seconds]) {
@@ -614,6 +722,15 @@
     const paired = Boolean(live && token && checkedEpoch === live.epoch);
     const allowed = Boolean(live && (live.home_trusted || paired));
     if(live) authorizedLayout=allowed;
+    renderFirmware(allowed);
+    if(otaLocked()) {
+      for(const region of [controls,playerControls,settingsControls,bluetoothControls,clockControls,networkControls,browserControls,wifiControls,
+        quickControls,alarmLiveControls,...scheduleEditors.map(editor=>editor.form)]) {
+        for(const field of region.querySelectorAll("input, select, button"))field.disabled=true;
+      }
+      for(const {wheel} of timerWheels){wheel.setAttribute("aria-disabled","true");wheel.tabIndex=-1;}
+      pairForm.hidden=true;logout.disabled=true;return;
+    }
     connectionSection.hidden=!(allowed || !live && authorizedLayout);
     if(!live && authorizedLayout) {
       // A failed poll is not loss of authorization. Preserve layout and drafts,
@@ -1439,6 +1556,7 @@
       if (!response.ok) throw new Error("Status unavailable");
       const data = await response.json();
       live = data;
+      if(data.ota_control) {try {await otaStatus();} catch {}} else otaView=null;
       bluetoothView=null;
       if(data.bt_control) {
         try {

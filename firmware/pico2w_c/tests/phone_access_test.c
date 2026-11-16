@@ -550,5 +550,21 @@ int main(void) {
         snprintf(live_body,sizeof(live_body),"- 77 1 11 %s 1",live_actions[i]);
         assert(phone_access_control(&live,live_body,PHONE_SCOPE_HOME,true)==PHONE_BUSY);
     }
+    phone_access_t ota_access={0};phone_access_reset(&ota_access,42);ota_access.settings.home_trusted=1;
+    char ota_owner[33];const char *ota_payload=NULL;
+    assert(phone_access_ota(&ota_access,"- 42 begin 7 0 ab",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_OK);
+    assert(!strcmp(ota_owner,"-") && !strcmp(ota_payload,"begin 7 0 ab"));
+    assert(phone_access_ota(&ota_access,"- 42 begin 7 0 ab",PHONE_SCOPE_HOME,false,ota_owner,&ota_payload)==PHONE_DENIED);
+    assert(phone_access_ota(&ota_access,"- 42 begin 7 0 ab",PHONE_SCOPE_DIRECT,true,ota_owner,&ota_payload)==PHONE_DENIED);
+    assert(phone_access_ota(&ota_access,"- 41 begin 7 0 ab",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_DENIED);
+    assert(phone_access_ota(&ota_access,"- 4294967296 begin",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_INVALID);
+    assert(phone_access_ota(&ota_access,"- 42 ",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_INVALID);
+    ota_access.last.id=1;ota_access.result=PHONE_COMMAND_PENDING;
+    assert(phone_access_ota(&ota_access,"- 42 begin 7 0 ab",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_BUSY);
+    ota_access.last.id=0;ota_access.settings.home_trusted=0;
+    strcpy(ota_access.settings.browsers[0].token,"0123456789abcdef0123456789abcdef");
+    ota_access.settings.browsers[0].scope=PHONE_SCOPE_DIRECT;
+    assert(phone_access_ota(&ota_access,"0123456789abcdef0123456789abcdef 42 chunk 7 0 ab",PHONE_SCOPE_DIRECT,false,ota_owner,&ota_payload)==PHONE_OK);
+    assert(phone_access_ota(&ota_access,"0123456789abcdef0123456789abcdef 42 chunk 7 0 ab",PHONE_SCOPE_HOME,true,ota_owner,&ota_payload)==PHONE_DENIED);
     return 0;
 }

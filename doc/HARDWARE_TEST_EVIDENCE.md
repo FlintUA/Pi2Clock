@@ -314,3 +314,10 @@ After approval, commit `9fd19ab06c8539db876ca693124c63ff80c2d0f6` was installed 
 ## Background-render hold: installation and acceptance November 15
 
 After approval, commit `95c7ca50f0d1694de8bb2424e86e13d242dce50a` was installed as `1.0.0+42.g95c7ca5`, build `95c7ca50f0d1-bt-mp3-wifi-phone`. Reviewed UF2: 1,896,448 bytes, SHA256 `C1C7A35F3A5B51FBCF329225A00C119DED576465B86C9821311683C80DAFABC4`. Updater SUCCESS; actual image_end `0x100e76d4`, guard OK and valid v15 slots sequence 216/215. Read-only pre/post comparison retained 22 scalar preferences, five alarms, fifteen birthdays, four saved speakers, both Home/Direct permission entries and home trust ON. Manual Bluetooth OFF remained OFF. HOME HTTP/NTP and the served background hold were verified; COM8 was released. No permission/audio/mode/settings change was sent. The user then confirmed that the picker behaved correctly. Wi-Fi credential test/rollback follows as a separately reviewed, uninstalled candidate.
+
+
+## OTA foundation - 2026-11-16
+
+See [OTA foundation evidence](OTA_FOUNDATION.md). Separate approvals covered the first table/A migration, deliberately rejected B trial and corrected B trial. A complete private 4 MiB backup was verified before migration. Rejected B refused acceptance/writes and ROM returned to A about 24 seconds after the trial request. Corrected B was accepted and remained active. Serial/HTTP comparisons preserved saved configuration. The user reported normal operation after every stage, including after the requested power-cycle check; subsequent serial inspection confirmed active=B trial=NO accepted=YES writes=YES, guard=OK, Home connectivity and NTP. Installed version: 1.0.0+47.gb7adb18, build b7adb188bc4d-bt-mp3-wifi-phone-ota2-trial.
+
+The browser uploader candidate has not been installed. Home/Direct uploads, interrupted writes, opposite-direction rollback and peak live resources are not covered by these foundation results.
