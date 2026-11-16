@@ -1,6 +1,6 @@
 # Browser firmware update candidate
 
-Status: receiver sequence 4 was installed and user-accepted after the requested power-cycle check on 2026-11-16. The first separately approved Home HTTP update to sequence 5 then passed transfer, device validation, explicit activation, accepted B startup and settings comparison. The user reported restored web access about 10 seconds after boot. A full power restart of sequence 5, Direct transport and phone file-picker/progress UI remain pending. Thirty-three host checks pass.
+Status: receiver sequence 4 was installed and user-accepted after the requested power-cycle check on 2026-11-16. The first separately approved Home HTTP update to sequence 5 then passed transfer, device validation, explicit activation, accepted B startup and settings comparison. The user reported restored web access about 10 seconds after boot. The user subsequently confirmed normal operation after the requested full power restart; read-only serial/HTTP checks confirmed accepted B sequence 5, guard=OK and an idle uploader. Direct transport and phone file-picker/progress UI remain pending. Thirty-three host checks pass.
 
 ## User workflow
 
@@ -67,6 +67,6 @@ The serial recording observed automatic Wi-Fi retry attempts before reconnection
 
 Five alarms, fifteen birthdays, four saved speakers, both Wi-Fi profiles, admitted browser entries/Home policy, language, routing and display preferences matched. The boot log loaded the original local volume 15; the later snapshot showed 13 and one new Flash settings record. The user explicitly confirmed adjusting the physical volume encoder after reboot. This is an expected runtime change, not an unchanged-Flash claim. Bluetooth volume remained 15. COM8 was released after inspection. Private credentials and detailed snapshots remain off-repository.
 
-Pending physical checks: sequence-5 full power restart and user functional acceptance, Direct transport, interrupted transfers, cancellation, wrong file/version/hash, concurrent admission, actual phone-browser picker/progress/reconnect/rollback feedback, peak live memory, power loss during upload/commit and browser-update rollback. The successful Home HTTP test does not establish these cases.
+Pending physical checks: Direct transport, interrupted transfers, cancellation, wrong file/version/hash, concurrent admission, actual phone-browser picker/progress/reconnect/rollback feedback, peak live memory, power loss during upload/commit and browser-update rollback. The successful Home HTTP test does not establish these cases.
 
 ROM storage/translation, Flash permission checks and explicit-buy behavior follow the [official SDK runtime documentation](https://www.raspberrypi.com/documentation/pico-sdk/runtime.html).

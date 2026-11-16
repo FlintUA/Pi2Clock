@@ -329,4 +329,7 @@ After separate approval, receiver build edc486e394bf-bt-mp3-wifi-phone-ota4-tria
 
 The user supplied the physical pairing code for the test client. Comparisons were made after that authorized entry had saved. Alarm/birthday/speaker/Wi-Fi/browser data and other preferences matched. Local volume changed from 15 to 13 after boot, with a new autosave record; startup had loaded 15, and the user explicitly confirmed the subsequent encoder adjustment. Bluetooth volume remained 15. Home HTTP and NTP recovered; the user reported web access restored about ten seconds after boot. COM8 was released.
 
-This exercised production HTTP endpoints from a PC client, not the phone file-picker/progress UI. Sequence-5 cold restart, Direct OTA, interrupted/cancelled/corrupt transfers, browser rollback feedback, concurrency and peak RAM remain pending. See [detailed transport evidence](OTA_WEB_UPDATE.md). No credentials or private backups are published.
+This exercised production HTTP endpoints from a PC client, not the phone file-picker/progress UI. Direct OTA, interrupted/cancelled/corrupt transfers, browser rollback feedback, concurrency and peak RAM remain pending. See [detailed transport evidence](OTA_WEB_UPDATE.md). No credentials or private backups are published.
+
+
+After the requested sequence-5 power-cycle and sound/timer checks, the user reported all functions working. Read-only serial/HTTP verification confirmed edc486e394bf-bt-mp3-wifi-phone-ota5-trial, layout=OK active=B trial=NO accepted=YES writes=YES upload=WEB, guard=OK, Home connectivity/NTP and idle OTA sequence 5. COM8 was released. The Home transport and subsequent functional/power-restart gate are accepted; pending cases above remain separate.
