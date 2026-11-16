@@ -1,6 +1,6 @@
 # Browser firmware update candidate
 
-Status: implemented; 33 host checks and SDK builds pass; NOT installed or hardware-accepted. The clock currently runs the user-tested foundation image in accepted slot B. Home/Direct browser uploads are not yet device-proven.
+Status: receiver sequence 4 was installed and user-accepted after the requested power-cycle check on 2026-11-16. The first separately approved Home HTTP update to sequence 5 then passed transfer, device validation, explicit activation, accepted B startup and settings comparison. The user reported restored web access about 10 seconds after boot. A full power restart of sequence 5, Direct transport and phone file-picker/progress UI remain pending. Thirty-three host checks pass.
 
 ## User workflow
 
@@ -55,8 +55,18 @@ Packaging refuses dirty/reject/non-trial builds, wrong ROM version, invalid imag
 
 ## Installation and pending acceptance
 
-The installed sequence-2 image does not contain this uploader. A separately approved, partition-aware USB installation into inactive A is required once, followed by the explicit trial activation and settings-preservation checks already proven during foundation testing. Do not rewrite the table or use the ordinary updater. Stop for user acceptance before a separately approved real browser trial.
+The foundation sequence-2 image did not contain this uploader. A separately approved USB installation of edc486e394bf-bt-mp3-wifi-phone-ota4-trial into A succeeded, followed by explicit trial acceptance and settings comparison. The user confirmed operation after the requested power restart; read-only serial/HTTP inspection confirmed accepted A and the idle uploader. No table rewrite occurred. The first approved Home transfer subsequently installed sequence 5 into B. Future changes must still use separate installation approval and stop for user testing.
 
-Pending physical checks: receive/program/readback while the radio serves HTTP, SHA/metadata validation on actual physical Flash, successful and interrupted Home/Direct transfers, cancellation, wrong file/version/hash, concurrent admission, reconnect/rollback feedback, actual duration and memory, power loss during upload/commit, and persistence after a full restart. Host tests do not establish these cases.
+## First Home transport evidence - 2026-11-16
+
+The operator supplied a physical pairing code for the test client; no Home-trust policy was changed. The additional authorized Home entry was saved before the comparison baseline. A PC HTTP client exercised the production /ota endpoints with ordinary token/epoch and exact Origin checks; it did not drive a phone browser's file picker or progress widget.
+
+The reviewed clock-ota5.clockota package contained 1000588 payload bytes (1000716 bytes including the header), SHA-256 2198c7c422b46e86416cea679d95e3984c2811e2632650f152cbd91d6bdf0111. Begin/chunk/finish over Home reached ready in 87.191 seconds; all 512-byte chunks were acknowledged, physical sector readback and final SHA/metadata verification succeeded. A remained active until the separate apply request. Apply over HTTP initiated the trial; serial showed build edc486e394bf-bt-mp3-wifi-phone-ota5-trial, active=B trial=NO accepted=YES writes=YES upload=WEB and continued beyond 30 seconds. Display version remains 1.0.0+48.gedc486e because sequences 4 and 5 deliberately use the same source revision; the build ID and ordered ROM version distinguish them.
+
+The serial recording observed automatic Wi-Fi retry attempts before reconnection; subsequent HTTP and NTP checks succeeded. Separately, the user reported access restored about ten seconds after boot. This is a user observation, not a measured upper bound for all network conditions.
+
+Five alarms, fifteen birthdays, four saved speakers, both Wi-Fi profiles, admitted browser entries/Home policy, language, routing and display preferences matched. The boot log loaded the original local volume 15; the later snapshot showed 13 and one new Flash settings record. The user explicitly confirmed adjusting the physical volume encoder after reboot. This is an expected runtime change, not an unchanged-Flash claim. Bluetooth volume remained 15. COM8 was released after inspection. Private credentials and detailed snapshots remain off-repository.
+
+Pending physical checks: sequence-5 full power restart and user functional acceptance, Direct transport, interrupted transfers, cancellation, wrong file/version/hash, concurrent admission, actual phone-browser picker/progress/reconnect/rollback feedback, peak live memory, power loss during upload/commit and browser-update rollback. The successful Home HTTP test does not establish these cases.
 
 ROM storage/translation, Flash permission checks and explicit-buy behavior follow the [official SDK runtime documentation](https://www.raspberrypi.com/documentation/pico-sdk/runtime.html).

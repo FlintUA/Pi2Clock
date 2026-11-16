@@ -321,3 +321,12 @@ After approval, commit `95c7ca50f0d1694de8bb2424e86e13d242dce50a` was installed 
 See [OTA foundation evidence](OTA_FOUNDATION.md). Separate approvals covered the first table/A migration, deliberately rejected B trial and corrected B trial. A complete private 4 MiB backup was verified before migration. Rejected B refused acceptance/writes and ROM returned to A about 24 seconds after the trial request. Corrected B was accepted and remained active. Serial/HTTP comparisons preserved saved configuration. The user reported normal operation after every stage, including after the requested power-cycle check; subsequent serial inspection confirmed active=B trial=NO accepted=YES writes=YES, guard=OK, Home connectivity and NTP. Installed version: 1.0.0+47.gb7adb18, build b7adb188bc4d-bt-mp3-wifi-phone-ota2-trial.
 
 The browser uploader candidate has not been installed. Home/Direct uploads, interrupted writes, opposite-direction rollback and peak live resources are not covered by these foundation results.
+
+
+## First Home HTTP firmware update - 2026-11-16
+
+After separate approval, receiver build edc486e394bf-bt-mp3-wifi-phone-ota4-trial was installed into inactive A by USB, explicitly accepted and compared with the previous B. The user confirmed operation after the requested power-cycle test; serial/HTTP then confirmed accepted A and the uploader. A separately approved Home HTTP test transferred 1000588 payload bytes to B in 87.191 seconds, passed complete device-side validation and requested apply over HTTP. Serial confirmed accepted B running edc486e394bf-bt-mp3-wifi-phone-ota5-trial beyond 30 seconds. The display version remains 1.0.0+48.gedc486e for both builds.
+
+The user supplied the physical pairing code for the test client. Comparisons were made after that authorized entry had saved. Alarm/birthday/speaker/Wi-Fi/browser data and other preferences matched. Local volume changed from 15 to 13 after boot, with a new autosave record; startup had loaded 15, and the user explicitly confirmed the subsequent encoder adjustment. Bluetooth volume remained 15. Home HTTP and NTP recovered; the user reported web access restored about ten seconds after boot. COM8 was released.
+
+This exercised production HTTP endpoints from a PC client, not the phone file-picker/progress UI. Sequence-5 cold restart, Direct OTA, interrupted/cancelled/corrupt transfers, browser rollback feedback, concurrency and peak RAM remain pending. See [detailed transport evidence](OTA_WEB_UPDATE.md). No credentials or private backups are published.
