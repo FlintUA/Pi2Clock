@@ -1,4 +1,11 @@
 #include "settings_store.h"
+#ifdef CLOCK_ENABLE_OTA_AB
+#include "ota_boot.h"
+#include "ota_layout.h"
+#define CLOCK_SETTINGS_READ_BASE XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE
+#else
+#define CLOCK_SETTINGS_READ_BASE XIP_BASE
+#endif
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -314,7 +321,7 @@ static uint32_t slot_offset(unsigned slot) {
 }
 
 static const uint8_t *slot_bytes(unsigned slot) {
-    return (const uint8_t *)(uintptr_t)(XIP_BASE + slot_offset(slot));
+    return (const uint8_t *)(uintptr_t)(CLOCK_SETTINGS_READ_BASE + slot_offset(slot));
 }
 
 static bool phone_settings_valid(const phone_settings_t *phone) {
@@ -545,9 +552,21 @@ bool settings_store_layout_safe(void) {
     // Runtime firmware image guard; leave a whole additional sector gap.
     // Never touch either sector if build output would collide with them.
     uintptr_t image_end = (uintptr_t)&__flash_binary_end;
+#ifdef CLOCK_ENABLE_OTA_AB
+    if(!clock_ota_layout_verified() || image_end-XIP_BASE>CLOCK_OTA_SLOT_SIZE)return false;
+#endif
     uintptr_t limit = (uintptr_t)XIP_BASE + SLOT0_OFFSET - IMAGE_SAFETY_MARGIN;
     return image_end >= (uintptr_t)XIP_BASE &&
            image_end < limit;
+}
+
+bool settings_store_blank(void) {
+    if(!settings_store_layout_safe())return false;
+    for(unsigned slot=0;slot<3u;++slot) {
+        const uint8_t *bytes=slot_bytes(slot);
+        for(size_t i=0;i<FLASH_SECTOR_SIZE;++i)if(bytes[i]!=0xffu)return false;
+    }
+    return true;
 }
 
 static bool newest_valid(unsigned *slot, settings_record_current_t *result) {
@@ -581,6 +600,9 @@ const char *settings_store_result_name(settings_store_result_t r) {
 }
 
 void settings_store_print_info(void) {
+#ifdef CLOCK_ENABLE_OTA_AB
+    clock_ota_status();
+#endif
     printf("[FLASH] size=%lu KiB slots=0x%08lx,0x%08lx image_end=0x%08lx guard=%s\n",
            (unsigned long)(PICO_FLASH_SIZE_BYTES / 1024u),
            (unsigned long)SLOT0_OFFSET, (unsigned long)SLOT1_OFFSET,
@@ -649,7 +671,7 @@ void settings_store_dump_tail(void) {
     // Read ONLY. Print the last 256-byte flash page so we can compare its
     // contents across power cycles. No flash erase/program API is invoked.
     const uint32_t offset = PICO_FLASH_SIZE_BYTES - FLASH_PAGE_SIZE;
-    const uint8_t *data = (const uint8_t *)(uintptr_t)(XIP_BASE + offset);
+    const uint8_t *data = (const uint8_t *)(uintptr_t)(CLOCK_SETTINGS_READ_BASE + offset);
     uint32_t crc = 0xffffffffu;
     for (size_t i = 0; i < FLASH_PAGE_SIZE; ++i) {
         crc ^= data[i];
@@ -783,6 +805,9 @@ static void flash_write_callback(void *arg) {
 }
 
 settings_store_result_t settings_store_save(const clock_settings_t *cfg) {
+#ifdef CLOCK_ENABLE_OTA_AB
+    if(!clock_ota_writes_allowed())return SETTINGS_STORE_FLASH_ERROR;
+#endif
     if (!settings_store_layout_safe()) return SETTINGS_STORE_IMAGE_OVERLAP;
     if (!cfg || cfg->language > 1u || cfg->volume > 30u ||
         cfg->quiet_start > 23u || cfg->quiet_end > 23u ||

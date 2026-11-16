@@ -5,13 +5,20 @@ param(
     [switch]$NoWifi,
     [string]$BuildDirectory = '',
     [string]$HelixPath = '',
-    [switch]$PhoneWeb
+    [switch]$PhoneWeb,
+    [switch]$OtaAb,
+    [int]$OtaSequence = 0,
+    [switch]$OtaTrial,
+    [switch]$OtaRejectTrial
 )
 $ErrorActionPreference = 'Stop'
 if ($PhoneWeb -and $NoWifi) { throw '-PhoneWeb requires Wi-Fi.' }
 if ($JblAddress -ne '' -and $JblAddress -notmatch '^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$') {
     throw 'JblAddress must have format XX:XX:XX:XX:XX:XX'
 }
+if ($OtaAb -and (-not $PhoneWeb -or $OtaSequence -lt 1 -or $OtaSequence -gt 65535)) { throw '-OtaAb requires -PhoneWeb and -OtaSequence 1..65535.' }
+if (($OtaTrial -or $OtaRejectTrial) -and -not $OtaAb) { throw 'Trial flags require -OtaAb.' }
+if ($OtaRejectTrial -and -not $OtaTrial) { throw '-OtaRejectTrial requires -OtaTrial.' }
 $root = $PSScriptRoot
 if (-not $HelixPath) { $HelixPath = Join-Path $root 'third_party\Helix-MP3-Decoder' }
 $homeSdk = Join-Path $env:USERPROFILE '.pico-sdk'
@@ -48,6 +55,10 @@ $options = @(
     '-DPICO_BOARD=pico2_w','-DPICO_PLATFORM=rp2350-arm-s',
     "-DPICO_SDK_PATH=$sdk","-DPICO_EXAMPLES_PATH=$examples",
     '-DCLOCK_ENABLE_A2DP=ON',
+    ("-DCLOCK_ENABLE_OTA_AB=" + $(if ($OtaAb) { 'ON' } else { 'OFF' })),
+    "-DCLOCK_OTA_SEQUENCE=$OtaSequence",
+    ("-DCLOCK_OTA_TRIAL=" + $(if ($OtaTrial) { 'ON' } else { 'OFF' })),
+    ("-DCLOCK_OTA_TEST_REJECT_TRIAL=" + $(if ($OtaRejectTrial) { 'ON' } else { 'OFF' })),
     ("-DCLOCK_ENABLE_WIFI=" + $(if ($NoWifi) { 'OFF' } else { 'ON' })),
     ("-DCLOCK_ENABLE_PHONE_WEB=" + $(if ($PhoneWeb) { 'ON' } else { 'OFF' })),
     ("-DCLOCK_ENABLE_MP3=" + $(if ($Mp3) { 'ON' } else { 'OFF' })),

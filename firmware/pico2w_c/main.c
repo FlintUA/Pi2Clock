@@ -29,6 +29,9 @@
 #include "router.h"
 #include "speech.h"
 #include "settings_store.h"
+#ifdef CLOCK_ENABLE_OTA_AB
+#include "ota_boot.h"
+#endif
 #include "clock_time.h"
 #include "firmware_version.h"
 #if defined(CLOCK_ENABLE_A2DP) || defined(CLOCK_ENABLE_WIFI)
@@ -4044,6 +4047,11 @@ static void handle_command(char *line) {
     while (isspace((unsigned char)*line)) ++line;
     size_t len = strlen(line);
     while (len && isspace((unsigned char)line[len - 1])) line[--len] = 0;
+#ifdef CLOCK_ENABLE_OTA_AB
+    if(!clock_ota_writes_allowed() && strcmp(line,"ota-status") && strcmp(line,"flash-info") && strcmp(line,"version") && strncmp(line,"bootsel ",8)) {
+        puts("[OTA] Command refused until startup/trial is accepted");return;
+    }
+#endif
     // FAT32 diagnostics share one synchronous sector buffer with Helix.
     // Never change the SD card's state or FAT geometry during MP3 playback.
     if (mp3_play_active() &&
@@ -4065,6 +4073,20 @@ static void handle_command(char *line) {
     }
 #endif
     uint64_t now = to_ms_since_boot(get_absolute_time());
+#ifdef CLOCK_ENABLE_OTA_AB
+    static uint64_t ota_armed_until;
+    if(strcmp(line,"ota-status")==0){clock_ota_status();return;}
+    if(strcmp(line,"ota-trial arm")==0){
+        if(!phone_network_idle() || autosave_pending || phone_wifi_busy(&phone_wifi_plan) || !clock_ota_writes_allowed()) {puts("[OTA] Trial REFUSED: wait for idle/saved settings and a verified layout");return;}
+        ota_armed_until=to_ms_since_boot(get_absolute_time())+15000u;
+        puts("[OTA] Trial ARMED for 15s; only use with an off-device verified inactive image");return;
+    }
+    if(strcmp(line,"ota-trial confirm")==0){
+        bool armed=ota_armed_until && to_ms_since_boot(get_absolute_time())<ota_armed_until;ota_armed_until=0;
+        if(!armed || autosave_pending || phone_wifi_busy(&phone_wifi_plan) || !clock_ota_trial_inactive(phone_network_idle()))puts("[OTA] Trial REFUSED");
+        return;
+    }
+#endif
     if (strcmp(line, "bootsel arm") == 0) {
         bootsel_command("arm", now);
     } else if (strcmp(line, "bootsel confirm") == 0) {
@@ -5146,12 +5168,8 @@ static void on_control_event(const control_event_t *event, void *context) {
     }
 }
 
-int main(void) {
-    display_light_init();
-    stdio_init_all();
-    sleep_ms(3000); // Give VS Code Serial Monitor time to attach.
-    printf("\n[BOOT] Speaking Clock %s build=%s (Pico 2 W)\n",CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID);
 #ifdef CLOCK_ENABLE_MP3
+static void initialize_sd_music(void) {
     // Initialize SD before starting Bluetooth, avoiding a long missing-card
     // command sequence while an A2DP media stream is already running.
     // Failures are nonfatal; playback falls back to local DFPlayer.
@@ -5160,13 +5178,29 @@ int main(void) {
     else if (sd_fat32_music_catalog(event_music_catalog))
         printf("[RANDOM-MUSIC] Cached folder 08 catalog: %u tracks\n",music_catalog_count(event_music_catalog));
     else puts("[RANDOM-MUSIC] Catalog unavailable; random events use SIGNAL");
+}
+#endif
+
+int main(void) {
+    display_light_init();
+    stdio_init_all();
+#ifdef CLOCK_ENABLE_OTA_AB
+    clock_ota_boot_init();
+    bool ota_startup_pending=true;
+#endif
+    sleep_ms(3000); // Give VS Code Serial Monitor time to attach.
+    printf("\n[BOOT] Speaking Clock %s build=%s (Pico 2 W)\n",CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID);
+#if defined(CLOCK_ENABLE_MP3) && !defined(CLOCK_ENABLE_OTA_AB)
+    initialize_sd_music();
 #endif
 #if defined(CLOCK_ENABLE_A2DP) || defined(CLOCK_ENABLE_WIFI)
     radio_ready=cyw43_arch_init()==PICO_OK;
     puts(radio_ready?"[RADIO] Initialized":"[RADIO] Unavailable; clock continues offline");
 #ifdef CLOCK_ENABLE_A2DP
     clock_a2dp_boot_hold(true);
+#ifndef CLOCK_ENABLE_OTA_AB
     if (radio_ready) printf("[BT] btstack_main=%d\n",btstack_main(0,NULL));
+#endif
 #endif
 #endif
 
@@ -5192,6 +5226,7 @@ int main(void) {
     alarm_defaults(alarms);
     birthday_defaults(birthdays);
     alarm_scheduler_init(&alarm_scheduler);
+#ifndef CLOCK_ENABLE_OTA_AB
     load_settings_at_boot();
 #ifdef CLOCK_ENABLE_WIFI
     network_time_init(radio_ready);
@@ -5199,6 +5234,7 @@ int main(void) {
 #endif
 #ifdef CLOCK_ENABLE_PHONE_WEB
     phone_web_init(radio_ready);
+#endif
 #endif
     audio_queue_set_volume(&audio_queue, volume);
     puts("[AUDIO] DFPlayer UART0 GP16/17 BUSY GP18");
@@ -5219,6 +5255,34 @@ int main(void) {
     uint64_t startup_until_ms=to_ms_since_boot(get_absolute_time())+1600u;
     puts("[STARTUP] Nonblocking LCD version splash; no startup audio queued");
     while (true) {
+#ifdef CLOCK_ENABLE_OTA_AB
+        if(ota_startup_pending) {
+            static clock_settings_t preflight;
+            settings_store_result_t preflight_result=settings_store_load(&preflight);
+            bool healthy=radio_ready && (preflight_result==SETTINGS_STORE_OK || (preflight_result==SETTINGS_STORE_EMPTY && settings_store_blank()));
+            if(!clock_ota_startup_confirm(healthy)) {
+                poll_serial();sleep_ms(5);continue; // Unaccepted ROM trial times out into the previous slot.
+            }
+            clock_ota_status();
+#ifdef CLOCK_ENABLE_MP3
+            initialize_sd_music();
+#endif
+#ifdef CLOCK_ENABLE_A2DP
+            if(radio_ready)printf("[BT] btstack_main=%d\n",btstack_main(0,NULL));
+#endif
+    load_settings_at_boot();
+#ifdef CLOCK_ENABLE_WIFI
+    network_time_init(radio_ready);
+    network_time_configure_profiles(saved_wifi_ssid,saved_wifi_password,saved_wifi_backup_ssid,saved_wifi_backup_password);
+#endif
+#ifdef CLOCK_ENABLE_PHONE_WEB
+    phone_web_init(radio_ready);
+#endif
+            audio_queue_set_volume(&audio_queue,volume);
+            startup_until_ms=to_ms_since_boot(get_absolute_time())+1600u;
+            ota_startup_pending=false;
+        }
+#endif
 #ifdef CLOCK_ENABLE_A2DP
         // Persist a newly selected sink only after it has REALLY established
         // an A2DP stream. Observe the old link going down first so the old

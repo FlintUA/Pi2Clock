@@ -1,0 +1,2 @@
+#pragma once
+#define REBOOT2_FLAG_REBOOT_TYPE_FLASH_UPDATE 4u

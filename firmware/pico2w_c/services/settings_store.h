@@ -66,6 +66,8 @@ typedef enum {
 
 const char *settings_store_result_name(settings_store_result_t result);
 bool settings_store_layout_safe(void);
+// All clock record sectors must actually be erased to qualify as fresh storage.
+bool settings_store_blank(void);
 void settings_store_print_info(void);
 // Read-only sector fingerprint, no flash program/erase operations.
 void settings_store_inspect(void);

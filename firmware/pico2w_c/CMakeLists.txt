@@ -66,7 +66,6 @@ target_link_libraries(speaking_clock_c PRIVATE
 )
 pico_enable_stdio_usb(speaking_clock_c 1)
 pico_enable_stdio_uart(speaking_clock_c 0)
-pico_add_extra_outputs(speaking_clock_c)
 
 # The known-good production build keeps this OFF.
 option(CLOCK_ENABLE_WIFI "Nonblocking Wi-Fi/NTP and Europe/Berlin time" OFF)
@@ -164,6 +163,35 @@ if(CLOCK_ENABLE_MP3)
     message(STATUS "SPI SD MP3 playback enabled")
 endif()
 
+# A/B bring-up is opt-in and never changes ordinary firmware layout.
+option(CLOCK_ENABLE_OTA_AB "RP2350 A/B boot foundation (no browser uploader yet)" OFF)
+option(CLOCK_OTA_TRIAL "Require ROM explicit acceptance for this image" OFF)
+option(CLOCK_OTA_TEST_REJECT_TRIAL "Test image: deliberately exercise ROM rollback" OFF)
+set(CLOCK_OTA_SEQUENCE "" CACHE STRING "Ordered bootrom version, 1..65535")
+if(CLOCK_ENABLE_OTA_AB)
+    if(NOT CLOCK_ENABLE_PHONE_WEB OR NOT PICO_BOARD STREQUAL "pico2_w" OR NOT PICO_PLATFORM STREQUAL "rp2350-arm-s")
+        message(FATAL_ERROR "OTA A/B requires the Pico 2 W phone-web profile")
+    endif()
+    if(NOT CLOCK_OTA_SEQUENCE MATCHES "^[1-9][0-9]*$" OR CLOCK_OTA_SEQUENCE GREATER 65535)
+        message(FATAL_ERROR "Set CLOCK_OTA_SEQUENCE=1..65535 explicitly")
+    endif()
+    if(CLOCK_OTA_TEST_REJECT_TRIAL AND NOT CLOCK_OTA_TRIAL)
+        message(FATAL_ERROR "Reject-trial testing requires CLOCK_OTA_TRIAL")
+    endif()
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ota_slot_guard.ld" "ASSERT(__flash_binary_end <= 0x10180000, \"OTA application exceeds 1536 KiB slot\");\n")
+    target_link_options(speaking_clock_c PRIVATE "LINKER:-T,${CMAKE_CURRENT_BINARY_DIR}/ota_slot_guard.ld")
+    target_sources(speaking_clock_c PRIVATE services/ota_layout.c services/ota_boot.c)
+    target_compile_definitions(speaking_clock_c PRIVATE CLOCK_ENABLE_OTA_AB=1)
+    if(CLOCK_OTA_TRIAL)
+        target_compile_definitions(speaking_clock_c PRIVATE PICO_CRT0_IMAGE_TYPE_TBYB=1)
+    endif()
+    if(CLOCK_OTA_TEST_REJECT_TRIAL)
+        target_compile_definitions(speaking_clock_c PRIVATE CLOCK_OTA_TEST_REJECT_TRIAL=1)
+    endif()
+    pico_set_binary_version(speaking_clock_c MAJOR 1 MINOR ${CLOCK_OTA_SEQUENCE})
+    pico_hash_binary(speaking_clock_c)
+endif()
+
 # Resolve identity after all profile options, and refresh before every build.
 get_filename_component(CLOCK_SOURCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(CLOCK_VERSION_TEMPLATE "${CMAKE_CURRENT_LIST_DIR}/firmware_version.h.in")
@@ -182,6 +210,15 @@ endif()
 if(CLOCK_ENABLE_PHONE_WEB)
     string(APPEND CLOCK_BUILD_PROFILE "-phone")
 endif()
+if(CLOCK_ENABLE_OTA_AB)
+    string(APPEND CLOCK_BUILD_PROFILE "-ota${CLOCK_OTA_SEQUENCE}")
+    if(CLOCK_OTA_TRIAL)
+        string(APPEND CLOCK_BUILD_PROFILE "-trial")
+    endif()
+    if(CLOCK_OTA_TEST_REJECT_TRIAL)
+        string(APPEND CLOCK_BUILD_PROFILE "-reject")
+    endif()
+endif()
 include(cmake/git_version.cmake)
 add_custom_target(clock_version
     COMMAND "${CMAKE_COMMAND}" "-DCLOCK_SOURCE_ROOT=${CLOCK_SOURCE_ROOT}"
@@ -193,3 +230,6 @@ add_custom_target(clock_version
     BYPRODUCTS "${CLOCK_VERSION_HEADER}" "${CLOCK_VERSION_ID_FILE}"
     VERBATIM)
 add_dependencies(speaking_clock_c clock_version)
+
+
+pico_add_extra_outputs(speaking_clock_c)

@@ -185,6 +185,13 @@ if ($drive) {
     try {
         $serial.Open()
         Start-Sleep -Milliseconds 700
+        $layoutReply = Read-PicoReply $serial 'flash-info' '\[FLASH\] slot1=' 4
+        if ($layoutReply -match '\[OTA\]') {
+            throw 'This clock uses the OTA A/B layout. Use the reviewed partition-aware procedure; the ordinary updater is blocked.'
+        }
+        if ($layoutReply -notmatch '\[FLASH\][^\r\n]*guard=OK') {
+            throw 'Cannot verify the running Flash layout. Nothing was flashed.'
+        }
         $armed = Read-PicoReply $serial 'bootsel arm' '\[BOOTSEL\] (ARMED for 15s|REFUSED)' 9
         if ($armed -match '\[BOOTSEL\] REFUSED') {
             throw "Pico refused BOOTSEL: $armed"

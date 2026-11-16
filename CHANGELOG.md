@@ -4,6 +4,9 @@
 
 Experimental work after stable v1.0.0; no stable web-control release is claimed.
 
+- Added an opt-in RP2350 A/B boot foundation and reviewed file-only package builder as the first OTA gate. Exact partition/translation checks, slot-size guards, untranslated shared-settings reads, trial write blocking, ROM confirmation and deliberate reject-test images preserve the existing shared tail. Ordinary builds retain their layout. This is NOT a browser updater and is not installed or hardware-accepted. See [migration/rollback gates](doc/OTA_FOUNDATION.md).
+- Recorded user acceptance of +46 manual Connect switching between saved Main/Backup networks. Automatic outage failover and failed-manual recovery remain separate checks.
+
 - Added explicit Connect and separate Edit/Add beside saved home networks, following known-network UI conventions. Connect works from Home and Direct without requesting a password, verifies the selected profile only, retains settings/priority/trust, and restores the previous Home profile or Direct mode on failure. Pending cancellation and bounded handoff feedback are retained. New Wi-Fi metadata remains separate from root status; Flash v18 is unchanged. Installation acceptance is pending.
 - Recorded +45 installation, unchanged preferences/alarms/birthdays/speakers/browser permissions and both Wi-Fi profiles, with Backup association and NTP ready. The user identified the missing saved-network connection action; full compact UI acceptance was not claimed.
 
