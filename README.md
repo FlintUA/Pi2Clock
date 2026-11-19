@@ -2,7 +2,7 @@
 
 The main project is C / Pico SDK firmware for **Pico 2 W (RP2350)**. MicroPython sources and the original Pico schematic are retained as historical material.
 
-Current stable release: **[1.0.0](https://github.com/FlintUA/Speaking-Timer-Clock-Raspberry-Pi-Pico/releases/tag/v1.0.0)**. See the [release notes](doc/releases/v1.0.0.md), [current roadmap](doc/ROADMAP.md) and [verification instructions](doc/TESTING.md).
+Current stable release: **[1.0.0](https://github.com/FlintUA/Pi2Clock/releases/tag/v1.0.0)**. See the [release notes](doc/releases/v1.0.0.md), [current roadmap](doc/ROADMAP.md) and [verification instructions](doc/TESTING.md).
 
 This checkout's `codex/phone-control` branch adds experimental browser control. It has not replaced the stable release. The optional web profile supports direct Wi-Fi or the home network, live status, one 1..86,399-second timer, combined Play/Pause transport controls, settings, five alarms and fifteen annual birthdays with optional birth years. It is designed for four simultaneous browser clients; this requires hardware acceptance. See [phone setup, controls and acceptance](experiments/phone_control_ap/README.md). The ordinary profile does not serve the web interface.
 
@@ -94,7 +94,7 @@ git -C third_party/Helix-MP3-Decoder checkout e4f5adadb5126708144e55a862f59e318c
 powershell -ExecutionPolicy Bypass -File .\build-clock-bt.ps1 -Mp3
 ```
 
-Building does not flash the board. Output: `firmware/pico2w_c/build-bt/speaking_clock_c.uf2`. On Windows, use a short path without non-ASCII characters, such as `C:\Users\Flint123\projects\Speaking-Timer-Clock-Raspberry-Pi-Pico`.
+Building does not flash the board. Output: `firmware/pico2w_c/build-bt/speaking_clock_c.uf2`. On Windows, use a short path without non-ASCII characters, such as `C:\Users\Flint123\projects\Pi2Clock`. Existing local folder names do not need to change when the GitHub repository is renamed.
 
 Wi-Fi is included by default. Provision credentials locally using:
 

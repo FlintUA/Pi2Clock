@@ -137,7 +137,7 @@ The rotation signals moved from DT/CLK GP11/GP10 to GP12/GP13. Encoder buttons r
 
 ## SPI microSD
 
-[Commit 85369eb](https://github.com/FlintUA/Speaking-Timer-Clock-Raspberry-Pi-Pico/commit/85369ebe2af2bbf4994ca601ce5b201ccf30d3ee) recorded a successful test on November 6, 2026 at 21:28:
+[Commit 85369eb](https://github.com/FlintUA/Pi2Clock/commit/85369ebe2af2bbf4994ca601ce5b201ccf30d3ee) recorded a successful test on November 6, 2026 at 21:28:
 
 ```text
 [SD] SPI1 initialized: SDHC/SDXC, bus=3947368 Hz, read-only
