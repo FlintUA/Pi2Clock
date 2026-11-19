@@ -78,6 +78,15 @@
   #about { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
   #about summary { min-height: 2.75rem; cursor: pointer; font-weight: 600; }
   #about-status { color: var(--muted); font-size: .9rem; }
+  #firmware-file-info { overflow-wrap: anywhere; }
+  #firmware-status { min-height: 3rem; }
+  .firmware-actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: .75rem; margin-top: 1rem; }
+  .firmware-actions > button { flex: 1 1 10rem; min-height: 3rem; padding: .65rem .85rem; line-height: 1.3; }
+  #firmware-upload:not(:disabled), #firmware-install:not(:disabled) { background: var(--accent); color: #fff; }
+  @media (max-width: 34rem) {
+    .firmware-actions { flex-direction: column; }
+    .firmware-actions > button { flex: 0 0 auto; width: 100%; }
+  }
   #feedback { color: var(--accent); }
   @media (max-width: 26rem) {
     form { grid-template-columns: minmax(0, 1fr); }
@@ -360,7 +369,7 @@
     <p id="firmware-file-info"></p>
     <progress id="firmware-progress" max="100" value="0" aria-label="Firmware upload progress" style="width:100%"></progress>
     <p id="firmware-status" role="status">Waiting for device information.</p>
-    <div class="actions">
+    <div class="firmware-actions">
       <button id="firmware-upload" type="button" disabled>Upload update</button>
       <button id="firmware-install" type="button" disabled>Install and restart</button>
       <button id="firmware-cancel" type="button" disabled>Cancel update</button>
