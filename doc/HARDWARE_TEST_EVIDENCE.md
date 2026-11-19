@@ -339,4 +339,9 @@ After the requested sequence-5 power-cycle and sound/timer checks, the user repo
 
 The user downloaded clock-ota6.clockota to the phone SD card, opened the clock at 192.168.4.1 through SpeakingClock Direct Wi-Fi, uploaded the file and performed Install and restart. The user reported success. Serial/HTTP confirmed version 1.0.0+51.gc3440d9, build c3440d9cb6d1-bt-mp3-wifi-phone-ota6-trial, accepted A sequence 6, guard=OK and idle OTA. Home networking and NTP returned. COM8 was released.
 
-Alarm/birthday records, two Wi-Fi profiles and browser entries matched the older November 16 snapshot. Volume values differed from that older snapshot; without an immediate pre-test preferences capture, exact volume preservation is not claimed. A sequence-6 power cycle, focused sound/timer test and failure cases remain pending. See [Direct workflow evidence](OTA_WEB_UPDATE.md).
+Alarm/birthday records, two Wi-Fi profiles and browser entries matched the older November 16 snapshot. Volume values differed from that older snapshot; without an immediate pre-test preferences capture, exact volume preservation is not claimed. The user subsequently confirmed the requested restart, sound and timer checks; failure cases remain pending. See [Direct workflow evidence](OTA_WEB_UPDATE.md).
+
+
+### Sequence-6 user acceptance and network expectation
+
+On 2026-11-19 the user confirmed the requested sequence-6 checks, explicitly including sound and timer operation, and observed that the clock returned to Home after the Direct update. This matches installed behavior: every restart starts Home, including an OTA restart. The user requested explicit documentation and agreed to a new candidate that restores the originating network mode after a supporting browser OTA while retaining Home for ordinary power-on. The candidate is not installed or device-accepted.

@@ -353,6 +353,7 @@
   <section id="firmware-update" hidden aria-labelledby="firmware-heading">
     <h2 id="firmware-heading">Firmware update</h2>
     <p id="firmware-current"></p>
+    <p id="firmware-network-hint">After a normal power-on or restart, the clock starts in home Wi-Fi.</p>
     <p>Choose a Speaking Clock update file (.clockota). During the update, clock controls and scheduled sounds are paused. Keep power connected.</p>
     <label for="firmware-file">Update file</label>
     <input id="firmware-file" type="file" accept=".clockota">
@@ -548,6 +549,10 @@
   function renderFirmware(allowed) {
     otaPanel.hidden=!allowed || !otaView?.supported;
     document.getElementById("firmware-current").textContent=live?.firmware ? "Installed: "+live.firmware.version+" - slot "+(otaView?.active || "?") : "";
+    document.getElementById("firmware-network-hint").textContent=otaView?.mode_restore ?
+      (otaView.restart_mode==="direct" ? "After this update, rejoin SpeakingClock if needed and open 192.168.4.1. Normal power-on still uses home Wi-Fi." :
+      "After this update, use home Wi-Fi. Normal power-on also uses home Wi-Fi.") :
+      "After restarting, the clock uses home Wi-Fi, including after an update from Direct. Join your home network and open the clock's home address.";
     otaUpload.disabled=!allowed || !otaFile || !otaView?.available || otaTransfer || busy || Boolean(pending) || dirtySettings.size>0 || settingChanges.size>0;
     otaInstall.disabled=!allowed || otaTransfer || otaView?.state!=="ready" || otaView.session!==otaSession;
     otaCancel.disabled=!allowed || !["receiving","ready"].includes(otaView?.state) || otaView.session!==otaSession;
@@ -628,8 +633,8 @@
   });
   otaInstall.addEventListener("click",async()=>{
     if(otaInstall.disabled || !confirm("Install the verified update and restart the clock? Keep power connected."))return;
-    otaRestart={epoch:live.epoch,build:otaFile?.build};
-    try{await otaSend("apply");otaMessage.textContent="Restarting. This page will reconnect automatically.";}
+    otaRestart={epoch:live.epoch,build:otaFile?.build,mode:otaView?.restart_mode || "home"};
+    try{await otaSend("apply");otaMessage.textContent=otaRestart.mode==="direct"?"Restarting. Stay on SpeakingClock or rejoin it; then reopen 192.168.4.1.":"Restarting into home Wi-Fi. Join your home network and open the clock home address.";}
     catch(error){otaMessage.textContent=error.message+" Wait for reconnection and check About.";}
     updateControls();pollStatusSoon();
   });

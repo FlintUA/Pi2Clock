@@ -67,12 +67,18 @@ $build = 'C:\pico_clock_compile\phone-ap'
 
 The outputs are `clock_phone_ap.uf2` and `clock_phone_sta.uf2`. These standalone targets contain no clock controls, settings storage, Bluetooth, MP3 or NTP service.
 
+## Restart and firmware-update network behavior
+
+The installed sequence-6 firmware starts in **Home Wi-Fi after every restart or power-on**, including after **Install and restart** from a Direct upload. Reconnect the phone to the home network and open the clock home address from Phone Control. The saved SpeakingClock password and browser permissions remain valid; Direct mode itself is not restored by these installed builds.
+
+A new, uninstalled candidate restores the original Home/Direct mode once after a browser OTA when both sender and receiver support it. Its ordinary power-on still starts Home. The first update from the existing sequence-6 sender still starts Home. See [version-specific behavior and pending tests](../../doc/OTA_WEB_UPDATE.md#network-mode-after-restart).
+
 ## Direct Wi-Fi hardware acceptance
 
 1. Before installing the prototype, keep a verified Speaking Clock UF2 available for restoration. The prototype temporarily takes the place of the clock application on the board. Use manual BOOTSEL to load the prototype and restore the clock firmware. The clock updater expects application diagnostics that this image does not implement.
 2. After installing the prototype, open its USB serial port at 115200 baud. It prints the SSID and a new WPA2 password generated at each boot. Send `?` to show them again. Keep the password in the local terminal.
 3. Turn off mobile data, join `SpeakingClock` and stay on the network if the phone reports that it has no Internet access. Open `http://192.168.4.1/` in the browser. Expect the Speaking Clock page with the direct-connection message.
-4. Leave the Wi-Fi network, rejoin it without restarting the Pico and reload the page. If the Pico was restarted, forget the saved network and join again with the new password.
+4. Leave the Wi-Fi network, rejoin it without restarting the Pico and reload the page. After a restart the installed firmware returns to Home; select Direct again if needed and reuse the saved password. A new password is only required after explicit password rotation.
 5. Restore the clock firmware and verify that its saved configuration is still present.
 
 On 2026-11-10, the user joined the SpeakingClock network with a phone and confirmed that the test page opened in the browser. The USB log showed the DHCP server assigning the phone an address on the prototype network.

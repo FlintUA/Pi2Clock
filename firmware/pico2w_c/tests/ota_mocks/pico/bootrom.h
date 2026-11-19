@@ -5,7 +5,8 @@
 #define PT_INFO_PARTITION_LOCATION_AND_FLAGS 0x10u
 #define PT_INFO_PT_INFO 1u
 #define BOOT_TBYB_AND_UPDATE_FLAG_BUY_PENDING 1u
-typedef struct {int8_t partition;uint8_t tbyb_and_update_info;} boot_info_t;
+#define BOOT_TYPE_FLASH_UPDATE 4u
+typedef struct {int8_t partition;uint8_t tbyb_and_update_info;uint8_t boot_type;} boot_info_t;
 bool rom_get_boot_info(boot_info_t *);
 int rom_get_partition_table_info(uint32_t *,uint32_t,uint32_t);
 int rom_get_b_partition(unsigned);

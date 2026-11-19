@@ -2,6 +2,7 @@
 #include "ota_upload.h"
 #include "ota_image.h"
 #include "ota_boot.h"
+#include "phone_web.h"
 #include "pico/bootrom.h"
 #include "pico/cyw43_arch.h"
 #include "pico/sha256.h"
@@ -47,7 +48,7 @@ static bool validate_image(uint32_t offset,uint32_t size,const uint8_t *first,co
     pico_sha256_finish(&hash,&result);
     return !memcmp(result.bytes,header+24,32);
 }
-static bool reboot_trial(void) {return clock_ota_trial_inactive(true);}
+static bool reboot_trial(void) {return clock_ota_trial_inactive_network(true,phone_web_direct(),upload.sequence);}
 static int nibble(char c) {return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:-1;}
 static bool number(const char **p,uint32_t *out) {
     if(**p<'0' || **p>'9')return false;
@@ -101,8 +102,8 @@ void phone_ota_service(bool idle,uint64_t now,uint32_t epoch) {
     static const char *states[]={"idle","receiving","ready","rebooting","error"};
     cyw43_arch_lwip_begin();
     busy=ota_upload_busy(&upload);available=idle && !busy && clock_ota_writes_allowed();
-    snprintf(view,sizeof(view),"{\"supported\":true,\"state\":\"%s\",\"available\":%s,\"session\":%" PRIu32 ",\"received\":%" PRIu32 ",\"size\":%" PRIu32 ",\"sequence\":%u,\"current_sequence\":%u,\"active\":\"%c\",\"error\":\"%s\",\"request_ok\":%s}",
-        states[upload.state],available?"true":"false",upload.session,upload.received,upload.size,(unsigned)upload.sequence,(unsigned)CLOCK_OTA_SEQUENCE,
+    snprintf(view,sizeof(view),"{\"supported\":true,\"state\":\"%s\",\"available\":%s,\"session\":%" PRIu32 ",\"received\":%" PRIu32 ",\"size\":%" PRIu32 ",\"sequence\":%u,\"current_sequence\":%u,\"mode_restore\":true,\"restart_mode\":\"%s\",\"active\":\"%c\",\"error\":\"%s\",\"request_ok\":%s}",
+        states[upload.state],available?"true":"false",upload.session,upload.received,upload.size,(unsigned)upload.sequence,(unsigned)CLOCK_OTA_SEQUENCE,phone_web_direct()?"direct":"home",
         rom_flash_runtime_to_storage_addr(XIP_BASE)==XIP_BASE+CLOCK_OTA_A_START?'A':'B',upload.error?upload.error:"none",!have || accepted?"true":"false");
     if(have)queued=false;
     cyw43_arch_lwip_end();

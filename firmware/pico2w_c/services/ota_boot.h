@@ -9,3 +9,6 @@ bool clock_ota_startup_confirm(bool healthy);
 void clock_ota_status(void);
 // Trial reboot; the inactive image must first be verified by the installer/uploader.
 bool clock_ota_trial_inactive(bool idle);
+// One-shot network handoff for browser OTA; ordinary boots still start Home.
+bool clock_ota_trial_inactive_network(bool idle,bool direct,uint32_t sequence);
+bool clock_ota_take_direct_resume(void);

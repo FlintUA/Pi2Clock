@@ -5282,6 +5282,10 @@ int main(void) {
 #ifdef CLOCK_ENABLE_PHONE_WEB
     phone_web_init(radio_ready);
 #endif
+            if(clock_ota_take_direct_resume()) {
+                bool restored=phone_web_set_direct(true);
+                puts(restored?"[OTA] Direct Wi-Fi restored after update":"[OTA] Direct restore failed; Home fallback retained");
+            }
             audio_queue_set_volume(&audio_queue,volume);
             startup_until_ms=to_ms_since_boot(get_absolute_time())+1600u;
             ota_startup_pending=false;
