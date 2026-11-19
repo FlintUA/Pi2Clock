@@ -350,3 +350,6 @@ On 2026-11-19 the user confirmed the requested sequence-6 checks, explicitly inc
 ## Network-return bootstrap ota7 - 2026-11-19
 
 The separately approved Home upload/apply installed b1dd2c31fc0d-bt-mp3-wifi-phone-ota7-trial in B as 1.0.0+53.gb1dd2c3. Device validation reached ready in 67.248 seconds. Serial confirmed accepted B beyond 30 seconds; Home attempt 1 and NTP recovered. All immediate pre/post scalar preferences, five alarms, fifteen birthdays, saved speaker rows, both Wi-Fi profiles, browser policy/entries and Flash settings sequences matched. HTTP confirmed idle sequence 7 with mode_restore=true and restart_mode=home, and served the new network hint. COM8 was released. The old sequence-6 sender cannot provide Direct context, so Home was expected. User functional/power-restart acceptance and actual sequence-8 Direct restoration remain pending.
+
+
+After the requested ota7 power-restart, sound and short-timer checks on 2026-11-19, the user reported all functions working. Read-only serial/HTTP verified b1dd2c31fc0d-bt-mp3-wifi-phone-ota7-trial, accepted B sequence 7, guard=OK and idle Home mode. COM8 was released. The supporting-sender gate is accepted; actual sequence-8 Direct restoration remains pending.
