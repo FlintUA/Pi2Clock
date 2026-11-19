@@ -11,6 +11,8 @@
 static clock_ota_layout_t layout;
 static bool verified,pending,confirmed,failed;
 static bool resume_direct;
+static bool resume_requested;
+static uint8_t resume_boot_type,resume_checks;
 // POWMAN scratch 0..3 are application-owned here. Never use watchdog scratch
 // 2..7 (ROM reboot parameters), POWMAN BOOT vectors, or SDK low-power scratch 6..7.
 #define OTA_RESUME_MAGIC 0x434f5401u
@@ -30,9 +32,10 @@ static bool partition(unsigned index,uint32_t *start,uint32_t *end,uint32_t *fla
 void clock_ota_boot_init(void){
     boot_info_t boot={0};uint32_t info[4]={0},flags[2]={0};
     uint32_t marker[4];for(unsigned i=0;i<4;i++)marker[i]=powman_hw->scratch[i];
-    clear_resume();resume_direct=false; // Consume even if layout/health later fails.
+    clear_resume();resume_direct=resume_requested=false;resume_boot_type=255;resume_checks=0; // Consume even if layout/health later fails.
     verified=pending=confirmed=failed=false;
     if(!rom_get_boot_info(&boot))return;
+    resume_boot_type=boot.boot_type;
     pending=(boot.tbyb_and_update_info&BOOT_TBYB_AND_UPDATE_FLAG_BUY_PENDING)!=0;
     layout=(clock_ota_layout_t){.boot_partition=boot.partition};
     int n=rom_get_partition_table_info(info,4,PT_INFO_PT_INFO);
@@ -51,6 +54,12 @@ void clock_ota_boot_init(void){
         marker[0]==OTA_RESUME_MAGIC && marker[1]==layout.start[layout.boot_partition] &&
         marker[2]==CLOCK_OTA_SEQUENCE &&
         marker[3]==(OTA_RESUME_MAGIC^marker[1]^marker[2]^OTA_RESUME_CHECK);
+    if(verified)resume_checks=(uint8_t)((marker[0]==OTA_RESUME_MAGIC?1u:0u) |
+        (marker[1]==layout.start[layout.boot_partition]?2u:0u) |
+        (marker[2]==CLOCK_OTA_SEQUENCE?4u:0u) |
+        (marker[3]==(OTA_RESUME_MAGIC^marker[1]^marker[2]^OTA_RESUME_CHECK)?8u:0u) |
+        (boot.boot_type==BOOT_TYPE_FLASH_UPDATE?16u:0u) | (pending?32u:0u));
+    resume_requested=resume_direct;
 }
 bool clock_ota_layout_verified(void){return verified;}
 bool clock_ota_writes_allowed(void){return verified && confirmed && !pending && !failed;}
@@ -76,6 +85,7 @@ bool clock_ota_startup_confirm(bool healthy){
 void clock_ota_status(void){
     printf("[OTA] layout=%s active=%c trial=%s accepted=%s writes=%s upload=WEB\n",
         verified?"OK":"INVALID",layout.boot_partition==0?'A':layout.boot_partition==1?'B':'?',pending?"YES":"NO",confirmed?"YES":"NO",clock_ota_writes_allowed()?"YES":"NO");
+    printf("[OTA-NET] boot_type=%u checks=0x%02x direct_intent=%s\n",(unsigned)resume_boot_type,(unsigned)resume_checks,resume_requested?"YES":"NO");
 }
 bool clock_ota_trial_inactive_network(bool idle,bool direct,uint32_t sequence){
     if(!idle || !clock_ota_writes_allowed())return false;

@@ -48,8 +48,10 @@ int main(void){
  assert(powman_hw->scratch[0] && powman_hw->scratch[1]==CLOCK_OTA_B_START && powman_hw->scratch[2]==8);
  current=1;trial=true;boot_type=BOOT_TYPE_FLASH_UPDATE;clock_test_sequence=8;
  clock_ota_boot_init();assert(!clock_ota_take_direct_resume());
+ assert(resume_boot_type==BOOT_TYPE_FLASH_UPDATE && resume_checks==63u && resume_requested);
  for(unsigned i=0;i<4;i++)assert(powman_hw->scratch[i]==0);
  assert(clock_ota_startup_confirm(true));assert(clock_ota_take_direct_resume());assert(!clock_ota_take_direct_resume());
+ assert(resume_requested); // Diagnostics retain the boot observation after the one-shot is consumed.
  assert(clock_ota_trial_inactive_network(true,true,9));assert(powman_hw->scratch[1]==CLOCK_OTA_A_START);
  current=0;trial=true;boot_type=BOOT_TYPE_FLASH_UPDATE;clock_test_sequence=9;
  clock_ota_boot_init();assert(clock_ota_startup_confirm(true));assert(clock_ota_take_direct_resume());assert(!clock_ota_take_direct_resume());

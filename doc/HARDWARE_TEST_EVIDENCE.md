@@ -353,3 +353,8 @@ The separately approved Home upload/apply installed b1dd2c31fc0d-bt-mp3-wifi-pho
 
 
 After the requested ota7 power-restart, sound and short-timer checks on 2026-11-19, the user reported all functions working. Read-only serial/HTTP verified b1dd2c31fc0d-bt-mp3-wifi-phone-ota7-trial, accepted B sequence 7, guard=OK and idle Home mode. COM8 was released. The supporting-sender gate is accepted; actual sequence-8 Direct restoration remains pending.
+
+
+## Sequence-8 phone update and later power cycle - 2026-11-19
+
+The user reported a Direct phone upload/install of ota8, successful operation and a subsequent power cycle. Read-only serial then confirmed accepted A sequence 8, build b1dd2c31fc0d-bt-mp3-wifi-phone-ota8-trial, guard=OK and Home/NTP. This confirms installation and the expected Home startup after power cycling. Immediate Direct restoration before that power cycle was not independently observed and remains open. COM8 was released. The user reported ambiguous waiting/repeated Upload during the browser flow; a feedback/duplicate-action fix is a new uninstalled candidate, not accepted hardware behavior.

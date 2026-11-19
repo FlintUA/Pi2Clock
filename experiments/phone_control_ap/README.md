@@ -71,7 +71,7 @@ The outputs are `clock_phone_ap.uf2` and `clock_phone_sta.uf2`. These standalone
 
 Sequence 6 and earlier start in **Home Wi-Fi after every restart or power-on**, including after **Install and restart** from a Direct upload. Reconnect the phone to the home network and open the clock home address from Phone Control. The saved SpeakingClock password and browser permissions remain valid; Direct mode itself is not restored by these installed builds.
 
-Sequence 7 is now installed as a supporting sender. It requests the original Home/Direct mode once after a browser OTA when the receiver also supports it; actual Direct restoration still needs the sequence-8 hardware test. Ordinary power-on still starts Home. The bootstrap update from the sequence-6 sender also started Home as expected. See [version-specific behavior and pending tests](../../doc/OTA_WEB_UPDATE.md#network-mode-after-restart).
+Sequences 7 and 8 support requesting the original Home/Direct mode once after a browser OTA when the receiver also supports it. Sequence 8 is installed. Its phone Direct test was followed by power cycling before independent observation, so immediate Direct restoration still needs an observed test before power cycling. Ordinary power-on still starts Home. The bootstrap update from the sequence-6 sender also started Home as expected. See [version-specific behavior and pending tests](../../doc/OTA_WEB_UPDATE.md#network-mode-after-restart).
 
 ## Direct Wi-Fi hardware acceptance
 
