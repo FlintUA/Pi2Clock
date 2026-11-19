@@ -333,3 +333,10 @@ This exercised production HTTP endpoints from a PC client, not the phone file-pi
 
 
 After the requested sequence-5 power-cycle and sound/timer checks, the user reported all functions working. Read-only serial/HTTP verification confirmed edc486e394bf-bt-mp3-wifi-phone-ota5-trial, layout=OK active=B trial=NO accepted=YES writes=YES upload=WEB, guard=OK, Home connectivity/NTP and idle OTA sequence 5. COM8 was released. The Home transport and subsequent functional/power-restart gate are accepted; pending cases above remain separate.
+
+
+## Phone Direct OTA - 2026-11-19
+
+The user downloaded clock-ota6.clockota to the phone SD card, opened the clock at 192.168.4.1 through SpeakingClock Direct Wi-Fi, uploaded the file and performed Install and restart. The user reported success. Serial/HTTP confirmed version 1.0.0+51.gc3440d9, build c3440d9cb6d1-bt-mp3-wifi-phone-ota6-trial, accepted A sequence 6, guard=OK and idle OTA. Home networking and NTP returned. COM8 was released.
+
+Alarm/birthday records, two Wi-Fi profiles and browser entries matched the older November 16 snapshot. Volume values differed from that older snapshot; without an immediate pre-test preferences capture, exact volume preservation is not claimed. A sequence-6 power cycle, focused sound/timer test and failure cases remain pending. See [Direct workflow evidence](OTA_WEB_UPDATE.md).

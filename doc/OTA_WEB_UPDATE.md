@@ -1,6 +1,6 @@
 # Browser firmware update candidate
 
-Status: receiver sequence 4 was installed and user-accepted after the requested power-cycle check on 2026-11-16. The first separately approved Home HTTP update to sequence 5 then passed transfer, device validation, explicit activation, accepted B startup and settings comparison. The user reported restored web access about 10 seconds after boot. The user subsequently confirmed normal operation after the requested full power restart; read-only serial/HTTP checks confirmed accepted B sequence 5, guard=OK and an idle uploader. Direct transport and phone file-picker/progress UI remain pending. Thirty-three host checks pass.
+Status: receiver sequence 4 was installed and user-accepted after the requested power-cycle check on 2026-11-16. The first separately approved Home HTTP update to sequence 5 then passed transfer, device validation, explicit activation, accepted B startup and settings comparison. The user reported restored web access about 10 seconds after boot. The user subsequently confirmed normal operation after the requested full power restart; read-only serial/HTTP checks confirmed accepted B sequence 5, guard=OK and an idle uploader. On 2026-11-19 the user then completed the phone-browser Direct upload/install workflow to accepted A sequence 6. Its cold power restart and focused failure cases remain pending. Thirty-three host checks pass.
 
 ## User workflow
 
@@ -70,3 +70,14 @@ Five alarms, fifteen birthdays, four saved speakers, both Wi-Fi profiles, admitt
 Pending physical checks: Direct transport, interrupted transfers, cancellation, wrong file/version/hash, concurrent admission, actual phone-browser picker/progress/reconnect/rollback feedback, peak live memory, power loss during upload/commit and browser-update rollback. The successful Home HTTP test does not establish these cases.
 
 ROM storage/translation, Flash permission checks and explicit-buy behavior follow the [official SDK runtime documentation](https://www.raspberrypi.com/documentation/pico-sdk/runtime.html).
+
+
+## Phone Direct workflow evidence - 2026-11-19
+
+The repository was renamed to FlintUA/Pi2Clock. A clean sequence-6 trial package was built from c3440d9cb6d1; its display version is 1.0.0+51.gc3440d9. The reviewed clock-ota6.clockota file contains 1000716 bytes, SHA-256 bf8415b1c366d0207ee694558abe52b4d4fb92edecfeb76d423f7cf5ee654993. The phone first downloaded the file through the home LAN and stored it on its SD card. The user switched the clock to Direct, joined SpeakingClock, opened 192.168.4.1, selected/uploaded the file and performed Install and restart. The user reported success.
+
+Read-only serial/HTTP inspection then confirmed c3440d9cb6d1-bt-mp3-wifi-phone-ota6-trial, layout=OK active=A trial=NO accepted=YES writes=YES upload=WEB, Flash guard=OK and idle sequence 6. The clock returned to Home at 192.168.2.116 and synchronized NTP. COM8 was released. This proves the normal phone selection/upload/install path through Direct; transfer duration and detailed progress rendering were not measured.
+
+Five alarms, fifteen birthdays, both Wi-Fi profiles and admitted browser entries matched the November 16 snapshot. Scalar differences from that older snapshot were local volume 13 to 15 and Bluetooth volume 15 to 4. No immediate pre-Direct full preferences snapshot was captured, so those differences cannot be attributed to the update and this test does not claim exact volume preservation. Existing saved speaker entries were readable.
+
+Pending: sequence-6 full power restart and focused sound/timer acceptance, interrupted/cancelled/corrupt transfers, concurrent admission, power loss during upload/commit, peak memory and rollback/reconnection feedback in a browser. No failure-case acceptance follows from this successful normal-path test.
