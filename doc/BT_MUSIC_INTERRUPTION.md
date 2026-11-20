@@ -1,6 +1,6 @@
 # Bluetooth music interruption and continuation
 
-Status: installed with separate approval as sequence 12 on 2026-11-20; startup/settings checks passed, music interruption hardware acceptance is pending. The user requested interruption for both hourly time speech and scheduled alarms, then explicitly limited this stage to Bluetooth music. Local DFPlayer music retains its existing behavior; no ADVERT folder or card modification is required by this stage.
+Status: introduced with separate approval as sequence 12 on 2026-11-20; the latest installed build is sequence 14, with verified startup/settings and restored Nest connection. Hourly continuation is user-confirmed; alarm continuation, bad-file policy and audition-guard acceptance remain pending. The user requested interruption for both hourly time speech and scheduled alarms, then explicitly limited this stage to Bluetooth music. Local DFPlayer music retains its existing behavior; no ADVERT folder or card modification is required by this stage.
 
 ## Behavior
 
@@ -45,6 +45,12 @@ The user subsequently supplied the original COM8 log and authorized installation
 The approved ota13 transfer reached verified ready in 60.24 seconds, then apply completed. A later attempt to stop the installer after an additional code-review finding occurred during reconnect monitoring, after the device had already booted sequence 13; the update was not cancelled or rolled back. Independent serial/HTTP checks confirmed version `1.0.0+69.g134963d`, build `g1-134963d2281a-bt-mp3-wifi-phone-ota13-trial`, active B, trial=NO, accepted=YES, guard=OK, Home and synchronized NTP. Nest was restored with an active A2DP stream and completed autosave. Before/after setting/record comparisons matched; volumes were LOCAL 18/30, BT 11/30. COM8 was released and music left stopped. Actual bad-file skipping and 32 kHz playback acceptance remain pending.
 
 The additional finding concerns fixed-track alarm audition: ota13 can skip a failed audition file to a different track under the ordinary-player retry policy. A follow-up source correction treats both audition and repeat-one as single-track requests, stopping with File error rather than selecting another file. It passed all 35 host tests and is not installed. No subsequent device installation is authorized by the completed ota13 installation; agree the next installation separately after user testing.
+
+### Separately approved audition guard installation on 2026-11-20
+
+The user explicitly approved installation of the audition correction. Both ordinary and OTA builds passed. The reviewed package was `Pi2Clock-G1-v1.0.0+71.g8a8f7a6-ota14.clockota`, build `g1-8a8f7a685630-bt-mp3-wifi-phone-ota14-trial`, 1010668 bytes, SHA-256 `631c1a1e54ffd432d93f6c02794a3eb8d3bafab297f1016bb34de1ba190793a0`. Home upload/verification reached ready in 61.81 seconds. A separate apply step then requested restart.
+
+Independent serial/HTTP inspection confirmed version `1.0.0+71.g8a8f7a6`, sequence 14, active A, trial=NO, accepted=YES, Flash guard=OK, Home at 192.168.2.116 and synchronized NTP. Nest was reconnected with an active A2DP stream and completed autosave. Persistent settings, alarms, birthdays, display light, known peers and preferred Nest matched the pre-install snapshot; LOCAL volume stayed 18/30 and BT 11/30, light ON/day 93%/night 94%. Runtime automatic-enable is excluded from persistent-field comparison because it intentionally resets on boot. COM8 was released and the player left stopped for user testing. No audition/track-skip audio test was triggered by the installer; those results remain pending.
 
 Both ordinary and A/B OTA firmware builds must pass before a candidate is offered for separately approved installation. The latest reviewed package/build and test totals belong in the installation evidence after preparation.
 
