@@ -4893,9 +4893,10 @@ static void handle_command(char *line) {
             ds1302_datetime_t dt = {0};
             if (!ds1302_read_datetime(&dt))
                 puts("[ALARM-AUDIO] TEST refused: RTC unavailable");
-            else
+            else {
                 active_alarm_due_ms = now;
                 alarm_start_audio(slot - 1u, dt.hour, dt.minute, now, true, 0);
+            }
         }
     } else if (strcmp(line, "alarm-stop") == 0) {
         alarm_stop("SERIAL");
