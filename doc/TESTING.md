@@ -12,6 +12,8 @@ ctest --test-dir build/host-tests -C Debug --output-on-failure
 
 GitHub CI runs this suite on Windows and Linux for pushes to `main` and `codex/**` branches, pull requests and manual dispatch. Before 2026-11-20 pushes to `codex/phone-control` did not trigger it, which hid two Linux-only compile errors; local passing tests are not a claim of a branch CI run.
 
+On 2026-11-20 the suite registered 36 checks; all passed with Linux GCC (Debug) and again when built with `-Os`, AddressSanitizer and UBSan. The `web_fsdata` check verifies the gzip-compressed phone page: it decodes to `services/phone_web/index.html`, carries `Content-Encoding: gzip` and a correct length, and the uncompressed mode is byte-identical to the Pico SDK's `makefsdata.py` when `PICO_SDK_PATH` is set.
+
 If a local Windows/MSVC build misses a changed header (for example due to localized include diagnostics), use a fresh build directory or cmake --build build/host-tests --clean-first before rerunning CTest. The three-minute snooze change was verified with a fresh local build after an incremental cache retained an old object. GitHub CI uses fresh checkouts.
 
 The current branch defines seventeen host checks (sixteen compiled C executables plus the CMake Git-version check). If Node.js is available at configuration, CMake also registers `phone_sliders` and `phone_timer_wheels`, for nineteen checks in total. Node.js is optional and adds no npm dependencies; inspect the CTest list to verify whether these checks are included. The seventeen non-browser checks cover:
