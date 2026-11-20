@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "clock_datetime.h"
 
-// Mirrors source/v3/config.py: five daily alarms, default OFF at 07..11:00.
+// Mirrors G0 source/v3/config.py: five daily alarms, default OFF at 07..11:00.
 // Music tracks are 1..255, from folder 08; the editor uses detected count.
 #define CLOCK_ALARM_COUNT 5u
 #define CLOCK_ALARM_MAX_TRACK 255u

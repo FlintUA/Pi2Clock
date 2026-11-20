@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased - codex/phone-control
+## Unreleased - G1 development on main
 
-Experimental work after stable v1.0.0; no stable web-control release is claimed.
+G1 work after the v1.0.0 release; no new release is claimed. Developed on `codex/phone-control` until 2026-11-20, then merged into `main`.
+
+- Organized the repository by hardware generation: G0 MicroPython code, libraries, original schematic and documents moved to `generations/g0-micropython/`, including the previously uncommitted v2.0.0 modular rewrite, August 2026 migration tools and state notes. Added `doc/generations/` with G0, G1 and G2 descriptions and a rewritten README; the previous README is archived in `doc/history/`. All relative documentation links were checked.
+- Added `.gitattributes` (LF in the repository, CRLF for PowerShell scripts), enabled CI for `codex/**` pushes and fixed two host tests that failed to compile with Linux GCC (`speech_plan_test.c`, `ota_upload_test.c`). No firmware behavior change.
 
 - Added an opt-in RP2350 A/B boot foundation and reviewed file-only package builder as the first OTA gate. Exact partition/translation checks, slot-size guards, untranslated shared-settings reads, trial write blocking, ROM confirmation and deliberate reject-test images preserve the existing shared tail. Ordinary builds retain their layout. This is NOT a browser updater and is not installed or hardware-accepted. See [migration/rollback gates](doc/OTA_FOUNDATION.md).
 - Recorded user acceptance of +46 manual Connect switching between saved Main/Backup networks. Automatic outage failover and failed-manual recovery remain separate checks.

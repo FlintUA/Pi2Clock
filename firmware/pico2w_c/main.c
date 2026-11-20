@@ -462,7 +462,7 @@ static uint64_t auto_minute_key(const ds1302_datetime_t *dt) {
 static bool auto_quiet_at(uint8_t hour) {
     if (!quiet_enabled) return false;
     if (quiet_start < quiet_end) return hour >= quiet_start && hour < quiet_end;
-    // Equal start/end means quiet all day (matches source/v3/main.py).
+    // Equal start/end means quiet all day (matches G0 source/v3/main.py).
     return hour >= quiet_start || hour < quiet_end;
 }
 

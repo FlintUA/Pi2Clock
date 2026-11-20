@@ -1,6 +1,6 @@
 # Phone control: integrated firmware and Wi-Fi prototypes
 
-Current development branch: `codex/phone-control`. Stable v1.0.0 does not include the browser interface. The integrated profile runs the clock, Bluetooth, MP3 and optional NTP alongside local HTTP control. The standalone targets described below are earlier network experiments and replace the clock application when installed.
+The browser interface was developed on `codex/phone-control` and has been part of `main` since 2026-11-20. The v1.0.0 release does not include it. The integrated profile runs the clock, Bluetooth, MP3 and optional NTP alongside local HTTP control. The standalone targets described below are earlier network experiments and replace the clock application when installed.
 
 ## Current integrated workflow
 

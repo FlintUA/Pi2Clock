@@ -17,7 +17,7 @@ bool speech_enqueue_date(audio_queue_t *queue, speech_language_t language,
     return true;
 }
 
-// Confirmed language mappings from source/v3/audio.py:
+// Confirmed language mappings from G0 source/v3/audio.py:
 // RU hours 01, minutes 02, service phrases 07
 // DE hours 11, minutes 12, service phrases 17
 uint8_t speech_hours_folder(speech_language_t language) {

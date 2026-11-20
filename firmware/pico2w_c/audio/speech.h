@@ -4,7 +4,7 @@
 #include "queue.h"
 #include "clock_datetime.h"
 
-// Folder/track layout is identical to source/v3/audio.py.
+// Folder/track layout is identical to G0 source/v3/audio.py.
 // Language selection is supplied by the caller from current settings.
 typedef enum {
     SPEECH_RU = 0,

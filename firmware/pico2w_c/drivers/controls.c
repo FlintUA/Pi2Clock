@@ -2,7 +2,7 @@
 #include "pico/stdlib.h"
 #include <stdbool.h>
 
-// Preserve the pin order used by library/rotary.py:
+// Preserve the pin order used by G0 library/rotary.py:
 // Rotary(dt, clk) and MicroPython's 11->10 / 11->01 step detection.
 typedef struct {
     uint8_t dt_pin, clk_pin;

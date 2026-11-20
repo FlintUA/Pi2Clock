@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include "speech.h"
 #include "dfplayer.h"
 

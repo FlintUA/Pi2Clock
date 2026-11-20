@@ -1,6 +1,6 @@
 # Current Pico 2 W pin map
 
-This table matches the C firmware on main and the configuration tested on the assembled clock. GP means GPIO; pin means the physical board pin. The original [Pico schematic](../schematic/shematic.png) does not show the SPI card or relocated encoder. See [hardware test evidence](HARDWARE_TEST_EVIDENCE.md).
+This table matches the C firmware on main and the configuration tested on the assembled clock. GP means GPIO; pin means the physical board pin. The original [Pico schematic](../generations/g0-micropython/schematic/shematic.png) does not show the SPI card or relocated encoder. See [hardware test evidence](HARDWARE_TEST_EVIDENCE.md).
 
 | Signal | GPIO | Physical pin |
 | --- | --- | --- |

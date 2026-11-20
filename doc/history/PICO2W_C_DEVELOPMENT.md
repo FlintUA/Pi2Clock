@@ -48,7 +48,7 @@ settings, DFPlayer or Bluetooth.
    RTC correction. Verify functionality against MicroPython.
 7. Long-running stability tests, reboot/disconnect tests and final cutover.
 
-Current migration checklist: [doc/C_MIGRATION_PLAN.md](../../doc/C_MIGRATION_PLAN.md).
+Current migration checklist: [doc/C_MIGRATION_PLAN.md](C_MIGRATION_PLAN.md).
 
 ## Safe development workflow
 

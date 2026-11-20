@@ -131,7 +131,7 @@ The user confirmed the two-page About menu works after commit d8f2c57: Speaking 
 
 ## Encoders and buttons
 
-The [November 6 audit](C_MIGRATION_AUDIT_2026-11-06.md#fat32-directory--file-read-diagnostics-implemented-2026-11-06) explicitly records user confirmation that the timer encoder works after relocation to GP12/GP13. Volume button GP20 was verified through sound ON/OFF in serial logs and on the LCD; no firmware change was required for that button.
+The [November 6 audit](history/C_MIGRATION_AUDIT_2026-11-06.md#fat32-directory--file-read-diagnostics-implemented-2026-11-06) explicitly records user confirmation that the timer encoder works after relocation to GP12/GP13. Volume button GP20 was verified through sound ON/OFF in serial logs and on the LCD; no firmware change was required for that button.
 
 The rotation signals moved from DT/CLK GP11/GP10 to GP12/GP13. Encoder buttons remain GP20 (volume) and GP19 (timer). The November 7 user log includes encoder TIMER CW/CCW and button TIMER PRESS/RELEASE with Bluetooth menu navigation and confirmation.
 
@@ -147,7 +147,7 @@ The rotation signals moved from DT/CLK GP11/GP10 to GP12/GP13. Encoder buttons r
 
 Wiring: GP8 MISO, GP9 CS, GP10 SCK, GP11 MOSI. The connected module is rated for 3.3 V, and the 4 GB FAT32 card contains copies of the DFPlayer files. See [HARDWARE_PICO2W.md](HARDWARE_PICO2W.md) for signal and module power connections.
 
-At 21:39, the same [audit](C_MIGRATION_AUDIT_2026-11-06.md#full-sd-fat32-directory-and-file-lookup-verified-conservative-jbl-level-2026-11-06-2139) recorded 27 root directory entries, files in folder 07 and successful access to 07/001.mp3: 53103 bytes, first cluster 1476, ID3 header. The RTC kept running and A2DP was ACTIVE at 44100 Hz.
+At 21:39, the same [audit](history/C_MIGRATION_AUDIT_2026-11-06.md#full-sd-fat32-directory-and-file-lookup-verified-conservative-jbl-level-2026-11-06-2139) recorded 27 root directory entries, files in folder 07 and successful access to 07/001.mp3: 53103 bytes, first cluster 1476, ID3 header. The RTC kept running and A2DP was ACTIVE at 44100 Hz.
 
 ## MP3 and Bluetooth
 

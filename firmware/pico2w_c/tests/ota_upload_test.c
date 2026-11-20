@@ -9,7 +9,9 @@ static unsigned erases,programs,reboots;
 static bool erase_ok=true,program_ok=true,validate_ok=true,reboot_ok=true;
 static bool erase(uint32_t offset) {
     assert(clock_ota_inactive_range(&layout,offset,4096));assert(!(offset%4096));++erases;
-    if(!erase_ok)return false;memset(flash+offset,255,4096);return true;
+    if(!erase_ok)return false;
+    memset(flash+offset,255,4096);
+    return true;
 }
 static bool program(uint32_t offset,const uint8_t *data) {
     assert(clock_ota_inactive_range(&layout,offset,4096));++programs;

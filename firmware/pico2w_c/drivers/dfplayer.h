@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Mirrors source/v3/audio.py DFPlayerTransport:
+// Mirrors G0 source/v3/audio.py DFPlayerTransport:
 // UART0 GP16 TX, GP17 RX @9600 8N1; BUSY GP18 active-low.
 // Diagnostic milestone: no automatic playback on boot.
 void dfplayer_init(void);

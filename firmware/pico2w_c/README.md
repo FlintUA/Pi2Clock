@@ -1,6 +1,6 @@
 # Pico 2 W clock C firmware
 
-Stable baseline: v1.0.0. This checkout's `codex/phone-control` branch develops the optional browser-control profile; it is not a new stable release. Current controls are documented in [CONTROLS_AND_MODES.md](../../doc/CONTROLS_AND_MODES.md), with network provisioning and rollback in [NETWORK_TIME.md](../../doc/NETWORK_TIME.md). See [TESTING.md](../../doc/TESTING.md) for host tests and release acceptance, and [phone control](../../experiments/phone_control_ap/README.md) for browser setup and checks.
+Pi2Clock G1 firmware (see [G1](../../doc/generations/G1.md)). Latest tagged release: v1.0.0; `main` carries the newer G1 development line, including the optional browser-control profile (developed on `codex/phone-control` until 2026-11-20). Current controls are documented in [CONTROLS_AND_MODES.md](../../doc/CONTROLS_AND_MODES.md), with network provisioning and rollback in [NETWORK_TIME.md](../../doc/NETWORK_TIME.md). See [TESTING.md](../../doc/TESTING.md) for host tests and release acceptance, and [phone control](../../experiments/phone_control_ap/README.md) for browser setup and checks.
 
 This is the current project firmware. See the [main README](../../README.md) for build dependencies and updates, and the [current pin map](../../doc/HARDWARE_PICO2W.md) for wiring.
 

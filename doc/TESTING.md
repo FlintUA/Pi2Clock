@@ -10,7 +10,7 @@ cmake --build build/host-tests --config Debug
 ctest --test-dir build/host-tests -C Debug --output-on-failure
 ```
 
-GitHub CI is configured to run this suite on Windows and Linux for pushes to main, pull requests and manual dispatch. A push to `codex/phone-control` alone does not trigger that workflow; local passing tests are not a claim of a branch CI run.
+GitHub CI runs this suite on Windows and Linux for pushes to `main` and `codex/**` branches, pull requests and manual dispatch. Before 2026-11-20 pushes to `codex/phone-control` did not trigger it, which hid two Linux-only compile errors; local passing tests are not a claim of a branch CI run.
 
 If a local Windows/MSVC build misses a changed header (for example due to localized include diagnostics), use a fresh build directory or cmake --build build/host-tests --clean-first before rerunning CTest. The three-minute snooze change was verified with a fresh local build after an incremental cache retained an old object. GitHub CI uses fresh checkouts.
 
@@ -60,13 +60,13 @@ powershell -ExecutionPolicy Bypass -File .\build-clock-bt.ps1 -Mp3 -NoWifi
 
 The script supports -BuildDirectory for an ASCII build path and -HelixPath for an existing external decoder checkout. It records the Git revision and marks tracked uncommitted changes as dirty. Release builds must have a clean source revision.
 
-Experimental web profile on `codex/phone-control`:
+Web profile (`-PhoneWeb`):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build-clock-bt.ps1 -Mp3 -PhoneWeb -BuildDirectory C:\pico_clock_compile\phone-clock
 ```
 
-`-PhoneWeb` requires Wi-Fi. Build-only and separately approved installation are described in the [main README](../README.md#experimental-phone-control-profile). Keep the exact UF2 and sidecar together; `update-pico.ps1` has no `-PhoneWeb` parameter. Detailed phone acceptance is in the [web checklist](../experiments/phone_control_ap/README.md#remaining-web-release-acceptance).
+`-PhoneWeb` requires Wi-Fi. Build-only and separately approved installation are described in the [main README](../README.md#building-and-installing-windows). Keep the exact UF2 and sidecar together; `update-pico.ps1` has no `-PhoneWeb` parameter. Detailed phone acceptance is in the [web checklist](../experiments/phone_control_ap/README.md#remaining-web-release-acceptance).
 
 ## Earlier web verification baseline (499e78c)
 

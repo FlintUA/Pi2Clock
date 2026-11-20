@@ -1,0 +1,186 @@
+# Speaking Clock README (archived 2026-11-20)
+
+> Archived project home page from `codex/phone-control` before the repository was organized by generations. Links are relative to the repository root and may be outdated; see the current [README](../../README.md).
+
+The main project is C / Pico SDK firmware for **Pico 2 W (RP2350)**. MicroPython sources and the original Pico schematic are retained as historical material.
+
+The development firmware identifies this DFPlayer/two-card device as **Pi2Clock G1**. G2 is reserved for the future I2S/one-card device. Hardware generation, tag-derived firmware version and ordered OTA sequence are independent: see [firmware identity and package compatibility](../FIRMWARE_IDENTITY.md).
+
+Current stable release: **[1.0.0](https://github.com/FlintUA/Pi2Clock/releases/tag/v1.0.0)**. See the [release notes](../releases/v1.0.0.md), [current roadmap](../ROADMAP.md) and [verification instructions](../TESTING.md).
+
+This checkout's `codex/phone-control` branch adds experimental browser control. It has not replaced the stable release. The optional web profile supports direct Wi-Fi or the home network, live status, one 1..86,399-second timer, combined Play/Pause transport controls, settings, five alarms and fifteen annual birthdays with optional birth years. It is designed for four simultaneous browser clients; this requires hardware acceptance. See [phone setup, controls and acceptance](../../experiments/phone_control_ap/README.md). The ordinary profile does not serve the web interface.
+
+Firmware versions are derived automatically from local Git release tags. The LCD About screen shows a compact version with + for later changes. Browser About shows the full installed version and build ID, using the same generated constants as USB `version`, plus the device, board and author FlintUA. Browser information is read-only and does not require pairing. See [version rules](../TESTING.md#automatic-firmware-version), including tag fetching and archive fallback.
+
+The clock uses an I2C LCD1602, DS1302 RTC, DFPlayer Mini, two rotary encoders and five additional buttons. For Bluetooth playback, Pico reads MP3 files from a separate SPI1 microSD card, decodes them with Helix and sends SBC audio to a Bluetooth Classic A2DP speaker.
+
+The normal LCD clock screen shows `MUTE` at the upper right when sound is switched off and `BT`/`SPK` at the lower right for the current volume-owner output (Manual preference when idle, LOCAL fallback without A2DP). See [screen and controls](../CONTROLS_AND_MODES.md#normal-clock-screen).
+
+## Features and validation
+
+- One countdown timer (1..86,399 seconds on this development branch), five alarms with selectable weekdays and three-minute snooze, Russian and German speech, and quiet hours.
+- Menus for time, date, language and audio outputs, with hardware blinking cursor focus in editors; USB diagnostics.
+- Local DFPlayer and Bluetooth playback for speech, timer, alarms and music, with local fallback.
+- Music player with normal/shuffle/repeat-one modes, Next/Previous history, position-preserving pause and a 15/30/60/90-minute sleep timer. Pause and sleep selection were user-tested. Full timed expiry remains a follow-up check. Installed development sequence 12 adds [Bluetooth music continuation after hourly voice/alarms](../BT_MUSIC_INTERRUPTION.md); startup/settings checks passed and interruption hardware acceptance is pending. [Controls](../CONTROLS_AND_MODES.md#music-player)
+- Idle-clock MINUS short/hold requests spoken date/next alarm; a nonblocking startup screen shows the firmware version. The user confirmed this functionality after build 02b4a51 was installed.
+- One volume encoder controls the active output. DFPlayer and Bluetooth volume levels are stored separately.
+- Bluetooth discovery, selection by name/MAC, automatic SSP pairing, up to four known devices and direct connection to the saved MAC.
+- Optional Wi-Fi/NTP correction with Europe/Berlin CET/CEST and offline RTC fallback.
+- Fifteen annual birthday dates with menu/USB/browser editing and the existing melody on this development branch. The user broadly accepted the latest changes on 2026-11-13; individual expanded-slot persistence and timed-delivery checks remain in the acceptance checklist. One-time reminders are excluded.
+- Stable v1.0.0 uses Flash settings v11. This development branch reads v1-v14 and writes v11-v14 according to the saved fields: v12 adds remembered browser access, direct Wi-Fi password and home trust; v13 adds known birth years for the first five slots; v14 adds ten birthday slots. Sector boundaries are unchanged. Both profiles on this branch preserve these fields. Alarm music tracks up to 255 are supported. BTstack stores pairing keys separately. See [migration and rollback](../NETWORK_TIME.md#settings-compatibility-and-rollback).
+- External LCD illumination on GP6 supports OFF, ON and AUTO with independent day and night brightness. See [settings](../CONTROLS_AND_MODES.md#settings).
+- Read-only FAT32 and MP3 access on the SPI microSD card.
+
+The current browser timer uses three scrolling hours/minutes/seconds wheels with smooth digit scaling and keyboard support. Player controls are Previous / combined Play-Pause / Next, with Stop below; the later user-selected row layout replaces the earlier circular proposal. The alarm editor offers Test/Stop to audition one selected music track without saving its draft. See [current implementation status](../ROADMAP.md#current-expansion-status-2026-11-13) and the [expansion specification](../WEB_CONTROL_SPEC.md).
+
+The generally accepted status substage adds device-supplied date/weekday, global sound, active/deferred/nearest alarm and snoozes, Bluetooth name/state and home/direct Wi-Fi/NTP. Quick-control substage 2 adds explicit sound on/off and time/date/nearest-alarm speech; software checks pass and approved installation/startup checks passed on November 13; the user subsequently confirmed general operation, with next-alarm wording deferred for the planned audio refresh. Live alarm Stop, Snooze 3 min and Cancel snoozed repeats are implemented as substage 3, installed with approval on November 13 as `1.0.0+25.g97fd951`; hardware acceptance is pending. Browser Bluetooth device management is installed as `1.0.0+35.g5c09045` ([workflow](../WEB_BLUETOOTH.md)). Selecting a preferred Bluetooth audio output does not connect a speaker.
+
+Hardware tests confirm the relocated timer encoder, volume button, SPI SD/FAT32, MP3 reads and Bluetooth playback. Registry v7 tests cover discovery, saving, Portable reconnection after power loss, deletion with autosave and Portable <-> Nest switching without scanning, followed by speech on both speakers. Switching initially returned status 0x56, then recovered through an automatic retry after five seconds. See [test evidence](../HARDWARE_TEST_EVIDENCE.md).
+
+Disconnect or starting a scan persists OFF until an explicit Connect while retaining saved speakers and pairing. The initial switch retry remains in place.
+
+## Current wiring
+
+Use the [Pico 2 W pin map](../HARDWARE_PICO2W.md). It takes precedence over the old schematic image and MicroPython mappings.
+
+The timer encoder moved from DT=GP11 / CLK=GP10 to **GP12 / GP13**. SD SPI1 uses GP8-GP11. Encoder buttons are GP20 for volume and GP19 for the timer. The Pico and DFPlayer cards are independent.
+
+## Updating on Windows
+
+Close the serial monitor in your repository working directory. When first switching from develop/v3:
+
+```powershell
+git status --short
+git fetch origin
+git switch main
+git merge --ff-only origin/main
+```
+
+Switch branches with a clean working tree after preserving local changes. If no local main exists, use `git switch --track origin/main`.
+
+Subsequent updates:
+
+```powershell
+git pull --ff-only
+powershell -ExecutionPolicy Bypass -File .\update-pico.ps1 -Build -Bluetooth -Mp3
+```
+
+The default port is COM8; use `-Port COM7` to select another port. Software BOOTSEL entry requires firmware that already supports bootsel arm/confirm; the first installation requires manual BOOTSEL entry. The updater checks Flash and alarm responses after flashing, but does not test sound quality or pairing.
+
+### Experimental phone-control profile
+
+Use the existing `codex/phone-control` branch with a clean working tree. Build the web profile separately; the updater has no `-PhoneWeb` parameter:
+
+```powershell
+git fetch origin --tags
+git switch codex/phone-control
+git pull --ff-only
+powershell -ExecutionPolicy Bypass -File .\build-clock-bt.ps1 -Mp3 -PhoneWeb -BuildDirectory C:\pico_clock_compile\phone-clock
+```
+
+Building does not flash the board. After reviewing the build and approving installation, close serial monitors and install that exact artifact:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\update-pico.ps1 -Port COM8 -Uf2 C:\pico_clock_compile\phone-clock\speaking_clock_c.uf2
+```
+
+Keep the generated build-ID sidecar with the UF2. Do not use the ordinary `-Build -Bluetooth -Mp3` update command to install the web profile: it configures the ordinary profile. A web build requires Wi-Fi, so `-PhoneWeb -NoWifi` is rejected. Before reverting to stable v1.0.0, read the settings compatibility notes; it cannot read v12-v14 records.
+
+Run `version` to see the firmware version and source build ID. Keep the generated `speaking_clock_c.build-id.txt` beside its UF2; the updater uses it to verify the installed source revision.
+
+## Dependencies and build
+
+The script expects Pico SDK 2.3.1, pico-examples, CMake 4.3.4, ARM GCC, Ninja, pioasm and picotool under `%USERPROFILE%\.pico-sdk`. MP3 support requires:
+
+```powershell
+git clone https://github.com/Lefucjusz/Helix-MP3-Decoder.git third_party/Helix-MP3-Decoder
+git -C third_party/Helix-MP3-Decoder checkout e4f5adadb5126708144e55a862f59e318cbffb51
+powershell -ExecutionPolicy Bypass -File .\build-clock-bt.ps1 -Mp3
+```
+
+Building does not flash the board. Output: `firmware/pico2w_c/build-bt/speaking_clock_c.uf2`. On Windows, use a short path without non-ASCII characters, such as `C:\Users\Flint123\projects\Pi2Clock`. Existing local folder names do not need to change when the GitHub repository is renamed.
+
+Wi-Fi is included by default. Provision credentials locally using:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\configure-wifi.ps1 -Port COM8
+```
+
+See [network setup and time correction](../NETWORK_TIME.md). Use `-NoWifi` with the build/updater script for a Bluetooth-only fallback build.
+
+## Bluetooth
+
+1. Put the speaker in discovery mode, then select Scan devices in SETTINGS > Bluetooth or run `bt-scan`.
+2. After scanning finishes, run `bt-devices`, followed by `bt-use N`, `bt-use Portable` or `bt-use AA:BB:CC:DD:EE:FF`.
+3. Wait for `[BT-SELECT] stream ACTIVE`, leave the menu and wait for `[FLASH] autosave=OK`.
+4. After restart, the clock connects directly to the saved MAC without scanning. Retry intervals are 5, 10, then 30 seconds.
+5. `bt-known` shows saved names and pairing-key availability. `bt-forget N` removes a device and its key. Bare `bt-forget` prints usage and the device list.
+
+Menu and command numbering lists known devices first, then new scanned addresses. Each MAC appears once. Devices with identical names require selection by number or MAC. For physical/USB selection, when all four slots are occupied the earliest added entry is replaced. Browser connection to a new device instead requires explicitly forgetting one saved entry first. Disconnect is the last Bluetooth menu action; it retains devices/pairing and disables reconnect through saved OFF. Starting discovery also disables reconnect. Exiting, cancelling or timing out does not restore the old speaker. Choose and confirm a device to reconnect. Close settings and wait for autosave=OK before power-off. USB bt-disconnect provides the same action; bt-connect MAC is a compatibility alias for explicit selection via bt-use. Unplanned link loss still retries when a target is selected. The user confirmed connection/disconnection, persistent OFF after a power cycle and no automatic return after a subsequent scan on build 7378aa1. Separate cancel/timeout, incoming-peer and link-loss recovery checks remain in TESTING.md.
+
+The LCD shows the speaker name. If unavailable, it shows Saved speaker or Unknown device. MAC addresses remain in USB logs for diagnostics and are used internally for identification and connection.
+
+Supported: Classic A2DP Sink/SBC. BLE-only, HFP and Google Cast are not supported by this path. SSP confirmation is automatic; legacy PIN pairing is unsupported. If a speaker has forgotten its bond, remove the saved entry and pair again.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| [firmware/pico2w_c](../../firmware/pico2w_c/) | Current C firmware and diagnostics |
+| [doc/HARDWARE_PICO2W.md](../HARDWARE_PICO2W.md) | Current wiring |
+| [doc/CONTROLS_AND_MODES.md](../CONTROLS_AND_MODES.md) | Current C firmware controls |
+| [doc/NETWORK_TIME.md](../NETWORK_TIME.md) | Wi-Fi/NTP and Europe/Berlin |
+| [doc/ROADMAP.md](../ROADMAP.md) | Prioritized current backlog |
+| [doc/history](./) | Previous READMEs and development history |
+| [source/v3](../../generations/g0-micropython/source/v3/) | Historical MicroPython firmware |
+| [experiments/bluetooth_a2dp_nest](../../experiments/bluetooth_a2dp_nest/) | BTstack A2DP integration generator |
+| [experiments/phone_control_ap](../../experiments/phone_control_ap/) | Phone-control instructions, acceptance evidence and standalone network prototypes |
+| [schematic](../../generations/g0-micropython/schematic/) | Original Pico schematic |
+| [sound](../../sound/) | Audio assets |
+| [Documentation conventions](../DOCUMENTATION.md) | English-only documentation policy |
+
+## Licenses
+
+Project: [GPL-3.0](../../LICENSE). External Helix sources are not included; the wrapper and core retain their GPL/RPSL/RCSL terms. Firmware distribution must also account for Pico SDK and BTstack licenses.
+
+## Countdown completion audio (fix; generally accepted)
+
+Installed with separate approval on November 13 as `1.0.0+26.g3717033`. Startup, read-only USB/HTTP and settings-preservation checks passed; the user subsequently confirmed that the fix works correctly. This is general acceptance, without separate timing measurements or output-specific coverage.
+
+Countdown timers and scheduled alarms are separate. Alarm Stop/Snooze actions do not apply to countdown completion. Cancel timer cancels a running countdown. The new **Stop timer sound** action stops only the currently owned completion announcement, without a cancellation phrase or changing saved schedules/levels. It is enabled while that announcement is active; no manual page refresh is required. The status shows **Finished - announcement playing**. Actual on-page punctuation may use a separator dot.
+
+The `/timer` action `stop_sound <timer_sound_id>` uses the existing credential/epoch/id/nonce envelope and a nonzero ID from `overview.timer_sound_id`. Ended or superseded events are refused; another alarm, player or later timer event cannot be stopped by an old ID. The owner is cleared when audio completes, is replaced/appended by another owner, or is interrupted by mute/priority. Bluetooth-to-LOCAL fallback retains the same event ID. No Flash-format change or save is introduced.
+
+The page requests status every 250 ms during the last five countdown seconds and while completion audio or a scheduled alarm is active, versus the usual 1 second (plus response time). This improves observation latency; it does not guarantee immediate response under radio/decoder load. Controls remain state-based. If completion has already ended, Stop timer sound is disabled. The user reported correct operation after installation. End-to-end latency was not measured and the earlier page-jump cause was not isolated; the page contains no full-page reload operation.
+
+## Configurable timer completion (user acceptance pending)
+
+The development branch adds an independent completion-message checkbox and None / Signal / Music sound choice, plus a folder-08 track number. Message only, sound only and silent completion are supported. Settings are available on the clock, in the browser and over USB, with deferred save and v1-v14 migration defaults. Start/cancel phrases, independent volumes and output routing stay unchanged. See [timer completion choices](../../experiments/phone_control_ap/README.md#timer-completion-choices-user-acceptance-pending) for controls, missing German speech and v15 rollback compatibility. Hardware acceptance is pending.
+
+## Random timer and alarm music (user acceptance pending)
+
+Timer music can use a saved random flag independently of its message. Each alarm slot 1-5 now selects Signal / fixed Music / random Music. One actual numeric folder-08 file is selected per event, retained on snooze and output fallback, and redrawn for the next occurrence. A missing catalog falls back to signal. Mirror folder 08 on both cards. See [controls, file catalog, v16 compatibility and tests](../RANDOM_EVENT_MUSIC.md). Approved installation and read-only startup/catalog/settings checks passed on November 13 as `1.0.0+28.g36286e9`; hardware acceptance is pending.
+
+## Optional five-second timer warning (user acceptance pending)
+
+A separate saved checkbox enables single beeps at 5, 4, 3, 2 and 1 seconds. Default OFF; Sound OFF suppresses it. Warning audio uses 19/001.mp3 and timer routing, does not queue late ticks or delay zero, and leaves message/music choices independent. The physical Timer sound editor adds the warning page before its existing fields. See [timing, busy skips, v17 compatibility and tests](../TIMER_PREWARNING.md). Software checks pass. Approved installation and read-only USB/HTTP/settings checks passed on November 13 as `1.0.0+29.g90b047a`; actual cadence and v17 persistence await hardware acceptance.
+
+## Automatic settings and mobile checkbox fix (installation pending)
+
+Simple Settings controls now apply automatically; Apply remains for complete alarm/birthday records. Nonshrinking checkboxes and wrapping labels fix the narrow-screen/larger-text issue. LOCAL timer-warning playback waits for natural BUSY completion with a longer bounded startup allowance, without changing audio files or saved volumes. See [behavior, evidence and pending device checks](../WEB_SCALAR_SETTINGS.md).
+
+Browser playback mode and sleep presets are installed and generally user-accepted as of November 14. See [player options](../WEB_PLAYER_OPTIONS.md).
+
+Automatic-announcement and quiet-hour browser controls are installed and generally user-accepted as of November 14. See [announcement options](../WEB_ANNOUNCEMENTS.md).
+
+Date/time setting and explicit NTP requests are installed as `1.0.0+33.gc2dbec4`; functional acceptance remains pending. See [clock controls](../WEB_CLOCK.md).
+
+Browser Bluetooth speaker management is installed as `1.0.0+35.g5c09045`; focused Bluetooth radio/persistence acceptance remains separately tracked; the reconnect-layout fix is accepted. See [Bluetooth controls](../WEB_BLUETOOTH.md).
+
+The installed browser Bluetooth workflow has an installed, user-accepted reconnect-layout fix; see [reported page jump and fix](../WEB_RECONNECT.md). The UI fix is installed as `1.0.0+36.ge21b139`.
+
+Network stage 1 adds network state and confirmed/cancellable HOME/Direct switching. Version `1.0.0+37.ga1f576b` is installed; the user accepted both transitions on November 15, 2026. Browser permission listing/selective removal is installed as `1.0.0+40.g9b20f8b`; the background-render hold in +42 resolved Android flicker according to user testing ([details](../WEB_BROWSER_ACCESS.md)). Browser single-network setup is installed and generally user-accepted in +43; Main/Backup profiles and search are installed in +44 with general user feedback; the compact Connection UI is installed in +45; explicit Connect/Edit for saved networks is the next uninstalled candidate ([details](../WEB_WIFI_SETUP.md)). See [network mode controls](../WEB_NETWORK_MODES.md).
+
+## OTA development gate
+
+An opt-in [A/B boot foundation](../OTA_FOUNDATION.md) is available as a software-tested candidate. It requires a separately approved USB migration and physical boot/rollback testing. Wi-Fi firmware upload is not implemented yet. Do not install its partition/application artifacts with the ordinary single-image updater.

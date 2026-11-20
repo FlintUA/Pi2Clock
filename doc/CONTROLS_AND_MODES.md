@@ -1,6 +1,6 @@
 # Current C firmware controls and modes
 
-This document describes the current C firmware working tree on `codex/phone-control`, including the fifteen-birthday and 23:59:59 timer expansion. Stable v1.0.0 retains five birthdays and the four-hour timer limit. The previous MicroPython controls document is retained in [history](history/MICROPYTHON_CONTROLS_AND_MODES.md). Use [HARDWARE_PICO2W.md](HARDWARE_PICO2W.md) for all pin assignments.
+This document describes the current G1 C firmware on `main` (formerly developed on `codex/phone-control`), including the fifteen-birthday and 23:59:59 timer expansion. Stable v1.0.0 retains five birthdays and the four-hour timer limit. The previous MicroPython controls document is retained in [history](../generations/g0-micropython/doc/MICROPYTHON_CONTROLS_AND_MODES.md). Use [HARDWARE_PICO2W.md](HARDWARE_PICO2W.md) for all pin assignments.
 
 ## Normal clock screen
 
