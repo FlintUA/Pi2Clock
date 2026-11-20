@@ -300,7 +300,7 @@ async function settled() {
   assert(sliderNames.every(name => form.elements[name].disabled));
   preferences.editing = false;
   const play = getElementById("player-play");
-  for (const [player, action, label] of [["Closed", "play", "Play"], ["Playing", "pause", "Pause"], ["Paused", "resume", "Play"]]) {
+  for (const [player, action, label] of [["Closed", "play", "Play"], ["Playing", "pause", "Pause"], ["Paused", "resume", "Play"], ["File error", "play", "Play"]]) {
     state.player = player;
     await update();
     assert.equal(play.dataset.action, action);

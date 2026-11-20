@@ -26,6 +26,16 @@ All continuation state is RAM-only. No settings schema, Flash sector, saved volu
 
 `mp3_interrupt_test` exercises the production playback/checkpoint and PCM-ring code with a deterministic decoder/file fixture. At both 44100 and 48000 Hz it compares the resumed PCM stream with uninterrupted output, including resampling phase and buffered frames. It also checks allocation failure without disturbing music, a track paused before interruption, a new keep-paused request, reopen failure, cancellation while the notification decoder remains active, and an EOF tail whose decoder was already closed. This fixture validates ownership/continuity logic, not the Helix codec's physical playback or live radio timing. Browser regression checks cover interruption feedback and guarded player options.
 
+### Reported next-track fallback and candidate correction
+
+The user confirmed that music paused, the requested time was spoken and the same track continued, then reported a switch to the internal speaker after that track ended. HTTP inspection found Nest still connected with the player on LOCAL. The original transition log was not available, so the first failing next-track ID cannot be established from that report alone.
+
+Read-only/silent inspection of the actual SPI card found all 78 numeric music entries. Track 006 decoded at 32000 Hz, which ota12's playback rate filter rejected. Track 076 failed Helix initialization with -134; its first 16 bytes were `55 53 42 43 10 C0 21 4D 00 00 01 00 00 00 0A 2A` (starting with USBC). This is an observed decoding failure, not proof of how the file acquired those bytes. Recheck its original on the PC and replace/re-encode the card copy as appropriate; no card contents were modified during diagnosis. A short direct BT test of track 075 succeeded at 44100 Hz/96000 bps with zero reported underruns. The player was left stopped and COM8 released.
+
+An uninstalled follow-up candidate accepts 32000 Hz sources through the existing linear resampler to 44100 Hz. The existing 512-frame free-space guard covers the maximum output of a 256-frame block at that rate. Decoder regression coverage now includes 32000/44100/48000 Hz and natural EOF followed by a new BT file.
+
+For ordinary music, a start/decode rejection while the Bluetooth stream remains active no longer selects LOCAL. Normal/Shuffle try another track after a nonblocking 200 ms retry delay, bounded by the track count of consecutive failures. Repeat-one stops at its failing track; exhausting the retry budget also pauses with File error/ERR and a USB explanation. Success and explicit Stop reset the retry state. This is RAM-only and does not change settings or audio assets. Actual Bluetooth link-loss fallback remains separate and retains its existing behavior. Device acceptance of this follow-up remains pending.
+
 Both ordinary and A/B OTA firmware builds must pass before a candidate is offered for separately approved installation. The latest reviewed package/build and test totals belong in the installation evidence after preparation.
 
 ### Prepared candidate on 2026-11-20

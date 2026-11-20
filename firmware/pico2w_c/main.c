@@ -15,6 +15,7 @@
 #include "timer_controls.h"
 #include "timer_warning.h"
 #include "music_playlist.h"
+#include "music_retry.h"
 #include "music_catalog.h"
 #include "pico/rand.h"
 #include "music_sleep.h"
@@ -361,6 +362,8 @@ static uint8_t music_track_count = 45u; // Used only if DFPlayer folder count qu
 static uint8_t alarm_track_count = 45u;
 static music_playlist_t music_playlist;
 static bool music_ui_pending;
+static bool music_ui_file_error;
+static music_retry_t music_ui_retry;
 // Preview starts only by SETTINGS in TRACK field (not on each encoder tick).
 // This keeps rapid track selection silent and never changes saved config.
 static bool exact_hour_phrase;
@@ -1678,6 +1681,7 @@ static bool music_ui_interrupt(const char *reason) {
 }
 
 static void music_ui_stop(const char *reason) {
+    music_retry_reset(&music_ui_retry);music_ui_file_error=false;
     if(music_ui_interrupted) {
         mp3_play_discard_suspended();music_ui_interrupted=false;
         music_ui_pending=false;music_ui_paused=false;music_ui_playing=false;music_ui_bt_started=false;
@@ -1715,6 +1719,7 @@ static bool music_play_track(uint8_t track) {
         if (clock_a2dp_stream_active() &&
             clock_a2dp_current_rate() == 44100u &&
             mp3_play_start(path, clock_a2dp_current_rate())) {
+            music_retry_reset(&music_ui_retry);music_ui_file_error=false;
             music_ui_bt_started = true;
             music_ui_track = track;
             music_ui_playing = true;
@@ -1722,11 +1727,11 @@ static bool music_play_track(uint8_t track) {
                    (unsigned)track);
             return true;
         }
-        // The DFPlayer's SD and the SPI FAT32 card are physically separate.
-        // If no matching SPI MP3 exists, allow local playback rather than
-        // silently claiming BT succeeded.
-        printf("[MUSIC-UI] BT unavailable or SPI file %s absent; LOCAL fallback\n",
-               path);
+        if(clock_a2dp_stream_active()) {
+            printf("[MUSIC-UI] BT track failed path=%s; keep Bluetooth (see MP3 error above)\n",path);
+            return false;
+        }
+        printf("[MUSIC-UI] BT link unavailable; LOCAL fallback for %s\n",path);
         music_ui_bluetooth = false;
     }
 #endif
@@ -1811,6 +1816,7 @@ static void music_ui_enter(void) {
     music_track_count = detected ? detected : 45u;
     printf("[MUSIC-UI] folder=08 files=%u source=%s\n",
            (unsigned)music_track_count, detected ? "DFPLAYER" : "FALLBACK");
+    music_retry_reset(&music_ui_retry);music_ui_file_error=false;
     music_playlist_init(&music_playlist,music_track_count,(uint32_t)time_us_64());
     music_ui_track=music_playlist.current;
     music_ui_pending=false;
@@ -1862,6 +1868,7 @@ static void music_ui_service(void) {
         return;
     }
     if (music_ui_pending) {
+        if(!music_retry_ready(&music_ui_retry,to_ms_since_boot(get_absolute_time())))return;
         if (!sound_enabled || timer.running || alarm_active_index>=0) {
             music_ui_pending=false;
             return;
@@ -1873,7 +1880,18 @@ static void music_ui_service(void) {
 #endif
            ) return;
         music_ui_pending=false;
-        (void)music_play_track(music_ui_track);
+        if(!music_play_track(music_ui_track) && music_ui_bluetooth) {
+            music_ui_playing=false;music_ui_bt_started=false;
+            if(music_retry_failed(&music_ui_retry,music_track_count,
+                music_playlist.mode==MUSIC_REPEAT_ONE,to_ms_since_boot(get_absolute_time()))) {
+                printf("[MUSIC-UI] skipping undecodable BT track=%u attempt=%u/%u\n",
+                    (unsigned)music_ui_track,music_ui_retry.failures,(unsigned)music_track_count);
+                music_ui_track=music_playlist_next(&music_playlist,true);music_ui_start();
+            } else {
+                music_ui_file_error=true;music_ui_paused=true;
+                puts("[MUSIC-UI] BT file error; paused (repeat-one or no playable track); no LOCAL switch");
+            }
+        }
         return;
     }
     if (!music_ui_playing) return;
@@ -5647,7 +5665,7 @@ int main(void) {
                 .timer_running = timer.running,
                 .bluetooth = volume_for_bluetooth(),
                 .player = !music_ui_open ? "Closed" : !sound_enabled ? "Muted" :
-                          music_ui_pending ? "Waiting" : music_ui_paused ? "Paused" :
+                          music_ui_file_error ? "File error" : music_ui_pending ? "Waiting" : music_ui_paused ? "Paused" :
                           music_ui_playing ? "Playing" : "Stopped",
             };
             phone_snapshot_overview(&snapshot.overview, rtc_available ? &phone_rtc : NULL, now);
@@ -5680,11 +5698,11 @@ int main(void) {
                 music_playlist_mode_name(music_playlist.mode),music_ui_bluetooth?"BT":"LOCAL");
             snprintf(bottom,sizeof(bottom),"%03u/%03u %s OFF",
                 (unsigned)music_ui_track,(unsigned)music_track_count,
-                !sound_enabled?"MUTE":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP");
+                !sound_enabled?"MUTE":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP");
             if (music_sleep.deadline_ms) {
                 snprintf(bottom,sizeof(bottom),"%03u/%03u %s %02um",
                     (unsigned)music_ui_track,(unsigned)music_track_count,
-                    !sound_enabled?"MUTE":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP",
+                    !sound_enabled?"MUTE":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP",
                     music_sleep_minutes(&music_sleep,now));
             }
         } else if(menu_state==MENU_BIRTHDAY_LIST) {

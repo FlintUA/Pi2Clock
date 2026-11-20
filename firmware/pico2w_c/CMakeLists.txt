@@ -28,6 +28,7 @@ add_executable(speaking_clock_c
     app/timer_warning.c
     app/music_catalog.c
     app/music_playlist.c
+    app/music_retry.c
     app/music_sleep.c
     app/birthday.c
     app/alarm_engine.c

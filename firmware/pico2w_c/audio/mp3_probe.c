@@ -266,8 +266,8 @@ bool mp3_play_start(const char *path, uint32_t a2dp_rate) {
     }
     play_src_rate = helix_mp3_get_sample_rate(&decoder);
     play_dst_rate = a2dp_rate;
-    if (play_src_rate != 48000u && play_src_rate != 44100u) {
-        printf("[MP3-PLAY] Unsupported source rate %lu; only 44100 or 48000\n",
+    if (play_src_rate != 48000u && play_src_rate != 44100u && play_src_rate != 32000u) {
+        printf("[MP3-PLAY] Unsupported source rate %lu; only 32000, 44100 or 48000\n",
                (unsigned long)play_src_rate);
         helix_mp3_deinit(&decoder);
         sd_fat32_close_read();
