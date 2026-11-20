@@ -16,7 +16,7 @@ The one-shot marker uses application-owned POWMAN scratch 0..3, commits its magi
 
 ## User workflow
 
-1. Connect through the existing Home or Direct web interface with ordinary browser admission. Stop playback/timers, disconnect Bluetooth, close physical editors and wait for settings to save.
+1. Connect through the existing Home or Direct web interface with ordinary browser admission. Stop playback/timers, disconnect Bluetooth, close physical editors and wait for settings to save. A paired Bluetooth speaker no longer has to be forgotten (fixed after the sequence-15 finding below); autoconnect is only held while a transfer is actually in flight.
 2. Open **Firmware update**, select a compatible `.clockota` file and press **Upload update**. The page shows its build and progress. Uploading does not restart the clock.
 3. After the device validates the complete file, press **Install and restart**, or cancel to keep the current firmware. Confirm the restart. The browser reconnects and compares the running build with the selected build; a different build is reported as a possible rollback, not success.
 4. Verify ordinary operation and a full power restart. USB BOOTSEL remains the recovery path.
@@ -36,6 +36,24 @@ The credential is the remembered browser token, or `-` for a verified peer admit
 Actions are begin (128-byte package header), chunk (at most 512 bytes, strictly ordered offset), finish, cancel and apply. Bodies are at most 1199 bytes; ordinary command bodies retain their previous 287-byte limit. Four bounded POST contexts remain, but only one update session is admitted. A duplicate/out-of-order chunk never programs Flash twice. `/ota.json` publishes non-secret state/progress; it is not an authorization endpoint. The page waits for device progress after every chunk. No settings/partition addresses supplied by the client are used.
 
 Before erasing, the service requires an idle application, saved settings, no Wi-Fi transition/scan and no active A2DP stream. Each ROM Flash operation rechecks the actual inactive partition and uses physical storage addressing, including when executing in B. Only 4 KiB sectors in that inactive application region can be erased/programmed. Sector programming is read back. Table, active application and shared settings/BT tail are excluded.
+
+### Bluetooth autoconnect blocks Upload (sequence 15, 2026-11-20)
+
+The phone-web Upload update button stays disabled even with a valid `.clockota` file selected and the browser already paired, whenever the clock has a saved Bluetooth autoconnect target, regardless of whether that speaker is actually connected or streaming. `ota_idle` in [main.c](../firmware/pico2w_c/main.c) requires `!clock_a2dp_autoconnect_enabled()`, and that function (generated into the build from [patch_a2dp_source.cmake](../experiments/bluetooth_a2dp_nest/nest_autotest/patch_a2dp_source.cmake)) returns true whenever a target address is saved:
+
+```c
+bool clock_a2dp_autoconnect_enabled(void){ return !clock_bt_boot_held && clock_autoconnect_target[0]!=0; }
+```
+
+This was confirmed live on a clock running sequence 14 with an idle (non-streaming) speaker still configured for autoconnect:
+
+```
+bt-status: [BT-POLICY] auto=ON target=40:58:99:CA:4F:BB   (A2DP stream: INACTIVE)
+```
+
+Upload stayed disabled until the device was removed with `bt-forget <known device number or MAC>` (Settings > Bluetooth > Forget on the clock does the same thing), which clears `clock_autoconnect_target`. The clock then re-paired to the same speaker normally after the update.
+
+**Fixed in the same working copy after this finding:** `ota_idle` no longer calls `clock_a2dp_autoconnect_enabled()` directly; it only requires `!clock_a2dp_stream_active()` (note `clock_a2dp_stream_active()` itself is `clock_a2dp_stream_running && clock_a2dp_autoconnect_enabled()`, so it is still accurate while autoconnect is not held). Once an OTA transfer is accepted, `main.c` calls the existing boot-time `clock_a2dp_boot_hold(true)` for the duration of the transfer (busy while `OTA_RECEIVING`/`OTA_READY`/`OTA_REBOOTING`) and releases it the moment the upload returns to idle or errors out. A paired, non-streaming speaker therefore no longer blocks Upload and does not need to be forgotten; only an actually active A2DP stream still has to be stopped first. This has not yet been re-verified against real hardware (build-only check at the time of writing).
 
 The first candidate sector is erased at begin, retained in RAM during transfer and committed only after complete validation. Remaining sectors are streamed through a single 4 KiB buffer. Final validation hashes the RAM first sector plus physical stored payload and requires the reviewed monolithic RP2350 ARM Secure/TBYB metadata, matching ordered ROM version and a closed metadata loop. The ROM performs its own embedded image validation on the subsequent explicit trial reboot. Strictly newer sequences are required; browser downgrades are refused. Hashes detect corruption; this format does not provide publisher signatures or internet-grade transport security. Use the existing local access policy, not port forwarding.
 

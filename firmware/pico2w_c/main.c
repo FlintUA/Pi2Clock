@@ -5435,9 +5435,19 @@ int main(void) {
         bool ota_idle=phone_network_idle() && !autosave_pending && !phone_wifi_busy(&phone_wifi_plan) &&
             phone_network_plan.state!=PHONE_NET_PENDING;
 #ifdef CLOCK_ENABLE_A2DP
-        ota_idle=ota_idle && !clock_a2dp_stream_active() && !clock_a2dp_autoconnect_enabled() && !bt_pending_target_valid;
+        ota_idle=ota_idle && !clock_a2dp_stream_active() && !bt_pending_target_valid;
 #endif
         phone_ota_service(ota_idle,to_ms_since_boot(get_absolute_time()),phone_web_epoch());
+#ifdef CLOCK_ENABLE_A2DP
+        {
+            // Suppress Bluetooth autoconnect only while an OTA transfer/apply is
+            // actually in flight, so a paired speaker need not be forgotten just
+            // to unlock Upload; begin already requires no active A2DP stream.
+            static bool bt_held_for_ota;
+            bool ota_transfer_active=phone_ota_busy();
+            if(ota_transfer_active!=bt_held_for_ota) {clock_a2dp_boot_hold(ota_transfer_active);bt_held_for_ota=ota_transfer_active;}
+        }
+#endif
         if(phone_ota_busy()) {
             if(lcd_ok && strcmp(last_top,"Firmware update")) {
                 lcd1602_set_cursor(0,0,LCD1602_CURSOR_OFF);
