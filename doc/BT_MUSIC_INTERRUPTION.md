@@ -1,6 +1,6 @@
 # Bluetooth music interruption and continuation
 
-Status: implemented candidate, not installed or hardware-accepted. The user requested interruption for both hourly time speech and scheduled alarms, then explicitly limited this stage to Bluetooth music. Local DFPlayer music retains its existing behavior; no ADVERT folder or card modification is required by this stage.
+Status: installed with separate approval as sequence 12 on 2026-11-20; startup/settings checks passed, music interruption hardware acceptance is pending. The user requested interruption for both hourly time speech and scheduled alarms, then explicitly limited this stage to Bluetooth music. Local DFPlayer music retains its existing behavior; no ADVERT folder or card modification is required by this stage.
 
 ## Behavior
 
@@ -33,6 +33,12 @@ Both ordinary and A/B OTA firmware builds must pass before a candidate is offere
 All 34 registered host tests passed; the expanded browser transport-state fixture also passed after its final update. Ordinary MP3/Bluetooth/Wi-Fi/phone-web and A/B OTA SDK builds completed without reported compiler warnings/errors. The reviewed, uninstalled package is `Pi2Clock-G1-v1.0.0+66.g4d2fcef-ota12.clockota`, build `g1-4d2fcef70d40-bt-mp3-wifi-phone-ota12-trial`, sequence 12, 1009804 bytes, SHA-256 `f70adb6ef89d85f6930bdad3008247fe8068c55ca42fe563608a6e0ecd993c57`.
 
 Against the reviewed ota11 ELF, linked text increased by 3136 bytes and BSS by 164 bytes (185200 to 185364). This small static delta does not include the temporary 32844-byte ring checkpoint and simultaneous decoder heap allocations. Peak live memory remains a device acceptance check; no heap/TCP/stack limits were enlarged. Host PCM comparisons use a deterministic decoder fixture and do not establish audible continuity on Portable/Nest.
+
+### Approved Home installation on 2026-11-20
+
+The reviewed ota12 package above was uploaded from Home at 192.168.2.116 after player stop and temporary Nest disconnection. Transfer and verification reached ready in 64.9 seconds; explicit apply restarted into Home. Serial/HTTP confirmed version `1.0.0+66.g4d2fcef`, build `g1-4d2fcef70d40-bt-mp3-wifi-phone-ota12-trial`, active A, trial=NO, accepted=YES, Flash guard=OK and idle sequence 12. NTP synchronized. Nest was explicitly reconnected with an active A2DP stream and completed settings autosave.
+
+Before/after snapshots matched all exposed persistent setting values, five alarms, fifteen birthdays, display light, four known speakers and the restored Nest target. Volumes remained LOCAL 16/30 and BT 15/30; light remained ON, day 93%, night 94%. HTTP confirmed `player_interrupted=false` at idle and the installed interruption feedback text. COM8 was released, music remained stopped, and no actual hourly/alarm interruption test was triggered by the installer. Decoder snapshot allocation, audible continuation and peak live memory remain user/device checks.
 
 ## Device acceptance after installation approval
 
