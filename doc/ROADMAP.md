@@ -34,6 +34,8 @@ Wi-Fi access-point loss and recovery on the assembled clock is deferred at the u
 
 New priority before presentation work: [Bluetooth music interruption/continuation](BT_MUSIC_INTERRUPTION.md) for hourly VOICE and scheduled alarms. The user explicitly deferred the DFPlayer/ADVERT extension. Sequence 12 is installed as `g1-4d2fcef70d40-bt-mp3-wifi-phone-ota12-trial`; accepted A, unchanged settings, Home/NTP and restored Nest connection were verified. Real sound continuity, snapshot allocation and live heap margin remain hardware acceptance checks.
 
+Follow-up: the user confirmed hourly speech interruption/continuation; the supplied trace preserves the exact counters across two interruptions. Sequence 13 is now installed/accepted in B with preserved settings; it adds 32 kHz playback and retains BT when a file cannot decode. The trace identifies failed file 076 as the previous LOCAL fallback trigger. Bad-file skipping/32 kHz and alarm continuation remain user checks. A source-only single-track audition guard is prepared but not installed. Seventeen cumulative music underruns in the supplied trace remain unexplained; live resource/performance acceptance remains open.
+
 Phone control is being developed on `codex/phone-control`. Standalone direct and home Wi-Fi prototypes, integrated live status and browser timer control have passed user testing. The user also confirmed home access without repeated pairing, direct Wi-Fi reconnection without re-entering the password, and the LCD connection-progress screen. These experimental results are separate from the stable main release. See the [phone control instructions and evidence](../experiments/phone_control_ap/README.md).
 
 Implemented and broadly user-accepted web functionality:

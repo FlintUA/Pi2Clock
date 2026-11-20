@@ -1883,13 +1883,13 @@ static void music_ui_service(void) {
         if(!music_play_track(music_ui_track) && music_ui_bluetooth) {
             music_ui_playing=false;music_ui_bt_started=false;
             if(music_retry_failed(&music_ui_retry,music_track_count,
-                music_playlist.mode==MUSIC_REPEAT_ONE,to_ms_since_boot(get_absolute_time()))) {
+                music_ui_audition || music_playlist.mode==MUSIC_REPEAT_ONE,to_ms_since_boot(get_absolute_time()))) {
                 printf("[MUSIC-UI] skipping undecodable BT track=%u attempt=%u/%u\n",
                     (unsigned)music_ui_track,music_ui_retry.failures,(unsigned)music_track_count);
                 music_ui_track=music_playlist_next(&music_playlist,true);music_ui_start();
             } else {
                 music_ui_file_error=true;music_ui_paused=true;
-                puts("[MUSIC-UI] BT file error; paused (repeat-one or no playable track); no LOCAL switch");
+                puts("[MUSIC-UI] BT file error; paused (single-track request or no playable track); no LOCAL switch");
             }
         }
         return;
