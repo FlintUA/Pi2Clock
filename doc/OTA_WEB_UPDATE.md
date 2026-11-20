@@ -56,7 +56,7 @@ The two 4 KiB sector buffers, bounded POST contexts and mailbox add 12680 bytes 
 | 56..119 | NUL-terminated printable build ID, at most 63 bytes; new G1 builds begin with `g1-` |
 | 120..127 | Reserved zero bytes |
 
-The generation-aware candidate preserves the header layout for installation from ota10. New G1 receivers require both the existing target and `g1-` prefix. G2 has a separate reserved target, even if it uses the same MCU. See [identity, default filenames and legacy compatibility](FIRMWARE_IDENTITY.md). The candidate is not yet installed; existing historical packages remain archived unchanged.
+The generation-aware sequence-11 image preserves the header layout and was installed from ota10 through Home on November 20. New G1 receivers require both the existing target and `g1-` prefix. G2 has a separate reserved target, even if it uses the same MCU. See [identity, default filenames, installation evidence and legacy compatibility](FIRMWARE_IDENTITY.md). Existing historical packages remain archived unchanged.
 
 Build on a clean committed source revision with `-OtaAb -OtaTrial -OtaSequence N`. The sequence must exceed every deployed accepted sequence; do not recycle the bring-up values. The candidate receiver uses sequence 4 after foundation 1/2 and reject-test 3. A subsequent transport test must use sequence 5 or higher.
 
