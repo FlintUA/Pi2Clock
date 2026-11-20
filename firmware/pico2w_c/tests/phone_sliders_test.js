@@ -579,7 +579,9 @@ async function settled() {
   preferences.timer_sound=0;preferences.timer_track=1;preferences.idle=true;
   await update();
   assert(!/data-setting=/.test(html));
-  assert(html.includes("Apply alarm") && html.includes("Apply birthday"));
+  // Multi-field records keep one explicit Save in each editor.
+  for (const id of ["alarm-controls", "birthday-controls"])
+    assert(html.split('id="' + id + '"')[1].split("</form>")[0].includes('data-schedule="apply"'));
   warningField.checked=true;form.handlers.change({target:warningField,type:"change"});
   assert(timerButtons[1].disabled); // Do not start a timer with an unconfirmed warning edit.
   await wait(220);

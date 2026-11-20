@@ -1,6 +1,6 @@
 # Pi2Clock G1 web interface redesign specification
 
-Prepared on 2026-11-20 for design review and subsequent staged implementation.
+Prepared on 2026-11-20 for design review and subsequent staged implementation. The approved layout and its implementation are described in [WEB_UI.md](WEB_UI.md).
 
 ## 1. Objective and authorization
 

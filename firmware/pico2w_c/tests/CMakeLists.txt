@@ -72,6 +72,7 @@ if(NODE_EXECUTABLE)
     add_test(NAME phone_ota COMMAND "${NODE_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/phone_ota_test.js")
     add_test(NAME phone_sliders COMMAND "${NODE_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/phone_sliders_test.js")
     add_test(NAME phone_timer_wheels COMMAND "${NODE_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/phone_timer_wheels_test.js")
+    add_test(NAME phone_ui_text COMMAND "${NODE_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/phone_ui_text_test.js")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter QUIET)

@@ -6,7 +6,8 @@ const element=id=>{if(!elements.has(id))elements.set(id,{handlers:{},addEventLis
 const state={supported:true,state:'idle',available:true,current_sequence:4,active:'B',received:0,size:0,session:0,mode_restore:true,restart_mode:'direct'};
 const calls=[];
 let holdBegin=false,releaseBegin;
-const context=vm.createContext({document:{getElementById:element},live:{epoch:123,home_trusted:true,firmware:{version:'test'}},
+const T=(text,values)=>values?text.replace(/\{(\w+)\}/g,(match,key)=>key in values?values[key]:match):text;
+const context=vm.createContext({T,document:{getElementById:element},live:{epoch:123,home_trusted:true,firmware:{version:'test'}},
   token:null,checkedEpoch:null,busy:false,pending:null,dirtySettings:new Set(),settingChanges:new Map(),
   updateControls(){},pollStatusSoon(){},confirm:()=>true,crypto:{getRandomValues(a){a[0]=77;return a;}},
   Uint8Array,Uint32Array,DataView,AbortSignal,console,setTimeout,clearTimeout,
