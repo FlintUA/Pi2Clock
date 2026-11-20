@@ -29,3 +29,9 @@ These compatibility checks are not publisher authentication: CLOCKOT1 is unsigne
 ## Acceptance
 
 Tests cover generation tags and legacy fallback, source/build identity, package naming, browser rejection and device rejection before Flash erase. The unchanged header fields preserve the ota10 bootstrap path. SDK builds and package metadata are verified separately. Installation and LCD/browser hardware acceptance require separate user approval; host tests are not hardware acceptance.
+
+### Candidate verified on 2026-11-20
+
+All 33 registered host tests passed, including new generation/tag/package/About cases. Both MP3/Bluetooth/Wi-Fi/phone-web SDK builds passed: ordinary (OTA sequence 0) and A/B trial (sequence 11). Source revision `accbeb708131` produces version `1.0.0+61.gaccbeb7`; no release tag was created. The reviewed candidate is `Pi2Clock-G1-v1.0.0+61.gaccbeb7-ota11.clockota`, build `g1-accbeb708131-bt-mp3-wifi-phone-ota11-trial`, 1006668 bytes, SHA-256 `23b0a4da56dae3d860468e49acb16f4d3a6d731974067524b4edb3a70f4ad9e1`.
+
+As an additional transition check, the original ota10 C header parser from `dfe3bd7` was compiled on the host and accepted this exact package header at current sequence 10. Its original browser header parser also accepted the package and rejected a different target. These are offline compatibility checks, not a board installation. The new receiver's tests independently reject G2 target/prefix before erase. The candidate remains uninstalled; LCD, browser About and runtime installation acceptance are pending.
