@@ -117,7 +117,7 @@ Separate DFPlayer/Bluetooth volume levels remain intentional. MAC addresses rema
 
 ## Future device hardware
 
-Generation naming is installed as **Pi2Clock G1**, build `g1-accbeb708131-bt-mp3-wifi-phone-ota11-trial`; **Pi2Clock G2** is reserved for the successor. Model, Git-derived version and OTA sequence remain separate. G1 receivers validate the embedded target/prefix, while retaining the ota10 transition layout. Home installation, accepted B, settings preservation and restored Nest connection were verified on November 20. See [identity and release conventions](FIRMWARE_IDENTITY.md); user LCD/browser visual and playback acceptance remain pending.
+Generation naming is installed as **Pi2Clock G1**, build `g1-accbeb708131-bt-mp3-wifi-phone-ota11-trial`; **Pi2Clock G2** is reserved for the successor. Model, Git-derived version and OTA sequence remain separate. G1 receivers validate the embedded target/prefix, while retaining the ota10 transition layout. Home installation, accepted B, settings preservation and restored Nest connection were verified on November 20. See [identity and release conventions](FIRMWARE_IDENTITY.md); the user confirmed the requested LCD/browser displays and normal playback on November 20.
 
 On 2026-11-11, the user selected I2S audio through a MAX98357A amplifier as a logical direction for a likely new device with updated hardware. This is a future hardware milestone. Current web-control development continues on the assembled DFPlayer-based clock.
 
