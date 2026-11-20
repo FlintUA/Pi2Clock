@@ -32,6 +32,8 @@ Wi-Fi access-point loss and recovery on the assembled clock is deferred at the u
 
 ## Next functional milestones
 
+New priority before presentation work: [Bluetooth music interruption/continuation](BT_MUSIC_INTERRUPTION.md) for hourly VOICE and scheduled alarms. The user explicitly deferred the DFPlayer/ADVERT extension. The current candidate preserves the BT decoder/PCM position and playback state; installation, real sound continuity and live heap margin remain pending.
+
 Phone control is being developed on `codex/phone-control`. Standalone direct and home Wi-Fi prototypes, integrated live status and browser timer control have passed user testing. The user also confirmed home access without repeated pairing, direct Wi-Fi reconnection without re-entering the password, and the LCD connection-progress screen. These experimental results are separate from the stable main release. See the [phone control instructions and evidence](../experiments/phone_control_ap/README.md).
 
 Implemented and broadly user-accepted web functionality:

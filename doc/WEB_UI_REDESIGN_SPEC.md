@@ -67,6 +67,7 @@ Browser Back should navigate local views rather than accidentally submit forms. 
 - Preserve Normal / Shuffle / Repeat one, actual navigation history and current-track continuity when switching modes.
 - Sleep choices are Off / 15 / 30 / 60 / 90 minutes. Show remaining time and explicit Off. The existing timer continues through pause/mute; Stop closes the player and clears sleep. Mode/sleep are runtime options and are not saved across closing/restart.
 - Reflect changes from physical controls and other clients. Keep alarm-track audition distinguishable from ordinary music; do not expose invalid player options during audition.
+- Preserve the subsequent [Bluetooth interruption state](BT_MUSIC_INTERRUPTION.md): `player_interrupted` keeps music paused for hourly speech/alarms; Player Stop cancels its continuation without stopping the event. Local DFPlayer continuation is excluded from that stage.
 
 ### Alarms and birthdays
 

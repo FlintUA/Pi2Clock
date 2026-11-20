@@ -42,3 +42,13 @@ typedef struct {
     uint32_t resets_during_pop;
 } clock_pcm_ring_diag_t;
 void clock_pcm_ring_diagnostics(clock_pcm_ring_diag_t *snapshot);
+
+// Main-loop ownership handoff only. Allocate outside the IRQ stack.
+typedef struct {
+    int16_t samples[CLOCK_PCM_RING_FRAMES * 2u];
+    uint32_t head, tail, count, underruns, consumed, produced;
+    bool active, paused, eof;
+    clock_pcm_ring_diag_t diag;
+} clock_pcm_ring_checkpoint_t;
+bool clock_pcm_ring_capture(clock_pcm_ring_checkpoint_t *snapshot);
+bool clock_pcm_ring_restore(const clock_pcm_ring_checkpoint_t *snapshot);

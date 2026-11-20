@@ -13,6 +13,35 @@ static bool active, paused, source_eof;
 // Avoid printf, dynamic allocation and callbacks in the audio consumer.
 static clock_pcm_ring_diag_t diag;
 static uint32_t pop_depth;
+bool clock_pcm_ring_capture(clock_pcm_ring_checkpoint_t *s) {
+    if (!s) return false;
+    uint32_t irq=save_and_disable_interrupts();
+    if(pop_depth) {restore_interrupts(irq);return false;}
+    s->head=head;s->tail=tail;s->count=count;s->underruns=underruns;
+    s->consumed=consumed;s->produced=produced;s->active=active;
+    s->paused=paused;s->eof=source_eof;s->diag=diag;
+    paused=true;
+    restore_interrupts(irq);
+    // Paused callbacks emit silence and cannot mutate the sample buffer.
+    memcpy(s->samples,samples,sizeof(samples));
+    return true;
+}
+bool clock_pcm_ring_restore(const clock_pcm_ring_checkpoint_t *s) {
+    if(!s || s->head>=CLOCK_PCM_RING_FRAMES || s->tail>=CLOCK_PCM_RING_FRAMES ||
+       s->count>CLOCK_PCM_RING_FRAMES || s->consumed>s->produced ||
+       s->produced-s->consumed!=s->count) return false;
+    uint32_t irq=save_and_disable_interrupts();
+    if(pop_depth) {restore_interrupts(irq);return false;}
+    paused=true;
+    restore_interrupts(irq);
+    memcpy(samples,s->samples,sizeof(samples));
+    irq=save_and_disable_interrupts();
+    head=s->head;tail=s->tail;count=s->count;underruns=s->underruns;
+    consumed=s->consumed;produced=s->produced;source_eof=s->eof;diag=s->diag;
+    active=s->active;paused=s->paused;
+    restore_interrupts(irq);
+    return true;
+}
 static void pcm_diag_capture(uint32_t code, uint32_t phase,
                              uint32_t request, uint32_t take) {
     if (diag.fault_code) return;

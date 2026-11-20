@@ -409,6 +409,7 @@ void sd_fat32_close_read(void) {
 uint32_t sd_fat32_size(void) {
     return file_cursor.open ? file_cursor.size : 0u;
 }
+uint32_t sd_fat32_tell(void) { return file_cursor.open ? file_cursor.position : 0u; }
 bool sd_fat32_open_read(const char *path) {
     sd_fat32_close_read();
     if (sd_fat32_stream_active()) {

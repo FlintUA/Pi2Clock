@@ -29,6 +29,7 @@ typedef struct {
     uint32_t player_sleep_seconds;
     bool timer_running;
     bool player_test;
+    bool player_interrupted;
     bool bluetooth;
     const char *player; // Static, firmware-defined state label.
     const char *player_mode;

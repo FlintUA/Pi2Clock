@@ -863,7 +863,7 @@
     playerPlay.textContent = live?.player === "Playing" ? "Pause" : "Play";
     alarmTrackTest.textContent = live?.player_test ? "Stop" : "Test";
     const playerOpen = Boolean(live && live.player !== "Closed");
-    const canPlay = Boolean(live && !live.timer_running && live.player !== "Muted");
+    const canPlay = Boolean(live && !live.timer_running && !live.player_interrupted && live.player !== "Muted");
     const playerActions = {
       play: canPlay && live.player !== "Playing" && live.player !== "Waiting",
       resume: canPlay && live.player === "Paused",
@@ -877,7 +877,7 @@
         !playerActions[button.dataset.action];
     }
     const preferences = live?.settings;
-    const canChangePlayer = playerOpen && !live?.player_test && !live?.timer_running &&
+    const canChangePlayer = playerOpen && !live?.player_test && !live?.player_interrupted && !live?.timer_running &&
       !live?.overview?.alarm?.active && !preferences?.editing;
     playerMode.disabled = playerSleep.disabled = busy || Boolean(pending) || !canChangePlayer;
     if (!busy && !pending) {
@@ -1660,7 +1660,7 @@
       labels.connection.textContent = data.home_trusted ? "Trusted home network" : "Live status";
       labels.time.textContent = data.time || "RTC unavailable";
       labels.timer.textContent = data.overview?.timer_sound_id ? "Finished · announcement playing" : (data.timer_running ? "Running · " : "Set · ") + duration(data.timer_seconds);
-      labels.player.textContent = data.player +
+      labels.player.textContent = (data.player_interrupted ? "Paused for announcement / alarm; Stop cancels music resume" : data.player) +
         (data.track ? " · Track " + data.track + "/" + data.track_count + " · " + data.player_mode : "");
       labels.output.textContent = data.output;
       if (pending && data.epoch === pending.epoch && data.command_id === pending.id &&

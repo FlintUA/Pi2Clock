@@ -85,6 +85,11 @@ const timerButtons=["set","start","cancel","stop_sound"].map(action=>action==="s
 timerButtons[3].dataset.action="stop_sound";
 getElementById("controls").querySelectorAll=()=>timerButtons;
 getElementById("controls").reportValidity=()=>true;
+const playerButtons=["previous","play","next","stop"].map(action=> {
+  const button=action==="play"?getElementById("player-play"):{dataset:{}};
+  button.dataset.action=action;return button;
+});
+getElementById("player-controls").querySelectorAll=()=>playerButtons;
 const clockForm=getElementById("clock-controls");
 const clockButtons=["reload","phone","set","sync"].map(clockAction=>({dataset:{clockAction}}));
 clockForm.querySelectorAll=()=>[...Object.values(clockForm.elements),...clockButtons];
@@ -612,6 +617,13 @@ async function settled() {
   state.player="Paused";state.player_sleep_seconds=840;await update();
   assert(!sleepField.disabled && sleepField.value==="15");
   assert(getElementById("player-sleep-status").textContent.includes("14:00"));
+  state.player_interrupted=true;await update();
+  assert(modeField.disabled && sleepField.disabled);
+  assert(playerButtons[0].disabled && playerButtons[1].disabled && playerButtons[2].disabled);
+  assert.equal(playerButtons[3].disabled,false); // Stop cancels the saved music, not the event.
+  assert(getElementById("player").textContent.includes("Paused for announcement"));
+  state.player_interrupted=false;await update();
+  assert(!modeField.disabled && !sleepField.disabled);
   state.player_mode="NORM";state.player_sleep_preset=60;await update();
   assert.equal(modeField.value,"0");assert.equal(sleepField.value,"60"); // Physical changes.
   state.player_test=true;await update();assert(modeField.disabled && sleepField.disabled);

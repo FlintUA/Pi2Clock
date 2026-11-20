@@ -16,5 +16,10 @@ bool mp3_play_pause_test_start(const char *path, uint32_t a2dp_rate);
 void mp3_play_stop(void);
 bool mp3_play_pause(void);
 bool mp3_play_resume(void);
+// Detach one music context while another clip uses the decoder/ring.
+bool mp3_play_suspend(void);
+bool mp3_play_restore(bool keep_paused);
+bool mp3_play_suspended(void);
+void mp3_play_discard_suspended(void);
 bool mp3_play_active(void);
 void mp3_play_status(void);

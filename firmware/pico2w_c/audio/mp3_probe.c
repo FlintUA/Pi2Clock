@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef CLOCK_ENABLE_MP3
 #include "helix_mp3.h"
@@ -93,6 +94,68 @@ static bool auto_pause_test, auto_pause_done;
 static uint64_t auto_resume_at_us;
 static uint32_t last_consumed, last_underruns;
 static bool last_valid;
+static char play_path[32];
+static struct {
+    bool valid, decoder_open, eof, first, paused;
+    helix_mp3_t decoder;
+    clock_pcm_ring_checkpoint_t *ring;
+    char path[32];
+    uint32_t file_position, src, dst, phase, decoded, pushed;
+    uint64_t cpu_us;
+    int16_t prev_l,prev_r;
+} suspended;
+bool mp3_play_suspended(void) {return suspended.valid;}
+void mp3_play_discard_suspended(void) {
+    if(!suspended.valid)return;
+    if(suspended.decoder_open)helix_mp3_deinit(&suspended.decoder);
+    free(suspended.ring);
+    memset(&suspended,0,sizeof(suspended));
+}
+bool mp3_play_suspend(void) {
+    if(!playing || suspended.valid || auto_pause_test)return false;
+    clock_pcm_ring_checkpoint_t *ring=malloc(sizeof(*ring));
+    if(!ring || !clock_pcm_ring_capture(ring)) {free(ring);return false;}
+    suspended.valid=true;suspended.ring=ring;suspended.decoder=decoder;
+    suspended.decoder_open=play_decoder_open;suspended.eof=play_eof;
+    suspended.first=play_first;suspended.paused=play_paused;
+    suspended.file_position=sd_fat32_tell();
+    memcpy(suspended.path,play_path,sizeof(play_path));
+    suspended.src=play_src_rate;suspended.dst=play_dst_rate;suspended.phase=play_phase;
+    suspended.decoded=play_frames_decoded;suspended.pushed=play_frames_pushed;
+    suspended.cpu_us=play_decode_time_us;suspended.prev_l=play_prev_l;suspended.prev_r=play_prev_r;
+    // The retained decoder owns its heap buffers; notification playback gets
+    // a distinct decoder. Both use the same stable I/O callbacks sequentially.
+    memset(&decoder,0,sizeof(decoder));
+    if(play_decoder_open)sd_fat32_close_read();
+    playing=false;play_decoder_open=false;play_paused=false;play_eof=false;
+    clock_pcm_ring_reset();
+    printf("[MP3-RESUME] suspended /%s consumed=%lu checkpoint=%u bytes\n",play_path,
+        (unsigned long)ring->consumed,(unsigned)sizeof(*ring));
+    return true;
+}
+bool mp3_play_restore(bool keep_paused) {
+    if(!suspended.valid || playing || started)return false;
+    if(suspended.decoder_open &&
+       (!sd_fat32_open_read(suspended.path) || !sd_fat32_seek(suspended.file_position))) {
+        sd_fat32_close_read();mp3_play_discard_suspended();return false;
+    }
+    suspended.paused=suspended.paused || keep_paused;
+    suspended.ring->paused=suspended.paused;
+    if(!clock_pcm_ring_restore(suspended.ring)) {
+        sd_fat32_close_read();mp3_play_discard_suspended();return false;
+    }
+    decoder=suspended.decoder;play_decoder_open=suspended.decoder_open;
+    play_eof=suspended.eof;play_first=suspended.first;play_paused=suspended.paused;
+    play_src_rate=suspended.src;play_dst_rate=suspended.dst;play_phase=suspended.phase;
+    play_frames_decoded=suspended.decoded;play_frames_pushed=suspended.pushed;
+    play_decode_time_us=suspended.cpu_us;play_prev_l=suspended.prev_l;play_prev_r=suspended.prev_r;
+    memcpy(play_path,suspended.path,sizeof(play_path));playing=true;auto_pause_test=false;last_valid=false;
+    // Transfer ownership back; discard must not free the restored decoder.
+    free(suspended.ring);memset(&suspended,0,sizeof(suspended));
+    printf("[MP3-RESUME] restored /%s consumed=%lu paused=%s\n",play_path,
+        (unsigned long)clock_pcm_ring_consumed(),play_paused?"YES":"NO");
+    return true;
+}
 static void capture_play_stats(void) {
     last_consumed = clock_pcm_ring_consumed();
     last_underruns = clock_pcm_ring_underruns();
@@ -176,6 +239,7 @@ bool mp3_play_resume(void) {
     return true;
 }
 bool mp3_play_start(const char *path, uint32_t a2dp_rate) {
+    if(!path || strlen(path)>=sizeof(play_path))return false;
     if (started || playing || clock_pcm_ring_active()) {
         puts("[MP3-PLAY] Decoder or playback already active");
         return false;
@@ -211,6 +275,7 @@ bool mp3_play_start(const char *path, uint32_t a2dp_rate) {
     }
     clock_pcm_ring_reset();
     playing = true;
+    strcpy(play_path,path);
     play_decoder_open = true;
     play_eof = false;
     play_paused = false;
@@ -341,6 +406,10 @@ bool mp3_play_pause_test_start(const char *path, uint32_t rate) {
     return false;
 }
 bool mp3_play_resume(void) { return false; }
+bool mp3_play_suspend(void) {return false;}
+bool mp3_play_restore(bool keep_paused) {(void)keep_paused;return false;}
+bool mp3_play_suspended(void) {return false;}
+void mp3_play_discard_suspended(void) {}
 void mp3_play_status(void) {
     puts("[MP3-PLAY] MP3 support not compiled");
 }
