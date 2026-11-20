@@ -91,9 +91,26 @@ if(CLOCK_ENABLE_PHONE_WEB)
     if(NOT EXISTS "${_phone_dhcp}/dhcpserver.c")
         message(FATAL_ERROR "The phone web profile requires the pico-examples DHCP server")
     endif()
+    # The page is stored gzip-compressed (about a quarter of its size) and served with
+    # Content-Encoding: gzip. CLOCK_WEB_GZIP=OFF reproduces the SDK's uncompressed fsdata.
+    option(CLOCK_WEB_GZIP "Store and serve the phone page gzip-compressed" ON)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(_web_page "${CMAKE_CURRENT_LIST_DIR}/services/phone_web/index.html")
+    set(_web_tool "${CMAKE_CURRENT_LIST_DIR}/cmake/web_fsdata.py")
+    set(_web_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    set(_web_gzip_arg)
+    if(CLOCK_WEB_GZIP)
+        set(_web_gzip_arg --gzip)
+    endif()
+    add_custom_command(OUTPUT "${_web_dir}/pico_fsdata.inc"
+        DEPENDS "${_web_tool}" "${_web_page}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_web_dir}"
+        COMMAND "${Python3_EXECUTABLE}" "${_web_tool}" -i "${_web_page}" -o "${_web_dir}/pico_fsdata.inc" ${_web_gzip_arg}
+        VERBATIM)
+    add_custom_target(clock_phone_web_fsdata DEPENDS "${_web_dir}/pico_fsdata.inc")
     pico_add_library(clock_phone_web_content NOFLAG)
-    pico_set_lwip_httpd_content(clock_phone_web_content INTERFACE
-        "${CMAKE_CURRENT_LIST_DIR}/services/phone_web/index.html")
+    target_include_directories(clock_phone_web_content INTERFACE "${_web_dir}")
+    add_dependencies(speaking_clock_c clock_phone_web_fsdata)
     target_sources(speaking_clock_c PRIVATE services/phone_web.c services/phone_bluetooth.c services/phone_network.c services/phone_wifi.c services/wifi_scan.c services/phone_access.c services/phone_overview.c services/phone_control.c "${_phone_dhcp}/dhcpserver.c")
     target_include_directories(speaking_clock_c PRIVATE "${_phone_dhcp}")
     target_link_libraries(speaking_clock_c PRIVATE pico_lwip_http pico_rand clock_phone_web_content)
