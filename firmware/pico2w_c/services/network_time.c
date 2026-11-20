@@ -87,9 +87,13 @@ static void store_profiles(const char *s0,const char *p0,const char *s1,const ch
     snprintf(profile_ssids[1],33,"%s",s1?s1:"");snprintf(profile_keys[1],65,"%s",p1?p1:"");
 }
 static void select_profile(unsigned index) {
+    if(index>1u)index=0u; // Two profiles: Main (0) and Backup (1).
     active_profile=index;
-    snprintf(ssid_value,sizeof(ssid_value),"%s",profile_ssids[index]);
-    snprintf(password_value,sizeof(password_value),"%s",profile_keys[index]);
+    // Same-size buffers; store_profiles() always leaves them NUL-terminated.
+    _Static_assert(sizeof(ssid_value)==sizeof(profile_ssids[0]),"SSID buffer size");
+    _Static_assert(sizeof(password_value)==sizeof(profile_keys[0]),"Password buffer size");
+    memcpy(ssid_value,profile_ssids[index],sizeof(ssid_value));
+    memcpy(password_value,profile_keys[index],sizeof(password_value));
 }
 void network_time_configure(const char *ssid,const char *password) {
     store_profiles(ssid,password,"","");active_profile=0;
