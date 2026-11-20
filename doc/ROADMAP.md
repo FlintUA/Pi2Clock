@@ -120,3 +120,15 @@ Separate DFPlayer/Bluetooth volume levels remain intentional. MAC addresses rema
 On 2026-11-11, the user selected I2S audio through a MAX98357A amplifier as a logical direction for a likely new device with updated hardware. This is a future hardware milestone. Current web-control development continues on the assembled DFPlayer-based clock.
 
 The proposed audio path is the Pico-connected SPI SD card, the existing software MP3 decoder, a PCM buffer, PIO/DMA I2S output and the MAX98357A speaker amplifier. A shared decode path could serve local audio and Bluetooth and consolidate audio assets onto one SD card. A separate hardware prototype should first verify available GPIO/PIO/DMA resources, amplifier power, speaker compatibility, memory use and sound continuity with Wi-Fi active. Exact wiring, resource allocation and performance remain to be measured.
+
+### Generation 2: one-card audio and folder collections (2026-11-20)
+
+The user explicitly deferred folder-based music collections to the second-generation device. Generation 2 is planned to replace DFPlayer with I2S/MAX98357A local output and use one shared SD card for local and Bluetooth audio, eliminating the current need to maintain two matching cards. This is a future implementation requirement, not a change to the assembled clock.
+
+- Organize music into named folders/collections, for example Disco, Classical and Russian music. Allow selection and playback of one collection independently.
+- Provide an All music selection that combines the music collections and supports shuffled playback across their tracks. Exclude speech assets, beeps and other system audio from this selection.
+- Keep collection selection separate from playback order (sequential, shuffle and repeat-one); preserve useful Previous/Next history. Prefer a shuffled pass without repeats until the selected catalog is exhausted.
+- Use the same catalog for local I2S output and Bluetooth. Numeric folder restrictions imposed by the current DFPlayer must not dictate the generation-2 folder layout.
+- Define supported filenames/encodings, catalog limits, missing-file behavior, persistence and resource budgets during generation-2 design. Selection of arbitrary subsets of collections and editable playlists remain optional follow-up ideas, not committed scope.
+
+Do not implement folder collections or migrate the current two-card audio layout as part of the present web-control/OTA work.
