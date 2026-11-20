@@ -261,5 +261,13 @@ if(CLOCK_SIZE_OPTIMIZE_APP)
         "${CMAKE_CURRENT_LIST_DIR}/services/*.c")
     set_source_files_properties(${_clock_size_sources} PROPERTIES COMPILE_OPTIONS -Os)
 endif()
+# Warnings for the clock's own sources. LCD lines are deliberately cut to 16 characters,
+# so format truncation is not reported.
+file(GLOB _clock_own_sources CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/main.c" "${CMAKE_CURRENT_LIST_DIR}/app/*.c"
+    "${CMAKE_CURRENT_LIST_DIR}/audio/*.c" "${CMAKE_CURRENT_LIST_DIR}/drivers/*.c"
+    "${CMAKE_CURRENT_LIST_DIR}/services/*.c")
+set_property(SOURCE ${_clock_own_sources} APPEND PROPERTY COMPILE_OPTIONS
+    -Wall -Wextra -Wno-unused-parameter -Wno-format-truncation)
 
 pico_add_extra_outputs(speaking_clock_c)

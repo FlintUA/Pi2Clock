@@ -425,11 +425,13 @@ static int wifi_json(char *out,size_t capacity) {
         access.epoch,phone_wifi_state_name(published_wifi.state),phone_wifi_reason_name(published_wifi.reason),published_wifi.request_id,published_wifi.seconds,
         published_wifi.direct?"true":"false",published_wifi.available?"true":"false",saved,trial,published_wifi.address,
         (unsigned)published_wifi.profile,published_wifi.profiles_revision,(unsigned)published_wifi.connected_profile,published_wifi.scan_available?"true":"false");
-    if(n<0 || (size_t)n>=capacity)return -1;size_t used=(size_t)n;
+    if(n<0 || (size_t)n>=capacity)return -1;
+    size_t used=(size_t)n;
     for(unsigned i=0;i<2;++i){
         if(!phone_json_text(saved,sizeof(saved),published_wifi.profiles[i].ssid,32))return -1;
         n=snprintf(out+used,capacity-used,"%s{\"slot\":%u,\"ssid\":\"%s\",\"open\":%s}",i?",":"",i+1u,saved,published_wifi.profiles[i].open?"true":"false");
-        if(n<0 || (size_t)n>=capacity-used)return -1;used+=(size_t)n;
+        if(n<0 || (size_t)n>=capacity-used)return -1;
+        used+=(size_t)n;
     }
     n=snprintf(out+used,capacity-used,"],\"connect_available\":%s,\"saved_connect\":%s,\"return_direct\":%s,\"request_epoch\":%" PRIu32 "}",published_wifi.connect_available?"true":"false",published_wifi.saved_connect?"true":"false",published_wifi.return_direct?"true":"false",published_wifi.request_epoch);return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
 }
@@ -437,10 +439,13 @@ static int wifi_scan_json(char *out,size_t capacity){
     static const char *const states[]={"idle","scanning","done","failed","timeout"};
     int n=snprintf(out,capacity,"{\"epoch\":%" PRIu32 ",\"revision\":%" PRIu32 ",\"state\":\"%s\",\"entries\":[",access.epoch,wifi_scan.revision,
         wifi_scan.state<5u?states[wifi_scan.state]:states[0]);
-    if(n<0 || (size_t)n>=capacity)return -1;size_t used=(size_t)n;char name[193];
+    if(n<0 || (size_t)n>=capacity)return -1;
+    size_t used=(size_t)n;
+    char name[193];
     for(unsigned i=0;i<wifi_scan.count;++i){const wifi_scan_entry_t *e=&wifi_scan.entries[i];if(!phone_json_text(name,sizeof(name),e->ssid,32))return -1;
         n=snprintf(out+used,capacity-used,"%s{\"ssid\":\"%s\",\"rssi\":%d,\"open\":%s,\"supported\":%s}",i?",":"",name,(int)e->rssi,e->auth==0?"true":"false",e->auth==0 || (e->auth&4u)?"true":"false");
-        if(n<0 || (size_t)n>=capacity-used)return -1;used+=(size_t)n;
+        if(n<0 || (size_t)n>=capacity-used)return -1;
+        used+=(size_t)n;
     }
     n=snprintf(out+used,capacity-used,"]}");return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
 }
@@ -591,7 +596,8 @@ static int wifi_scan_result(void *env,const cyw43_ev_scan_result_t *result){
     wifi_scan_add(&wifi_scan,result->ssid,result->ssid_len,result->rssi,result->auth_mode);return 0;
 }
 bool phone_web_wifi_scan_start(uint64_t now){
-    if(!ready)return false;cyw43_arch_lwip_begin();
+    if(!ready)return false;
+    cyw43_arch_lwip_begin();
     if(wifi_scan.active || (wifi_scan_owned && cyw43_wifi_scan_active(&cyw43_state))){cyw43_arch_lwip_end();return false;}
     wifi_scan_begin(&wifi_scan);cyw43_wifi_scan_options_t options={0};
     int rc=cyw43_wifi_scan(&cyw43_state,&options,NULL,wifi_scan_result);wifi_scan_owned=rc==0;wifi_scan_deadline=now+15000u;
@@ -600,7 +606,8 @@ bool phone_web_wifi_scan_start(uint64_t now){
 }
 bool phone_web_wifi_scan_busy(void){return wifi_scan.active;}
 void phone_web_wifi_scan_service(uint64_t now){
-    if(!wifi_scan_owned)return;cyw43_arch_lwip_begin();
+    if(!wifi_scan_owned)return;
+    cyw43_arch_lwip_begin();
     if(!cyw43_wifi_scan_active(&cyw43_state)){if(wifi_scan.active)wifi_scan_finish(&wifi_scan,WIFI_SCAN_DONE);wifi_scan_owned=false;}
     else if(wifi_scan.active && now>=wifi_scan_deadline)wifi_scan_finish(&wifi_scan,WIFI_SCAN_TIMEOUT);
     cyw43_arch_lwip_end();
