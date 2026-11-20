@@ -250,5 +250,16 @@ add_custom_target(clock_version
     VERBATIM)
 add_dependencies(speaking_clock_c clock_version)
 
+# Clock UI, menus, USB commands, settings and network services are not timing-critical:
+# compile them for size. Audio decoding, SD streaming, drivers with bit-banged timing,
+# the A2DP source and all SDK/radio code keep the Release -O3 flags.
+option(CLOCK_SIZE_OPTIMIZE_APP "Compile clock UI, commands and services with -Os" ON)
+if(CLOCK_SIZE_OPTIMIZE_APP)
+    file(GLOB _clock_size_sources CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_LIST_DIR}/main.c"
+        "${CMAKE_CURRENT_LIST_DIR}/app/*.c"
+        "${CMAKE_CURRENT_LIST_DIR}/services/*.c")
+    set_source_files_properties(${_clock_size_sources} PROPERTIES COMPILE_OPTIONS -Os)
+endif()
 
 pico_add_extra_outputs(speaking_clock_c)
