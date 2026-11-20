@@ -8,7 +8,7 @@ When ordinary music is playing through Bluetooth, an eligible hourly **VOICE** a
 
 Hourly auto-enable, sound, quiet-hours, RTC boundary deduplication, the five-second late window, timer priority and editor guards remain authoritative. Hourly chimes and half-hour beeps still do not interrupt the player. Alarm speech, signal/fixed/random track choice, due time, collisions, snooze and safety timeout remain unchanged. A queued alarm prevents a brief music restart between two events. Alarm audition is not treated as resumable ordinary music.
 
-After an alarm finishes or is stopped, music resumes if its context is still valid. Snooze allows music to continue during the three-minute wait; a later ringing occurrence interrupts it again. A manually paused track returns paused. Pressing the physical player pause control during an announcement requests that it stay paused afterward. Player Stop/exit, global Sound off and sleep expiry discard the held music context; they must not inadvertently stop another audio owner's event. Sleep retains its original wall-clock deadline throughout the interruption.
+After an alarm finishes or is stopped, music resumes if its context is still valid. Snooze allows music to continue during the three-minute wait; a later ringing occurrence interrupts it again. A manually paused track returns paused. Pressing the physical player pause control during an announcement requests that it stay paused afterward. Player Stop/exit, global Sound off and sleep expiry discard the held music context. Player Stop/exit and sleep expiry leave the event audio to its owner; Sound off retains its global suppression behavior. Sleep retains its original wall-clock deadline throughout the interruption.
 
 If the Bluetooth link/rate is unavailable at restoration, or the source file cannot be reopened/searched, the snapshot is discarded and the player stays paused/stopped for explicit user action. Do not automatically restart that track on the local speaker. If snapshot allocation fails, hourly speech is skipped with a diagnostic and music continues. An alarm retains priority: the existing stop/preemption path remains its fallback when music cannot be protected.
 
@@ -27,6 +27,12 @@ All continuation state is RAM-only. No settings schema, Flash sector, saved volu
 `mp3_interrupt_test` exercises the production playback/checkpoint and PCM-ring code with a deterministic decoder/file fixture. At both 44100 and 48000 Hz it compares the resumed PCM stream with uninterrupted output, including resampling phase and buffered frames. It also checks allocation failure without disturbing music, a track paused before interruption, a new keep-paused request, reopen failure, cancellation while the notification decoder remains active, and an EOF tail whose decoder was already closed. This fixture validates ownership/continuity logic, not the Helix codec's physical playback or live radio timing. Browser regression checks cover interruption feedback and guarded player options.
 
 Both ordinary and A/B OTA firmware builds must pass before a candidate is offered for separately approved installation. The latest reviewed package/build and test totals belong in the installation evidence after preparation.
+
+### Prepared candidate on 2026-11-20
+
+All 34 registered host tests passed; the expanded browser transport-state fixture also passed after its final update. Ordinary MP3/Bluetooth/Wi-Fi/phone-web and A/B OTA SDK builds completed without reported compiler warnings/errors. The reviewed, uninstalled package is `Pi2Clock-G1-v1.0.0+66.g4d2fcef-ota12.clockota`, build `g1-4d2fcef70d40-bt-mp3-wifi-phone-ota12-trial`, sequence 12, 1009804 bytes, SHA-256 `f70adb6ef89d85f6930bdad3008247fe8068c55ca42fe563608a6e0ecd993c57`.
+
+Against the reviewed ota11 ELF, linked text increased by 3136 bytes and BSS by 164 bytes (185200 to 185364). This small static delta does not include the temporary 32844-byte ring checkpoint and simultaneous decoder heap allocations. Peak live memory remains a device acceptance check; no heap/TCP/stack limits were enlarged. Host PCM comparisons use a deterministic decoder fixture and do not establish audible continuity on Portable/Nest.
 
 ## Device acceptance after installation approval
 
