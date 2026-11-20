@@ -2,6 +2,8 @@
 
 The main project is C / Pico SDK firmware for **Pico 2 W (RP2350)**. MicroPython sources and the original Pico schematic are retained as historical material.
 
+The development firmware identifies this DFPlayer/two-card device as **Pi2Clock G1**. G2 is reserved for the future I2S/one-card device. Hardware generation, tag-derived firmware version and ordered OTA sequence are independent: see [firmware identity and package compatibility](doc/FIRMWARE_IDENTITY.md).
+
 Current stable release: **[1.0.0](https://github.com/FlintUA/Pi2Clock/releases/tag/v1.0.0)**. See the [release notes](doc/releases/v1.0.0.md), [current roadmap](doc/ROADMAP.md) and [verification instructions](doc/TESTING.md).
 
 This checkout's `codex/phone-control` branch adds experimental browser control. It has not replaced the stable release. The optional web profile supports direct Wi-Fi or the home network, live status, one 1..86,399-second timer, combined Play/Pause transport controls, settings, five alarms and fifteen annual birthdays with optional birth years. It is designed for four simultaneous browser clients; this requires hardware acceptance. See [phone setup, controls and acceptance](experiments/phone_control_ap/README.md). The ordinary profile does not serve the web interface.

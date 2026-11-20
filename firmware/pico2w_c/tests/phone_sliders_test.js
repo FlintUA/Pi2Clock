@@ -47,7 +47,7 @@ Object.assign(preferences,{auto_enabled:1,clock_mode:0,half_hour:0,exact_hour:0,
 const alarm = {enabled: true, hour: 7, minute: 0, days: 31, sound: 0, track: 1, revision: 1};
 const birthday = {enabled: true, month: 12, day: 10, hour: 7, minute: 0, birth_year: 0, revision: 1};
 const state = {
-  firmware: {name: "Speaking Clock", board: "pico2_w", version: "1.2.3+4.gabcdef0", build: "abcdef012345-bt-mp3-wifi-phone", author: "FlintUA"},
+  firmware: {name: "Pi2Clock G1", board: "pico2_w", version: "1.2.3+4.gabcdef0", build: "g1-abcdef012345-bt-mp3-wifi-phone", author: "FlintUA", ota_sequence: 11},
   epoch: 123, command_id: 0, command_nonce: 0, command_result: "none", home_trusted: true,
   timer_running: false, timer_seconds: 60, player: "Closed", output: "LOCAL", settings: preferences,
   clock_control:true,
@@ -326,9 +326,12 @@ async function settled() {
   assert.equal(elements.get("alarm-track-test").textContent, "Test");
   assert.equal(vm.runInContext("scheduleEditors[0].dirty", context), true);
   assert.equal(state.alarms[0].track, 1);
-  for (const [name, value] of Object.entries(state.firmware))
+  assert.equal(getElementById("about-ota").textContent, "11");
+  for (const name of ["name", "board", "version", "build", "author"]) {
+    const value = state.firmware[name];
     assert.equal(getElementById("about-" + name).textContent,
       name === "board" ? "Raspberry Pi Pico 2 W" : value);
+  }
   state.firmware.version = "1.2.4"; // A later status supplies the device's actual version.
   state.firmware.build = "fedcba987654-bt-mp3-wifi-phone";
   await update();

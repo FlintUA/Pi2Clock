@@ -1,10 +1,11 @@
 #include "ota_upload.h"
+#include "device_identity.h"
 #include <string.h>
 static uint32_t le32(const uint8_t *p) {
     return (uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24);
 }
 bool ota_upload_header(const uint8_t *h,uint32_t current,uint32_t *size,uint32_t *sequence) {
-    if(memcmp(h,"CLOCKOT1",8) || le32(h+8)!=0x23500002u || le32(h+20)!=1u) return false;
+    if(memcmp(h,"CLOCKOT1",8) || le32(h+8)!=CLOCK_DEVICE_OTA_TARGET || le32(h+20)!=1u) return false;
     *size=le32(h+12); *sequence=le32(h+16);
     if(*size<4096u || *size>CLOCK_OTA_SLOT_SIZE || *sequence<=current || *sequence>65535u) return false;
     for(unsigned i=120;i<128;i++) if(h[i]) return false;
@@ -13,7 +14,7 @@ bool ota_upload_header(const uint8_t *h,uint32_t current,uint32_t *size,uint32_t
         if(!h[i]) ended=true;
         else if(ended || h[i]<32 || h[i]>126) return false;
     }
-    return ended && h[56];
+    return ended && !memcmp(h+56,CLOCK_DEVICE_BUILD_PREFIX,sizeof(CLOCK_DEVICE_BUILD_PREFIX)-1u);
 }
 bool ota_upload_busy(const ota_upload_t *u) {
     return u->state==OTA_RECEIVING || u->state==OTA_READY || u->state==OTA_REBOOTING;

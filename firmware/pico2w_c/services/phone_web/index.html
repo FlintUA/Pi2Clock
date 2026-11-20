@@ -382,6 +382,7 @@
       <dt>Board</dt><dd id="about-board">-</dd>
       <dt>Version</dt><dd id="about-version">-</dd>
       <dt>Build</dt><dd id="about-build">-</dd>
+      <dt>OTA sequence</dt><dd id="about-ota">-</dd>
       <dt>Author</dt><dd id="about-author">-</dd>
     </dl>
     <p id="about-status" role="status">Waiting for device information.</p>
@@ -437,8 +438,9 @@
         typeof value === "string" && value ?
           (name === "board" && value === "pico2_w" ? "Raspberry Pi Pico 2 W" : value) : "Unavailable";
     }
+    document.getElementById("about-ota").textContent = firmware?.ota_sequence > 0 ? String(firmware.ota_sequence) : "Not applicable";
     document.getElementById("about-status").textContent = firmware ?
-      "Version and build identify the installed firmware." : "Device information unavailable.";
+      "Model identifies the hardware generation. Version comes from Git; OTA sequence orders updates." : "Device information unavailable.";
   }
   const labels = Object.fromEntries(
     ["connection", "time", "timer", "player", "output"].map(id => [id, document.getElementById(id)])
@@ -557,7 +559,7 @@
   function otaLocked() {return otaTransfer || ["receiving","ready","rebooting"].includes(otaView?.state);}
   function renderFirmware(allowed) {
     otaPanel.hidden=!allowed || !otaView?.supported;
-    document.getElementById("firmware-current").textContent=live?.firmware ? "Installed: "+live.firmware.version+" - slot "+(otaView?.active || "?") : "";
+    document.getElementById("firmware-current").textContent=live?.firmware ? "Installed: "+live.firmware.name+" - "+live.firmware.version+" - OTA "+(otaView?.current_sequence || "?")+" - slot "+(otaView?.active || "?") : "";
     document.getElementById("firmware-network-hint").textContent=otaView?.mode_restore ?
       (otaView.restart_mode==="direct" ? "After this update, rejoin SpeakingClock if needed and open 192.168.4.1. Normal power-on still uses home Wi-Fi." :
       "After this update, use home Wi-Fi. Normal power-on also uses home Wi-Fi.") :
@@ -593,7 +595,9 @@
     if(bytes.slice(120).some(x=>x))throw Error("Unsupported update format.");
     const raw=bytes.slice(56,120),end=raw.indexOf(0);
     if(end<1 || raw.slice(end).some(x=>x) || raw.slice(0,end).some(x=>x<32 || x>126))throw Error("Invalid build information.");
-    return {size,sequence,build:String.fromCharCode(...raw.slice(0,end))};
+    const build=String.fromCharCode(...raw.slice(0,end));
+    if(!build.startsWith("g1-"))throw Error("This update is not identified as Pi2Clock G1. Choose a G1 update file.");
+    return {size,sequence,build,model:"Pi2Clock G1"};
   }
   otaInput.addEventListener("change",async()=>{
     const selection=++otaSelection;
@@ -605,7 +609,7 @@
       if(selection!==otaSelection)return;
       const metadata=inspectOtaHeader(header,file.size,otaView?.current_sequence || 0);
       otaFile={file,header,...metadata};otaNotice="File selected. Press Upload update.";
-      document.getElementById("firmware-file-info").textContent=metadata.build+" - "+Math.ceil(metadata.size/1024)+" KiB";
+      document.getElementById("firmware-file-info").textContent=metadata.model+" - OTA "+metadata.sequence+" - "+metadata.build+" - "+Math.ceil(metadata.size/1024)+" KiB";
     }catch(error){if(selection===otaSelection){otaNotice=error.message;otaMessage.textContent=otaNotice;}}
     finally{if(selection===otaSelection)updateControls();}
   });

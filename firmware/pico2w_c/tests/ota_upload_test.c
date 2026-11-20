@@ -29,7 +29,7 @@ static void prepare(unsigned active) {
     layout=(clock_ota_layout_t){{0x1000,0x181000},{0x181000,0x301000},2,(int)active,active?0x181000:0x1000,true};
     memset(flash,0xa5,sizeof(flash));memset(header,0,sizeof(header));memcpy(header,"CLOCKOT1",8);
     put32(header+8,0x23500002);put32(header+12,sizeof(payload));put32(header+16,5);put32(header+20,1);
-    memcpy(header+56,"test-ota5-trial",15);
+    memcpy(header+56,"g1-test-ota5-trial",18);
     for(unsigned i=0;i<sizeof(payload);i++)payload[i]=(uint8_t)(i*19);
     erases=programs=reboots=0;erase_ok=program_ok=validate_ok=reboot_ok=true;
 }
@@ -57,6 +57,13 @@ int main(void) {
         prepare(active);ota_upload_t u={0};uint32_t n,v;
         assert(ota_upload_header(header,4,&n,&v));assert(!ota_upload_header(header,5,&n,&v));
         header[8]^=1;assert(!ota_upload_header(header,4,&n,&v));header[8]^=1;
+        // Reject another generation before erasing anything, even with a G1 target.
+        header[57]='2';
+        assert(!ota_upload_begin(&u,&layout,ops,header,4,123,1) && erases==0);
+        header[57]='1';put32(header+8,0x23500202u);
+        assert(!ota_upload_begin(&u,&layout,ops,header,4,123,1) && erases==0);
+        put32(header+8,0x23500002u);
+        header[56]='x';assert(!ota_upload_header(header,4,&n,&v));header[56]='g';
         assert(ota_upload_begin(&u,&layout,ops,header,4,123,1));
         assert(ota_upload_busy(&u) && erases==1 && !programs);
         assert(!ota_upload_begin(&u,&layout,ops,header,4,124,2));

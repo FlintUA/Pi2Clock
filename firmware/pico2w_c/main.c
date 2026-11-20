@@ -2960,7 +2960,7 @@ static void menu_begin_edit(uint64_t now) {
 #endif
             menu_about_version = false;
             menu_state = MENU_ABOUT;
-            puts("[MENU-ABOUT] Speaking Clock / Pico 2 W");
+            puts("[MENU-ABOUT] " CLOCK_DEVICE_MODEL " / Pico 2 W");
             return;
         case SETTINGS_MENU_ITEMS - 1u:
             timer_sound_draft = timer_sound; timer_track_draft = timer_track; timer_voice_draft = timer_voice; timer_random_draft = timer_random; timer_warning_draft=timer_warning_enabled;
@@ -3291,7 +3291,7 @@ static void menu_rotate(int direction, uint64_t now) {
             if (menu_about_version)
                 printf("[MENU-ABOUT] v%s / by FlintUA\n", CLOCK_FIRMWARE_VERSION);
             else
-                puts("[MENU-ABOUT] Speaking Clock / Pico 2 W");
+                puts("[MENU-ABOUT] " CLOCK_DEVICE_MODEL " / Pico 2 W");
             break;
 #ifdef CLOCK_ENABLE_PHONE_WEB
         case MENU_PHONE_WEB:
@@ -4579,8 +4579,8 @@ static void handle_command(char *line) {
     } else if (strcmp(line, "next-alarm") == 0) {
         announce_clock_info(true);
     } else if (strcmp(line, "version") == 0) {
-        printf("[VERSION] %s build=%s board=pico2_w\n",
-               CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID);
+        printf("[VERSION] %s build=%s board=pico2_w model=%s ota=%u\n",
+               CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID,CLOCK_DEVICE_MODEL,(unsigned)CLOCK_FIRMWARE_OTA_SEQUENCE);
     } else if (strcmp(line, "wifi-config") == 0) {
         puts("[WIFI] Usage: wifi-config SSID|password (empty password for an open network)");
     } else if (strncmp(line, "wifi-config ",12) == 0) {
@@ -5193,7 +5193,7 @@ int main(void) {
     bool ota_startup_pending=true;
 #endif
     sleep_ms(3000); // Give VS Code Serial Monitor time to attach.
-    printf("\n[BOOT] Speaking Clock %s build=%s (Pico 2 W)\n",CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID);
+    printf("\n[BOOT] " CLOCK_DEVICE_MODEL " %s build=%s (Pico 2 W) OTA=%u\n",CLOCK_FIRMWARE_VERSION,CLOCK_BUILD_ID,(unsigned)CLOCK_FIRMWARE_OTA_SEQUENCE);
 #if defined(CLOCK_ENABLE_MP3) && !defined(CLOCK_ENABLE_OTA_AB)
     initialize_sd_music();
 #endif
@@ -5695,9 +5695,11 @@ int main(void) {
         } else if (menu_state == MENU_ABOUT) {
             if (menu_about_version) {
                 snprintf(top, sizeof(top), "v%.15s", CLOCK_DISPLAY_VERSION);
-                snprintf(bottom, sizeof(bottom), "by FlintUA");
+                if(CLOCK_FIRMWARE_OTA_SEQUENCE)
+                    snprintf(bottom, sizeof(bottom), "FlintUA OTA%u", (unsigned)CLOCK_FIRMWARE_OTA_SEQUENCE);
+                else snprintf(bottom, sizeof(bottom), "by FlintUA");
             } else {
-                snprintf(top, sizeof(top), "Speaking Clock");
+                snprintf(top, sizeof(top), CLOCK_DEVICE_MODEL);
                 snprintf(bottom, sizeof(bottom), "Pico 2 W");
             }
 #ifdef CLOCK_ENABLE_PHONE_WEB
@@ -5886,7 +5888,7 @@ int main(void) {
             snprintf(top,sizeof(top),"%s",info_overlay_top);
             snprintf(bottom,sizeof(bottom),"%s",info_overlay_bottom);
         } else if (startup_until_ms && now<startup_until_ms && !timer.running && !timer_screen) {
-            snprintf(top,sizeof(top),"Speaking Clock");
+            snprintf(top,sizeof(top),CLOCK_DEVICE_MODEL);
             snprintf(bottom,sizeof(bottom),"v%.15s",CLOCK_DISPLAY_VERSION);
         } else if (mode_overlay_until_ms && now < mode_overlay_until_ms) {
             snprintf(top, sizeof(top), "CLOCK MODE");

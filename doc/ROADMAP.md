@@ -117,6 +117,8 @@ Separate DFPlayer/Bluetooth volume levels remain intentional. MAC addresses rema
 
 ## Future device hardware
 
+Generation naming is implemented in the current uninstalled candidate: **Pi2Clock G1** for this device, **Pi2Clock G2** reserved for the successor. Model, Git-derived version and OTA sequence remain separate. New G1 receivers validate the embedded target/prefix, while retaining the ota10 transition layout. See [identity and release conventions](FIRMWARE_IDENTITY.md); installation and device acceptance remain pending.
+
 On 2026-11-11, the user selected I2S audio through a MAX98357A amplifier as a logical direction for a likely new device with updated hardware. This is a future hardware milestone. Current web-control development continues on the assembled DFPlayer-based clock.
 
 The proposed audio path is the Pico-connected SPI SD card, the existing software MP3 decoder, a PCM buffer, PIO/DMA I2S output and the MAX98357A speaker amplifier. A shared decode path could serve local audio and Bluetooth and consolidate audio assets onto one SD card. A separate hardware prototype should first verify available GPIO/PIO/DMA resources, amplifier power, speaker compatibility, memory use and sound continuity with Wi-Fi active. Exact wiring, resource allocation and performance remain to be measured.

@@ -30,13 +30,16 @@ assert.match(element('firmware-network-hint').textContent,/After this update, us
 vm.runInContext('otaView.mode_restore=false;renderFirmware(true)',context);
 assert.match(element('firmware-network-hint').textContent,/including after an update from Direct/);
 const header=new Uint8Array(128),view=new DataView(header.buffer);
-header.set(Buffer.from('CLOCKOT1'));view.setUint32(8,0x23500002,true);view.setUint32(12,4097,true);view.setUint32(16,5,true);view.setUint32(20,1,true);header.set(Buffer.from('test-ota5-trial'),56);
+header.set(Buffer.from('CLOCKOT1'));view.setUint32(8,0x23500002,true);view.setUint32(12,4097,true);view.setUint32(16,5,true);view.setUint32(20,1,true);header.set(Buffer.from('g1-test-ota5-trial'),56);
 context.header=header;
 assert.equal(vm.runInContext('inspectOtaHeader(header,4225,4).sequence',context),5);
 assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4224,4)',context));
 assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4225,5)',context));
 header[8]^=1;assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4225,4)',context));header[8]^=1;
 header[120]=1;assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4225,4)',context));header[120]=0;
+header[57]=50;assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4225,4)',context),/Pi2Clock G1/);header[57]=49;
+view.setUint32(8,0x23500202,true);assert.throws(()=>vm.runInContext('inspectOtaHeader(header,4225,4)',context));view.setUint32(8,0x23500002,true);
+assert.equal(vm.runInContext('inspectOtaHeader(header,4225,4).model',context),'Pi2Clock G1');
 async function run(){
   const file=Buffer.concat([header,Buffer.alloc(4097,31)]);
   element('firmware-file').files=[{size:file.length,slice(a,b){const x=file.subarray(a,b);return {arrayBuffer:async()=>x.buffer.slice(x.byteOffset,x.byteOffset+x.length)};}}];
@@ -62,10 +65,10 @@ async function run(){
   await element('firmware-upload').handlers.click();
   assert.equal(calls.filter(x=>x==='begin').length,1); // A stale available flag cannot restart a verified file.
   await element('firmware-install').handlers.click();assert.equal(state.state,'rebooting');
-  assert.equal(vm.runInContext('otaRestart.build',context),'test-ota5-trial');
+  assert.equal(vm.runInContext('otaRestart.build',context),'g1-test-ota5-trial');
   assert.equal(vm.runInContext('otaRestart.mode',context),'direct');
   assert.match(element('firmware-status').textContent,/SpeakingClock/);
-  vm.runInContext('live.epoch=124;live.firmware.build="test-ota5-trial";otaView.state="idle";otaView.current_sequence=5;renderFirmware(true)',context);
+  vm.runInContext('live.epoch=124;live.firmware.build="g1-test-ota5-trial";otaView.state="idle";otaView.current_sequence=5;renderFirmware(true)',context);
   assert.match(element('firmware-status').textContent,/Update installed/);
   assert.equal(element('firmware-upload').disabled,true); // Already-installed selected file is not offered again.
   console.log('OTA browser header checks, bounded upload, progress, verify and explicit install passed');

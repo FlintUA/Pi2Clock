@@ -500,8 +500,8 @@ int fs_open_custom(struct fs_file *file, const char *name) {
             "network_unavailable", "rtc_write_failed", "invalid_time", "bt_not_found", "bt_registry_full"};
         _Static_assert(sizeof(results)/sizeof(results[0]) == PHONE_COMMAND_BT_REGISTRY_FULL + 1u, "Missing command result");
         body_length = snprintf(response + len, capacity - (size_t)len,
-        "{\"firmware\":{\"name\":\"Speaking Clock\",\"version\":\"%s\",\"build\":\"%s\","
-        "\"board\":\"pico2_w\",\"author\":\"FlintUA\"},\"ota_control\":" OTA_WEB_ENABLED ",\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,\"wifi_control\":true,"
+        "{\"firmware\":{\"name\":\"" CLOCK_DEVICE_MODEL "\",\"generation\":\"" CLOCK_DEVICE_GENERATION "\",\"version\":\"%s\",\"build\":\"%s\","
+        "\"board\":\"pico2_w\",\"author\":\"FlintUA\",\"ota_sequence\":%u},\"ota_control\":" OTA_WEB_ENABLED ",\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,\"wifi_control\":true,"
         "\"time\":\"%s\",\"timer_running\":%s,\"timer_seconds\":%" PRIu32
         ",\"player\":\"%s\",\"track\":%u,\"output\":\"%s\",\"timer_request\":%" PRIu32
         ",\"timer_result\":\"%s\",\"timer_nonce\":%" PRIu32 ",\"epoch\":%" PRIu32
@@ -513,7 +513,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         ",\"light_mode\":%u,\"light_day\":%u,\"light_night\":%u,\"timer_sound\":%u,\"timer_track\":%u,\"timer_voice\":%u,\"timer_random\":%u,\"timer_warning\":%u"
         ",\"auto_enabled\":%u,\"clock_mode\":%u,\"half_hour\":%u,\"exact_hour\":%u,\"quiet_enabled\":%u,\"quiet_start\":%u,\"quiet_end\":%u"
         ",\"editing\":%s,\"idle\":%s,\"bt_supported\":%s,\"saving\":\"%s\"}",
-        CLOCK_FIRMWARE_VERSION, CLOCK_BUILD_ID,
+        CLOCK_FIRMWARE_VERSION, CLOCK_BUILD_ID, (unsigned)CLOCK_FIRMWARE_OTA_SEQUENCE,
         published.time, published.timer_running ? "true" : "false",
         published.timer_seconds, published.player, (unsigned)published.track,
         published.bluetooth ? "BT" : "LOCAL", access.last.id,
