@@ -49,4 +49,10 @@ A plausible reason is that 2-frame packets fit a 3-slot baseband packet while 5-
 
 OTA 23 makes the packet size adaptive: when more than 100 ms of backlog is trimmed within 3 s, the sender reduces the frames per packet (5 → 3 → 2), logs `[A2DP-PACKET] adaptive: …`, and keeps the smaller size for that speaker until restart. Speakers that keep up (PRO X 2, Nest) keep the automatic size. `bt-frames N` still overrides it; `bt-frames 0` returns to automatic with adaptation.
 
+## OTA 23 result: packet size is not the cause (OTA 24 candidate)
+
+On OTA 23 the user heard crackling through almost the whole test, while the log showed Portable running at 2 frames per packet the entire time (adaptation had already reduced it before the test; `bt-frames 0` dropped back to 2 within about 6 s). Even at 2 frames the trimmed backlog grew from 85.9 s to 135.3 s in 189 s: the sender delivers only about 74 % of real time to Portable, with few long gaps (`late_packets` +65, `max_gap_ms` 282). The earlier "clean at 2 frames" window was therefore not reproducible. The link to Portable carries too few bytes per second for SBC at bitpool 53 (about 328 kbit/s), independent of packet size.
+
+OTA 24 removes the adaptive packet size (manual `bt-frames` remains) and adds the USB test command `bt-bitpool N`: the encoder uses a lower bitpool within the range the speaker negotiated, without renegotiation, as phones do. Every SBC frame carries its bitpool, so a compliant speaker decodes it. Expected rates at 44.1 kHz joint stereo: 53 ≈ 328, 45 ≈ 281, 37 ≈ 240, 31 ≈ 207 kbit/s. Unlike OTA 19, the negotiated maximum stays 53, so the configuration Portable accepted is unchanged. A test with Portable decides whether a lower rate removes the crackling; only then becomes it automatic.
+
 If stalls remain with no page open, the next candidates are Wi-Fi power management and HTTP keep-alive; both need separate measurement.

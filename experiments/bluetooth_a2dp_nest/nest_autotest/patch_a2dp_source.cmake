@@ -580,14 +580,14 @@ static void clock_pacing_sent(void){
 // speaker-specific tests; the request is applied here, in the Bluetooth context.
 static int clock_payload_mtu;
 static uint8_t clock_frames_limit;
-static bool clock_frames_manual;
 static volatile int clock_frames_request = -1;
-// Adaptive packet size: when the sender cannot keep up (backlog trimmed by more than 100 ms
-// within 3 s), carry fewer SBC frames per packet (5 -> 3 -> 2). Smaller packets fit shorter
-// baseband packets and survived on JBL Link Portable, which crackled with 5 frames.
-// The reduced size is kept for the same speaker until restart.
-static uint8_t clock_adapt_addr[6];
-static uint32_t clock_adapt_window_start, clock_adapt_capped_mark;
+// Encoder bitpool. The speaker negotiates a bitpool range; every SBC frame carries its own
+// bitpool, so the encoder may use a lower value without renegotiation (as phones do).
+// "bt-bitpool N" over USB tests lower data rates on one speaker (0 = negotiated maximum).
+// Applied right after a packet is sent, when no partial packet is buffered.
+static volatile int clock_bitpool_request = -1;
+static int clock_bitpool_active;
+void clock_a2dp_set_bitpool(unsigned bitpool){ clock_bitpool_request = (int)(bitpool > 250u ? 250u : bitpool); }
 void clock_a2dp_set_frames(unsigned frames){ clock_frames_request = (int)(frames > 15u ? 15u : frames); }
 static void clock_payload_apply(a2dp_media_sending_context_t *context){
     int frame = sbc_encoder_instance ? (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state) : 0;
@@ -602,24 +602,22 @@ static void clock_payload_poll(a2dp_media_sending_context_t *context){
     if (request < 0) return;
     clock_frames_request = -1;
     clock_frames_limit = (uint8_t)request;
-    clock_frames_manual = request != 0;
     if (clock_payload_mtu > 0) clock_payload_apply(context);
     else printf("[A2DP-PACKET] frames limit %u applies at the next stream start\n", (unsigned)request);
 }
-static void clock_payload_adapt(a2dp_media_sending_context_t *context, uint32_t now){
-    if (clock_frames_manual || clock_payload_mtu <= 0 || !sbc_encoder_instance) return;
-    if (!clock_adapt_window_start){ clock_adapt_window_start = now; clock_adapt_capped_mark = clock_pace_capped; return; }
-    if (now - clock_adapt_window_start < 3000u) return;
-    uint32_t skipped = clock_pace_capped - clock_adapt_capped_mark;
-    clock_adapt_window_start = now;
-    clock_adapt_capped_mark = clock_pace_capped;
-    if (skipped <= (uint32_t)current_sample_rate / 10u) return;
-    int frame = (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state);
-    int frames = frame > 0 ? context->max_media_payload_size / frame : 0;
-    if (frames <= 2) return;
-    clock_frames_limit = (uint8_t)(frames > 4 ? frames - 2 : 2);
-    printf("[A2DP-PACKET] adaptive: sender behind by %lu ms in 3 s; fewer frames per packet\n",
-           (unsigned long)((uint64_t)skipped * 1000u / (uint32_t)current_sample_rate));
+static void clock_bitpool_poll(a2dp_media_sending_context_t *context){
+    int request = clock_bitpool_request;
+    if (request < 0 || context->sbc_storage_count || !sbc_encoder_instance) return;
+    clock_bitpool_request = -1;
+    int high = sbc_configuration.max_bitpool_value, low = sbc_configuration.min_bitpool_value;
+    int bitpool = request == 0 || request > high ? high : request;
+    if (bitpool < low) bitpool = low;
+    if (bitpool < 2) bitpool = 2;
+    sbc_encoder_instance->configure(&sbc_encoder_state, SBC_MODE_STANDARD,
+        sbc_configuration.block_length, sbc_configuration.subbands, sbc_configuration.allocation_method,
+        sbc_configuration.sampling_frequency, (uint8_t)bitpool, sbc_configuration.channel_mode);
+    clock_bitpool_active = bitpool;
+    printf("[A2DP-PACKET] bitpool=%d (negotiated %d..%d)\n", bitpool, low, high);
     clock_payload_apply(context);
 }
 static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
@@ -638,8 +636,10 @@ void clock_a2dp_print_status(void){
     printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu\n",
            (unsigned long)clock_pace_late, (unsigned long)clock_pace_max_gap,
            (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate));
-    printf("[A2DP-PACKET] mtu_payload=%d payload_limit=%d frames_limit=%u\n",
-           clock_payload_mtu, media_tracker.max_media_payload_size, (unsigned)clock_frames_limit);
+    printf("[A2DP-PACKET] mtu_payload=%d payload_limit=%d frames_limit=%u bitpool=%d (negotiated %d..%d)\n",
+           clock_payload_mtu, media_tracker.max_media_payload_size, (unsigned)clock_frames_limit,
+           clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value,
+           sbc_configuration.min_bitpool_value, sbc_configuration.max_bitpool_value);
     printf("[INFO] A2DP stream: %s; audio: %s; sample rate: %d Hz; samples remaining: %lu\n",
            clock_a2dp_stream_running ? "ACTIVE" : "INACTIVE",
            clock_pcm_ring_active() ? "MP3_PCM" : (clock_clip_playing ? "PCM_CLIP" : (clock_tone_samples_remaining ? "TONE" : "SILENCE")),
@@ -749,12 +749,6 @@ set(_new_started [=[
             clock_a2dp_stream_running = true;
             a2dp_demo_timer_start(&media_tracker);
             clock_payload_mtu = media_tracker.max_media_payload_size;
-            if (!clock_frames_manual && clock_connected_addr_valid &&
-                memcmp(clock_adapt_addr, clock_connected_addr, 6) != 0){
-                clock_frames_limit = 0; // Another speaker: start again from the MTU limit.
-                memcpy(clock_adapt_addr, clock_connected_addr, 6);
-            }
-            clock_adapt_window_start = 0;
             clock_payload_apply(&media_tracker);
 ]=])
 string(FIND "${_source}" "${_old_started}" _started_at)
@@ -990,7 +984,6 @@ set(_new_backlog [=[
     context->samples_ready += num_samples;
     clock_pacing_limit(&context->samples_ready, now);
     clock_payload_poll(context);
-    clock_payload_adapt(context, now);
 ]=])
 string(FIND "${_source}" "${_old_backlog}" _backlog_pos)
 if(_backlog_pos EQUAL -1)
@@ -1004,6 +997,7 @@ set(_old_can_send [=[
 set(_new_can_send [=[
             a2dp_demo_send_media_packet();
             clock_pacing_sent();
+            clock_bitpool_poll(&media_tracker);
             if (clock_a2dp_stream_running){
                 a2dp_demo_fill_sbc_audio_buffer(&media_tracker);
                 if ((media_tracker.sbc_storage_count + sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state)) > media_tracker.max_media_payload_size){
@@ -1017,6 +1011,19 @@ if(_can_send_pos EQUAL -1)
     message(FATAL_ERROR "BTstack can-send handler changed")
 endif()
 string(REPLACE "${_old_can_send}" "${_new_can_send}" _source "${_source}")
+
+set(_old_encoder_config [=[
+            sbc_encoder_instance = btstack_sbc_encoder_bluedroid_init_instance(&sbc_encoder_state);
+]=])
+set(_new_encoder_config [=[
+            sbc_encoder_instance = btstack_sbc_encoder_bluedroid_init_instance(&sbc_encoder_state);
+            clock_bitpool_active = 0; // A new configuration starts at the negotiated maximum.
+]=])
+string(FIND "${_source}" "${_old_encoder_config}" _encoder_config_pos)
+if(_encoder_config_pos EQUAL -1)
+    message(FATAL_ERROR "BTstack SBC encoder setup changed")
+endif()
+string(REPLACE "${_old_encoder_config}" "${_new_encoder_config}" _source "${_source}")
 
 # Cap the SBC bitpool offered to speakers (CLOCK_A2DP_MAX_BITPOOL).
 if(DEFINED MAX_BITPOOL AND NOT MAX_BITPOOL STREQUAL "")

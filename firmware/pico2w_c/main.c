@@ -4274,6 +4274,12 @@ static void handle_command(char *line) {
         if (sscanf(line + 7, "%u %c", &requested, &extra) != 1 || requested > 30u)
             puts("[BT-VOL] Usage: bt-vol <0..30>");
         else set_output_volume(true, (uint8_t)requested);
+    } else if (strncmp(line, "bt-bitpool ", 11) == 0) {
+        unsigned int bitpool = 0u;
+        char extra = 0;
+        if (sscanf(line + 11, "%u %c", &bitpool, &extra) != 1 || bitpool > 250u)
+            puts("[A2DP-PACKET] Usage: bt-bitpool <0|2..250> (0 = negotiated maximum; not saved)");
+        else clock_a2dp_set_bitpool(bitpool);
     } else if (strncmp(line, "bt-frames ", 10) == 0) {
         unsigned int frames = 0u;
         char extra = 0;
@@ -4619,6 +4625,7 @@ static void handle_command(char *line) {
         puts("[BT] SETTINGS > Bluetooth: known devices, scan, connect, Disconnect; CLI: bt-disconnect, bt-scan, bt-devices, bt-use N|name|MAC, bt-forget N|MAC, bt-target");
         puts("[BT-VOL] bt-volume shows independent Bluetooth level; bt-vol 0..30 sets it; VOLUME encoder follows audio route");
         puts("[A2DP-PACKET] bt-frames 0..15 limits SBC frames per Bluetooth packet for speaker tests (0 = automatic; not saved)");
+        puts("[A2DP-PACKET] bt-bitpool N encodes with a lower SBC bitpool within the negotiated range (0 = maximum; not saved)");
         puts("[AUDIO-HEALTH] audio-health shows read-only owner, queue and Bluetooth status");
         puts("[ALARM-PENDING] alarm-pending, alarm-pending-test N, alarm-pending-clear (RAM only)");
         puts("[TIMER-SOUND] timer-sound; timer-sound none|signal|music N; timer-voice on|off");

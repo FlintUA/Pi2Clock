@@ -51,6 +51,8 @@ void clock_a2dp_stop_tone(void);
 void clock_a2dp_print_status(void);
 // Limit SBC frames per media packet (1..15) for speaker tests; 0 restores the MTU limit.
 void clock_a2dp_set_frames(unsigned frames);
+// Encode with a lower SBC bitpool within the negotiated range for speaker tests; 0 = maximum.
+void clock_a2dp_set_bitpool(unsigned bitpool);
 bool clock_a2dp_stream_active(void);
 bool clock_a2dp_stream_matches(const uint8_t address[6]);
 uint32_t clock_a2dp_current_rate(void);
