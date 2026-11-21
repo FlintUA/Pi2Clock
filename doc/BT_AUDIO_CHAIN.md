@@ -33,4 +33,12 @@ Response formats, endpoints, guards, the SBC bitpool (53) and the fast busy-conn
 2. A COM8 capture during playback (`tools/capture-pico-log.ps1`), then `bt-status`: compare `late_packets` and `max_gap_ms` with and without open pages and between `flint.net`, `Magenta` and Direct.
 3. Alarms, timer completion and the ringing-alarm banner still appear within about a second while a page is open.
 
+## OTA 21 result and next step (OTA 22 candidate)
+
+On OTA 21 the user no longer heard speed changes; PRO X 2 played almost cleanly, but Portable still had strong crackling and distortion regardless of distance (on the desk next to the clock or 1 m away), volume, Wi-Fi network or Direct.
+
+Volume path, for reference: the Bluetooth level 0..30 is sent as AVRCP Absolute Volume (`level × 127 / 30`, for example 16 → 68 of 127); the clock itself only attenuates MP3 PCM by 8/15 before SBC encoding and cannot clip. Distortion that does not depend on volume therefore points at audio data the speaker cannot decode cleanly, not at overload.
+
+Both Portable failures so far concern packet contents: bitpool 35 (13 SBC frames per packet) produced silence, bitpool 53 (8 frames, about 952 bytes) produces crackling. OTA 22 prints the packet geometry at stream start (`[A2DP-PACKET] mtu_payload frame_bytes frames_per_packet`) and adds the USB test command `bt-frames N` (1–15; 0 = automatic, not saved) to try smaller packets on a speaker without rebuilding.
+
 If stalls remain with no page open, the next candidates are Wi-Fi power management and HTTP keep-alive; both need separate measurement.

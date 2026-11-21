@@ -4274,6 +4274,12 @@ static void handle_command(char *line) {
         if (sscanf(line + 7, "%u %c", &requested, &extra) != 1 || requested > 30u)
             puts("[BT-VOL] Usage: bt-vol <0..30>");
         else set_output_volume(true, (uint8_t)requested);
+    } else if (strncmp(line, "bt-frames ", 10) == 0) {
+        unsigned int frames = 0u;
+        char extra = 0;
+        if (sscanf(line + 10, "%u %c", &frames, &extra) != 1 || frames > 15u)
+            puts("[A2DP-PACKET] Usage: bt-frames <0..15> (0 = as many as fit; not saved)");
+        else clock_a2dp_set_frames(frames);
     } else if (strcmp(line, "bt-status") == 0) {
         printf("[BT] preferred=%s\n", clock_a2dp_target());
         clock_a2dp_print_status();
@@ -4612,6 +4618,7 @@ static void handle_command(char *line) {
         puts("[AUDIO-SETTINGS] audio-settings shows persisted preferences; change with audio-select, auto-audio, timer-audio, alarm-audio; save");
         puts("[BT] SETTINGS > Bluetooth: known devices, scan, connect, Disconnect; CLI: bt-disconnect, bt-scan, bt-devices, bt-use N|name|MAC, bt-forget N|MAC, bt-target");
         puts("[BT-VOL] bt-volume shows independent Bluetooth level; bt-vol 0..30 sets it; VOLUME encoder follows audio route");
+        puts("[A2DP-PACKET] bt-frames 0..15 limits SBC frames per Bluetooth packet for speaker tests (0 = automatic; not saved)");
         puts("[AUDIO-HEALTH] audio-health shows read-only owner, queue and Bluetooth status");
         puts("[ALARM-PENDING] alarm-pending, alarm-pending-test N, alarm-pending-clear (RAM only)");
         puts("[TIMER-SOUND] timer-sound; timer-sound none|signal|music N; timer-voice on|off");

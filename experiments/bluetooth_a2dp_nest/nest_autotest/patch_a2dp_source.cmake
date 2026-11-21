@@ -575,6 +575,29 @@ static void clock_pacing_sent(void){
     }
     clock_pace_last_send = now;
 }
+// Media packet size. By default a packet carries as many SBC frames as the speaker's MTU and
+// the 1030-byte buffer allow (8 frames at bitpool 53). "bt-frames N" over USB limits it for
+// speaker-specific tests; the request is applied here, in the Bluetooth context.
+static int clock_payload_mtu;
+static uint8_t clock_frames_limit;
+static volatile int clock_frames_request = -1;
+void clock_a2dp_set_frames(unsigned frames){ clock_frames_request = (int)(frames > 15u ? 15u : frames); }
+static void clock_payload_apply(a2dp_media_sending_context_t *context){
+    int frame = sbc_encoder_instance ? (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state) : 0;
+    int limit = clock_payload_mtu;
+    if (clock_frames_limit && frame > 0 && clock_frames_limit * frame < limit) limit = clock_frames_limit * frame;
+    context->max_media_payload_size = limit;
+    printf("[A2DP-PACKET] mtu_payload=%d frame_bytes=%d frames_per_packet=%d limit=%s\n",
+           clock_payload_mtu, frame, frame > 0 ? limit / frame : 0, clock_frames_limit ? "bt-frames" : "auto");
+}
+static void clock_payload_poll(a2dp_media_sending_context_t *context){
+    int request = clock_frames_request;
+    if (request < 0) return;
+    clock_frames_request = -1;
+    clock_frames_limit = (uint8_t)request;
+    if (clock_payload_mtu > 0) clock_payload_apply(context);
+    else printf("[A2DP-PACKET] frames limit %u applies at the next stream start\n", (unsigned)request);
+}
 static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
     uint32_t cap = (uint32_t)current_sample_rate / 8u;
     if (*samples_ready > cap){ clock_pace_capped += *samples_ready - cap; *samples_ready = cap; }
@@ -591,6 +614,8 @@ void clock_a2dp_print_status(void){
     printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu\n",
            (unsigned long)clock_pace_late, (unsigned long)clock_pace_max_gap,
            (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate));
+    printf("[A2DP-PACKET] mtu_payload=%d payload_limit=%d frames_limit=%u\n",
+           clock_payload_mtu, media_tracker.max_media_payload_size, (unsigned)clock_frames_limit);
     printf("[INFO] A2DP stream: %s; audio: %s; sample rate: %d Hz; samples remaining: %lu\n",
            clock_a2dp_stream_running ? "ACTIVE" : "INACTIVE",
            clock_pcm_ring_active() ? "MP3_PCM" : (clock_clip_playing ? "PCM_CLIP" : (clock_tone_samples_remaining ? "TONE" : "SILENCE")),
@@ -699,6 +724,8 @@ set(_old_started [=[
 set(_new_started [=[
             clock_a2dp_stream_running = true;
             a2dp_demo_timer_start(&media_tracker);
+            clock_payload_mtu = media_tracker.max_media_payload_size;
+            clock_payload_apply(&media_tracker);
 ]=])
 string(FIND "${_source}" "${_old_started}" _started_at)
 if (_started_at EQUAL -1)
@@ -932,6 +959,7 @@ set(_new_backlog [=[
     context->time_audio_data_sent = now;
     context->samples_ready += num_samples;
     clock_pacing_limit(&context->samples_ready, now);
+    clock_payload_poll(context);
 ]=])
 string(FIND "${_source}" "${_old_backlog}" _backlog_pos)
 if(_backlog_pos EQUAL -1)
