@@ -160,6 +160,8 @@ static void clock_bt_scan_begin(void){
     puts("[BT-SCAN] ACTIVE Classic inquiry 10s");
 }
 
+static bool clock_connect_busy;
+static unsigned clock_busy_retries;
 static bool clock_a2dp_connect_address(const char *text){
     if (text == NULL || strlen(text) != 17u) return false;
     for (unsigned i = 0; i < 17u; ++i){
@@ -187,6 +189,10 @@ static bool clock_a2dp_connect_address(const char *text){
     }
     uint8_t status = a2dp_source_establish_stream(device_addr, &media_tracker.a2dp_cid);
     printf("[BT] Direct connect %s status=0x%02x\n", text, status);
+    // A connection to a new speaker issued from the previous speaker's release event
+    // finds BTstack's single connection record not yet freed (0x56). Retry shortly.
+    clock_connect_busy = status == BTSTACK_MEMORY_ALLOC_FAILED;
+    if (!clock_connect_busy) clock_busy_retries = 0;
     return status == ERROR_CODE_SUCCESS;
 }
 
@@ -356,9 +362,15 @@ static void clock_reconnect_schedule(void){
     if (clock_bt_boot_held || clock_reconnect_pending || !clock_bt_retry_allowed(clock_autoconnect_target,
         clock_bt_scan_requested || clock_bt_scan_running,clock_bt_switch_requested,
         media_tracker.a2dp_cid!=0)) return;
-    uint32_t index = clock_reconnect_failures < 3u ? clock_reconnect_failures : 2u;
-    uint32_t delay = clock_backoff_ms[index];
-    clock_reconnect_failures++;
+    uint32_t delay;
+    if (clock_connect_busy && clock_busy_retries < 10u) {
+        delay = 250u; // Not a link failure: keep the normal backoff for real failures.
+        clock_busy_retries++;
+    } else {
+        uint32_t index = clock_reconnect_failures < 3u ? clock_reconnect_failures : 2u;
+        delay = clock_backoff_ms[index];
+        clock_reconnect_failures++;
+    }
     btstack_run_loop_set_timer_handler(&clock_reconnect_timer, clock_reconnect_timer_handler);
     btstack_run_loop_set_timer(&clock_reconnect_timer, delay);
     btstack_run_loop_add_timer(&clock_reconnect_timer);
@@ -452,6 +464,7 @@ set(_new_connected [=[
             clock_connected_addr_valid = true;
             clock_reconnect_cancel();
             clock_reconnect_failures = 0;
+            clock_busy_retries = 0;
             media_tracker.volume = 32;
 ]=])
 string(FIND "${_source}" "${_old_connected}" _connected_position)
@@ -882,6 +895,16 @@ if(_clock_avrcp_not_at EQUAL -1)
     message(FATAL_ERROR "BTstack AVRCP volume notification handler changed")
 endif()
 string(REPLACE "${_clock_avrcp_notify_old}" "${_clock_avrcp_notify_new}" _source "${_source}")
+
+# Cap the SBC bitpool offered to speakers (CLOCK_A2DP_MAX_BITPOOL).
+if(DEFINED MAX_BITPOOL AND NOT MAX_BITPOOL STREQUAL "")
+    set(_old_bitpool "    2, 53\n};")
+    string(FIND "${_source}" "${_old_bitpool}" _bitpool_pos)
+    if(_bitpool_pos EQUAL -1)
+        message(FATAL_ERROR "BTstack SBC capability table changed")
+    endif()
+    string(REPLACE "${_old_bitpool}" "    2, ${MAX_BITPOOL}\n};" _source "${_source}")
+endif()
 
 file(WRITE "${PATCHED_SOURCE}" "${_source}")
 message(STATUS "Generated locally patched A2DP source: ${PATCHED_SOURCE}")

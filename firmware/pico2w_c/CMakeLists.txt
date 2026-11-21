@@ -134,10 +134,17 @@ if(CLOCK_ENABLE_A2DP)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${_a2dp_orig}" "${_a2dp_test}/patch_a2dp_source.cmake")
     set(CLOCK_A2DP_TARGET_ADDR "" CACHE STRING "Known A2DP target (experimental; local build only)")
+    # Upper SBC bitpool offered to speakers. 53 is the BTstack default (about 328 kbit/s at
+    # 44.1 kHz joint stereo); 35 (about 229 kbit/s) leaves more air time next to Wi-Fi.
+    set(CLOCK_A2DP_MAX_BITPOOL "35" CACHE STRING "Maximum SBC bitpool offered to Bluetooth speakers (2..53)")
+    if(NOT CLOCK_A2DP_MAX_BITPOOL MATCHES "^[0-9]+$" OR CLOCK_A2DP_MAX_BITPOOL LESS 2 OR CLOCK_A2DP_MAX_BITPOOL GREATER 53)
+        message(FATAL_ERROR "CLOCK_A2DP_MAX_BITPOOL must be 2..53")
+    endif()
     execute_process(COMMAND "${CMAKE_COMMAND}"
         "-DUPSTREAM_SOURCE=${_a2dp_orig}"
         "-DPATCHED_SOURCE=${_a2dp_generated}"
         "-DAUTO_TARGET_ADDR=${CLOCK_A2DP_TARGET_ADDR}"
+        "-DMAX_BITPOOL=${CLOCK_A2DP_MAX_BITPOOL}"
         -P "${_a2dp_test}/patch_a2dp_source.cmake"
         RESULT_VARIABLE _patch_result)
     if(NOT _patch_result EQUAL 0)
