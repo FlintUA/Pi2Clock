@@ -57,7 +57,7 @@ svg.s{width:20px;height:20px}
 .bhead h2{font-size:var(--t-l);margin-right:auto}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;padding:3px;background:var(--surface-2);border-radius:var(--r-ctl)}
 .seg input{position:absolute;opacity:0;pointer-events:none}
-.seg label,.seg button{display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 8px;border:0;background:transparent;border-radius:9px;font-size:var(--t-s);font-weight:650;color:var(--muted);text-align:center;cursor:pointer;line-height:1.2}
+.seg label,.seg button{overflow-wrap:anywhere;hyphens:auto;display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 8px;border:0;background:transparent;border-radius:9px;font-size:var(--t-s);font-weight:650;color:var(--muted);text-align:center;cursor:pointer;line-height:1.2}
 .seg input:checked+label,.seg button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.18)}
 .seg input:focus-visible+label{outline:2px solid var(--focus)}
 .big{font-size:clamp(2.8rem,14vw,3.6rem);font-weight:300;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1}
@@ -185,6 +185,9 @@ progress{width:100%;height:8px;accent-color:var(--accent-fill)}
 .spk{display:flex;align-items:center;gap:12px;min-height:56px}
 .spk+.spk{border-top:1px solid var(--line)}
 .spk .spk-main{flex:0 0 auto;min-width:min(10.5rem,40vw)}
+.spk.full{flex-wrap:wrap;row-gap:6px}
+.spk.full .grow{flex:1 1 9rem}
+.spk.full .spk-main{min-width:min(9rem,40vw)}
 dialog{border:1px solid var(--line-strong);border-radius:18px;background:var(--surface);color:var(--ink);padding:0;width:min(94vw,30rem);max-height:86vh}
 dialog::backdrop{background:rgba(10,14,16,.5)}
 dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560px);max-width:100vw;padding-bottom:env(safe-area-inset-bottom)}
@@ -249,7 +252,6 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       <div class="lamps">
         <span><i class="lamp" id="l-alarm"></i><span id="s-alarm"></span></span>
         <span><i class="lamp" id="l-sound"></i><span id="s-sound"></span></span>
-        <span><i class="lamp" id="l-bt"></i><span id="s-bt"></span></span>
         <span class="stale" id="w-stale" hidden></span>
       </div>
     </div>
@@ -579,6 +581,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
         <label class="field-l" for="firmware-file"><span data-t>Update file (.clockota)</span></label>
         <input id="firmware-file" type="file" accept=".clockota">
         <p id="firmware-file-info" class="hint"></p>
+        <div id="ota-blocked" class="stack" hidden><p id="ota-blocked-text" class="label"></p>
+          <button type="button" id="ota-release" class="btn primary" data-t>Disconnect the speaker and upload</button></div>
         <progress id="firmware-progress" max="100" value="0" aria-label="Firmware upload progress" data-ta></progress>
         <p id="firmware-status" role="status"></p>
         <div class="row2"><button id="firmware-upload" type="button" disabled></button><button id="firmware-install" type="button" class="primary" disabled data-t>Install and restart</button></div>
@@ -2580,7 +2584,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     ["Appearance","Оформление","Darstellung"],
     ["Light","Светлое","Hell"],
     ["Dark","Тёмное","Dunkel"],
-    ["Automatic","Автоматически","Automatisch"],
+    ["Automatic","Авто","Auto"],
     ["Page language","Язык страницы","Sprache der Seite"],
     ["Saved only in this browser. The clock's speech language is under Volume and outputs.","Сохраняется только в этом браузере. Язык речи часов — в разделе «Громкость и выходы».","Nur in diesem Browser gespeichert. Die Sprache der Uhransagen finden Sie unter „Lautstärke und Ausgänge“."],
     ["Built-in speaker (SPK)","Встроенный динамик (SPK)","Eingebauter Lautsprecher (SPK)"],
@@ -2696,7 +2700,18 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     ["Stopped","Остановлен","Gestoppt"],
     ["Not playing","Не играет","Keine Wiedergabe"],
     ["Sound is off","Звук выключен","Ton ist aus"],
-    ["Starting…","Запуск…","Startet…"]];
+    ["Starting…","Запуск…","Startet…"],
+    ["stop the music player","остановите плеер","Player stoppen"],
+    ["cancel the timer","отмените таймер","Timer abbrechen"],
+    ["stop the ringing alarm","выключите будильник","Wecker beenden"],
+    ["close the menu on the clock","закройте меню на часах","Menü an der Uhr schließen"],
+    ["wait until settings are saved","дождитесь сохранения настроек","Speichern der Einstellungen abwarten"],
+    ["wait for the network switch","дождитесь смены сети","Netzwechsel abwarten"],
+    ["Before updating: {list}.","Перед обновлением: {list}.","Vor dem Update: {list}."],
+    ["The speaker {name} will be disconnected for the update.","Колонка {name} будет отключена на время обновления.","Der Lautsprecher {name} wird für das Update getrennt."],
+    ["The speaker {name} will be disconnected for the update and connected again afterwards.","Колонка {name} будет отключена на время обновления и подключится снова после него.","Der Lautsprecher {name} wird für das Update getrennt und danach wieder verbunden."],
+    ["Disconnecting the speaker and saving settings; the upload starts automatically…","Отключаю колонку и сохраняю настройки; загрузка начнётся автоматически…","Lautsprecher wird getrennt und gespeichert; das Hochladen startet automatisch…"],
+    ["Disconnect the speaker and upload","Отключить колонку и загрузить","Lautsprecher trennen und hochladen"]];
   // Presentation layer. The script above owns transport, guards, drafts and commands;
   // this layer only arranges views, mirrors state into compact displays and forwards
   // clicks to the existing controls. It never sends a request on its own.
@@ -2709,7 +2724,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
   const make=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;};
 
   /* ---------- language and theme (browser-only preferences) ---------- */
-  const tables={};
+  const tables={}, controlEnglish={...controlMessages};
   for(const [english,russian,german] of UI_TEXT){(tables.ru||={})[english]=russian;(tables.de||={})[english]=german;}
   let language="en", theme="system";
   function applyStatic() {
@@ -2723,6 +2738,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     applyStatic();
     // Rebuild text-only lists that the control layer caches by content signature.
     bluetoothSignature="";browserSignature="";wifiScanSignature="";rowsKey="";
+    for(const key in controlEnglish)controlMessages[key]=T(controlEnglish[key]); // Built once at load time.
     for(const radio of $$('[name="ui-lang"]'))radio.checked=radio.value===language;
     if(live){showOverview(live.overview,live);showAbout(live.firmware);}
     updateControls();
@@ -2807,9 +2823,6 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       } else {setText("s-alarm",T("No alarms"));lamp("l-alarm","");}
       const volume=shown.output==="BT"?s?.volume_bt:s?.volume_local;
       setText("s-sound",!o.sound_on?T("Sound off"):volume===0?T("Volume 0"):T("Sound on"));lamp("l-sound",o.sound_on && volume!==0?"on":"");
-      const speaker=btConnected(), bt=o.bluetooth || {};
-      setText("s-bt",speaker?(speaker.connected?speaker.name:T("{name} connecting",{name:speaker.name})):bt.state==="scanning"?T("Searching for speakers"):T("Built-in speaker"));
-      lamp("l-bt",speaker?.connected?"on":"");
     }
     show("w-stale",!live && authorizedLayout);setText("w-stale",T("Reconnecting…"));
     const mode=live?.overview?.network?.mode || renderWindow.mode || "home";renderWindow.mode=mode;
@@ -2927,7 +2940,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     if(settings)$("#f-settings").setAttribute("aria-current","page");else $("#f-settings").removeAttribute("aria-current");
   }
   function speakerRow(device,full) {
-    const v=bluetoothView, row=make("div","spk"), text=make("span","grow"), mine=device.id===v.target;
+    const v=bluetoothView, row=make("div",full?"spk full":"spk"), text=make("span","grow"), mine=device.id===v.target;
     text.append(make("span","label",device.name),make("span","sub",mine?(v.connected?T("Connected"):T("Connecting…")):device.saved?T("Saved"):T("Found nearby")));
     const locked=waiting() || !btSupported() || settingChanges.size>0 || dirtySettings.size>0 || v.scanning || !v.available;
     const main=make("button",mine && v.connected?"btn small spk-main":"btn small primary spk-main",mine?T("Disconnect"):T("Connect"));main.type="button";
@@ -2988,11 +3001,63 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     setText("si-update",live.firmware?.version?T("Version {v}",{v:live.firmware.version}):"");
     for(const range of $$("#settings-controls input[type=range]"))fill(range);
   }
+  /* Firmware update while a speaker is connected: the clock accepts an upload only without an
+     A2DP link. Offer to disconnect it with the ordinary Bluetooth command, start the upload once
+     the clock reports it available, and reconnect the same speaker afterwards (after the restart,
+     or when the upload is cancelled or fails). Only existing commands are used. */
+  let otaRelease=null;
+  const otaSpeaker={get(){try{return JSON.parse(store.get("otaSpeaker") || "null");}catch{return null;}},
+    set(value){if(value)store.set("otaSpeaker",JSON.stringify(value));else try{localStorage.removeItem("pi2clock.otaSpeaker");}catch{}}};
+  function otaReasons() {
+    const reasons=[];
+    if(live.player!=="Closed" || live.player_test)reasons.push(T("stop the music player"));
+    if(live.timer_running)reasons.push(T("cancel the timer"));
+    if(live.overview?.alarm?.active)reasons.push(T("stop the ringing alarm"));
+    if(live.settings?.editing)reasons.push(T("close the menu on the clock"));
+    if(live.settings?.saving!=="saved")reasons.push(T("wait until settings are saved"));
+    if(wifiHandoff || networkHandoff || networkView?.transition==="pending")reasons.push(T("wait for the network switch"));
+    return reasons;
+  }
+  function renderOta() {
+    const box=$("#ota-blocked"), v=bluetoothView, linked=btSupported() && Boolean(v.target);
+    const idle=Boolean(live && otaView?.supported && otaView.state==="idle" && !otaTransfer);
+    const saved=otaSpeaker.get();
+    if(saved && live && btSupported() && !v.target && !v.scanning && v.available && !waiting()) {
+      const restarted=saved.epoch!==live.epoch;
+      const ended=otaRelease?.started && idle || otaView?.state==="error" && !otaTransfer;
+      const expired=otaRelease && !otaRelease.started && Date.now()-otaRelease.since>150000;
+      if(restarted || ended || expired) {
+        otaSpeaker.set(null);otaRelease=null;
+        if(v.devices.some(d=>d.id===saved.id && d.saved))btAction("connect",saved.id);
+      }
+    }
+    if(otaRelease && !otaRelease.started && otaView?.available && otaFile && !otaUpload.disabled) {
+      otaRelease.started=true;otaUpload.click();
+    }
+    const reasons=idle && !otaView.available?otaReasons():[];
+    const waitingRelease=Boolean(otaRelease && !otaRelease.started);
+    show(box,Boolean(idle && !otaView.available && (linked || reasons.length) || waitingRelease));
+    show("firmware-status",box.hidden); // Its "press Upload" hint is misleading while blocked.
+    if(box.hidden)return;
+    const name=v?.devices?.find(d=>d.id===v.target)?.name || T("Speaker");
+    setText("ota-blocked-text",waitingRelease?T("Disconnecting the speaker and saving settings; the upload starts automatically…"):
+      reasons.length?T("Before updating: {list}.",{list:reasons.join(", ")})+(linked?" "+T("The speaker {name} will be disconnected for the update.",{name}):""):
+      T("The speaker {name} will be disconnected for the update and connected again afterwards.",{name}));
+    const button=$("#ota-release");
+    show(button,linked && !waitingRelease);
+    button.disabled=!otaFile || reasons.length>0 || waiting() || !v?.available;
+  }
+  $("#ota-release").addEventListener("click",()=>{
+    const v=bluetoothView;
+    if(!live || !btSupported() || !v.target || !otaFile)return;
+    otaSpeaker.set({id:v.target,epoch:live.epoch});otaRelease={since:Date.now(),started:false};
+    btAction("disconnect","");updateControls();
+  });
   let lastLive=null;
   globalThis.uiRender=()=>{
     if(live)lastLive=live;
     renderWindow();renderUrgent();renderTimer();renderAlarms();renderPlayer();renderFooter();
-    renderSpeakers();renderEditors();renderSettingsIndex();
+    renderSpeakers();renderEditors();renderSettingsIndex();if(live)renderOta();
   };
 
   /* ---------- wiring ---------- */
