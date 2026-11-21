@@ -1,6 +1,6 @@
 # G1 phone interface (layout v2)
 
-This document describes the phone interface that implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page is on branch `codex/phone-ui-v2`. On 2026-11-21 the user installed it through the browser as OTA sequence 17, build `g1-d31a02ca0f75-bt-mp3-wifi-phone-ota17-trial` (package `Pi2Clock-G1-v1.0.0+82.gd31a02c-ota17.clockota`, 917,316 bytes, Windows SDK toolchain), and reported that it generally works. Detailed acceptance and refinements follow.
+This document describes the phone interface that implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page is on branch `codex/phone-ui-v2`. On 2026-11-21 the user installed it through the browser as OTA sequence 17, build `g1-d31a02ca0f75-bt-mp3-wifi-phone-ota17-trial` (package `Pi2Clock-G1-v1.0.0+82.gd31a02c-ota17.clockota`, 917,316 bytes, Windows SDK toolchain), and reported that it generally works. Detailed acceptance and refinements follow. First refinements after user review (2026-11-21): sea-green clock panel in the light theme, track number kept on one line with the sleep countdown below it, equal-width speaker buttons, and command feedback moved from pop-ups to a status line under the footer.
 
 ## Layout
 
@@ -10,10 +10,10 @@ The page is one vertical column at every width; on a tablet the same column is c
 | --- | --- |
 | Top bar | Pi2Clock G1, connection type (house icon with "Home", or the Direct icon with "Direct") and a status lamp: green live, blinking while a command or network switch is pending, red when the connection is lost |
 | Urgent banner | Shown on every view above the content: ringing alarm (Stop, Snooze 3 min), snoozed alarm (Cancel snoozed repeats), finished timer (Stop timer sound) |
-| Clock window | Clock time with seconds at half size, weekday and date, next alarm, sound state and Bluetooth speaker. Information only |
+| Clock window | Dark sea-green panel in the light theme (near-black in the dark theme); clock time with seconds at half size, weekday and date, next alarm, sound state and Bluetooth speaker. Information only |
 | Block 1: Timer and alarms | Switch between Timer and Alarms. Timer: remaining or set time, Start/Cancel, Change opens quick durations (1, 3, 5, 10, 15, 30 min) and the three wheels with Set; completion options collapsed below with a summary. Alarms: five rows with on/off switches; a row opens the alarm editor |
 | Block 2: Music | Track number and count, state, effective output, Previous / Play-Pause / Next, Stop, volume of the output that is currently playing, collapsed order and sleep timer |
-| Footer (fixed) | Sound on/off, Speaker (sheet with saved speakers and Connect/Disconnect), Speak (sheet with time, date, next alarm), Settings |
+| Footer (fixed) | Sound on/off, Speaker (sheet with saved speakers and Connect/Disconnect), Speak (sheet with time, date, next alarm), Settings. Below it a one-line status line shows command feedback (highlighted for 5 s; tap to show a long message in full) instead of pop-up messages |
 | Settings | Groups with sub-pages and Back: Sound and display (volume and outputs, announcements and quiet hours, display light), Calendar (birthdays, date and time), Connections (Bluetooth speakers, Wi-Fi and Direct, browser access), System (firmware update, About and status), This browser (appearance, page language) |
 
 Views use hash routes (`#/`, `#/alarm/N`, `#/birthday/N`, `#/settings/<page>`), so browser Back returns to the previous view without reloading or submitting anything. Scroll position is kept per view. Birthdays moved from the main page to Settings → Calendar because they are edited rarely. Detailed diagnostics (the former status list) are under Settings → About and status.
