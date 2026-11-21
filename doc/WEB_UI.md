@@ -1,6 +1,6 @@
 # G1 phone interface (layout v2)
 
-This document describes the phone interface that implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page is on branch `codex/phone-ui-v2`; it is **not installed** and has no hardware acceptance yet.
+This document describes the phone interface that implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page is on branch `codex/phone-ui-v2`. On 2026-11-21 the user installed it through the browser as OTA sequence 17, build `g1-d31a02ca0f75-bt-mp3-wifi-phone-ota17-trial` (package `Pi2Clock-G1-v1.0.0+82.gd31a02c-ota17.clockota`, 917,316 bytes, Windows SDK toolchain), and reported that it generally works. Detailed acceptance and refinements follow.
 
 ## Layout
 
@@ -86,5 +86,4 @@ The VM figures use Ubuntu's GCC 13.2 with `__int64_t_defined` predefined, becaus
 
 ## Pending
 
-- Installation needs separate approval of a specific OTA package.
 - Hardware acceptance: page load in Home and Direct, every block on the phone, physical encoder changes while the page is open, Bluetooth music continuity, four clients, OTA upload from the new page and recovery instructions after OTA.
