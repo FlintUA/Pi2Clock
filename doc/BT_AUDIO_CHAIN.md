@@ -41,4 +41,12 @@ Volume path, for reference: the Bluetooth level 0..30 is sent as AVRCP Absolute 
 
 Both Portable failures so far concern packet contents: bitpool 35 (13 SBC frames per packet) produced silence, bitpool 53 (8 frames, about 952 bytes) produces crackling. OTA 22 prints the packet geometry at stream start (`[A2DP-PACKET] mtu_payload frame_bytes frames_per_packet`) and adds the USB test command `bt-frames N` (1–15; 0 = automatic, not saved) to try smaller packets on a speaker without rebuilding.
 
+## OTA 22 measurement and adaptive packets (OTA 23 candidate)
+
+Portable negotiates a media payload of only 656 bytes, so the automatic packet carries 5 SBC frames of 118 bytes (14.5 ms of audio; about 69 packets per second). With 5 frames the sender fell behind continuously: `late_packets` grew and the backlog trimmed by the 125 ms cap reached 4.3 s before the test and grew by about 18 s within one minute after returning to automatic, which the user heard as strong crackling. With `bt-frames 4` it still crackled moderately; with `bt-frames 2` (236 bytes, about 172 packets per second) the user heard no crackling and the trimmed backlog grew by only 0.13 s. A short underrun burst in that window coincided with a manual track change.
+
+A plausible reason is that 2-frame packets fit a 3-slot baseband packet while 5-frame packets need 5-slot packets, which this speaker's link loses or retransmits more often; this is an inference, not a radio measurement.
+
+OTA 23 makes the packet size adaptive: when more than 100 ms of backlog is trimmed within 3 s, the sender reduces the frames per packet (5 → 3 → 2), logs `[A2DP-PACKET] adaptive: …`, and keeps the smaller size for that speaker until restart. Speakers that keep up (PRO X 2, Nest) keep the automatic size. `bt-frames N` still overrides it; `bt-frames 0` returns to automatic with adaptation.
+
 If stalls remain with no page open, the next candidates are Wi-Fi power management and HTTP keep-alive; both need separate measurement.

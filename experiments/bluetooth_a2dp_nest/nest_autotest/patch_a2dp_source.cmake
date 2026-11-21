@@ -580,7 +580,14 @@ static void clock_pacing_sent(void){
 // speaker-specific tests; the request is applied here, in the Bluetooth context.
 static int clock_payload_mtu;
 static uint8_t clock_frames_limit;
+static bool clock_frames_manual;
 static volatile int clock_frames_request = -1;
+// Adaptive packet size: when the sender cannot keep up (backlog trimmed by more than 100 ms
+// within 3 s), carry fewer SBC frames per packet (5 -> 3 -> 2). Smaller packets fit shorter
+// baseband packets and survived on JBL Link Portable, which crackled with 5 frames.
+// The reduced size is kept for the same speaker until restart.
+static uint8_t clock_adapt_addr[6];
+static uint32_t clock_adapt_window_start, clock_adapt_capped_mark;
 void clock_a2dp_set_frames(unsigned frames){ clock_frames_request = (int)(frames > 15u ? 15u : frames); }
 static void clock_payload_apply(a2dp_media_sending_context_t *context){
     int frame = sbc_encoder_instance ? (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state) : 0;
@@ -595,8 +602,25 @@ static void clock_payload_poll(a2dp_media_sending_context_t *context){
     if (request < 0) return;
     clock_frames_request = -1;
     clock_frames_limit = (uint8_t)request;
+    clock_frames_manual = request != 0;
     if (clock_payload_mtu > 0) clock_payload_apply(context);
     else printf("[A2DP-PACKET] frames limit %u applies at the next stream start\n", (unsigned)request);
+}
+static void clock_payload_adapt(a2dp_media_sending_context_t *context, uint32_t now){
+    if (clock_frames_manual || clock_payload_mtu <= 0 || !sbc_encoder_instance) return;
+    if (!clock_adapt_window_start){ clock_adapt_window_start = now; clock_adapt_capped_mark = clock_pace_capped; return; }
+    if (now - clock_adapt_window_start < 3000u) return;
+    uint32_t skipped = clock_pace_capped - clock_adapt_capped_mark;
+    clock_adapt_window_start = now;
+    clock_adapt_capped_mark = clock_pace_capped;
+    if (skipped <= (uint32_t)current_sample_rate / 10u) return;
+    int frame = (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state);
+    int frames = frame > 0 ? context->max_media_payload_size / frame : 0;
+    if (frames <= 2) return;
+    clock_frames_limit = (uint8_t)(frames > 4 ? frames - 2 : 2);
+    printf("[A2DP-PACKET] adaptive: sender behind by %lu ms in 3 s; fewer frames per packet\n",
+           (unsigned long)((uint64_t)skipped * 1000u / (uint32_t)current_sample_rate));
+    clock_payload_apply(context);
 }
 static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
     uint32_t cap = (uint32_t)current_sample_rate / 8u;
@@ -725,6 +749,12 @@ set(_new_started [=[
             clock_a2dp_stream_running = true;
             a2dp_demo_timer_start(&media_tracker);
             clock_payload_mtu = media_tracker.max_media_payload_size;
+            if (!clock_frames_manual && clock_connected_addr_valid &&
+                memcmp(clock_adapt_addr, clock_connected_addr, 6) != 0){
+                clock_frames_limit = 0; // Another speaker: start again from the MTU limit.
+                memcpy(clock_adapt_addr, clock_connected_addr, 6);
+            }
+            clock_adapt_window_start = 0;
             clock_payload_apply(&media_tracker);
 ]=])
 string(FIND "${_source}" "${_old_started}" _started_at)
@@ -960,6 +990,7 @@ set(_new_backlog [=[
     context->samples_ready += num_samples;
     clock_pacing_limit(&context->samples_ready, now);
     clock_payload_poll(context);
+    clock_payload_adapt(context, now);
 ]=])
 string(FIND "${_source}" "${_old_backlog}" _backlog_pos)
 if(_backlog_pos EQUAL -1)
