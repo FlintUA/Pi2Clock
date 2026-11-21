@@ -267,6 +267,9 @@ if(CLOCK_SIZE_OPTIMIZE_APP)
         "${CMAKE_CURRENT_LIST_DIR}/main.c"
         "${CMAKE_CURRENT_LIST_DIR}/app/*.c"
         "${CMAKE_CURRENT_LIST_DIR}/services/*.c")
+    # The HTTP server builds its JSON in the same network/Bluetooth context that paces A2DP
+    # packets; keep it at the faster default optimisation.
+    list(REMOVE_ITEM _clock_size_sources "${CMAKE_CURRENT_LIST_DIR}/services/phone_web.c")
     set_source_files_properties(${_clock_size_sources} PROPERTIES COMPILE_OPTIONS -Os)
 endif()
 # Warnings for the clock's own sources. LCD lines are deliberately cut to 16 characters,

@@ -561,8 +561,36 @@ bool clock_a2dp_stream_active(void){
     return clock_a2dp_stream_running && clock_a2dp_autoconnect_enabled();
 }
 
+// Sender pacing. The upstream example sends one media packet per can-send event and refills
+// only on its next 10 ms timer, and after a radio stall it bursts the whole backlog. Record
+// stalls, drain the backlog right after each packet, and owe the speaker at most 125 ms.
+static uint32_t clock_pace_last_send, clock_pace_max_gap, clock_pace_late, clock_pace_capped;
+static uint32_t clock_pace_reported_late, clock_pace_last_report;
+static void clock_pacing_sent(void){
+    uint32_t now = btstack_run_loop_get_time_ms();
+    uint32_t gap = clock_pace_last_send ? now - clock_pace_last_send : 0u;
+    if (gap && gap < 2000u){ // Longer gaps are pauses between streams, not stalls.
+        if (gap > clock_pace_max_gap) clock_pace_max_gap = gap;
+        if (gap > 60u) clock_pace_late++;
+    }
+    clock_pace_last_send = now;
+}
+static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
+    uint32_t cap = (uint32_t)current_sample_rate / 8u;
+    if (*samples_ready > cap){ clock_pace_capped += *samples_ready - cap; *samples_ready = cap; }
+    if (clock_pace_late != clock_pace_reported_late && now - clock_pace_last_report >= 60000u){
+        printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu\n",
+               (unsigned long)clock_pace_late, (unsigned long)clock_pace_max_gap,
+               (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate));
+        clock_pace_reported_late = clock_pace_late;
+        clock_pace_last_report = now;
+    }
+}
 void clock_a2dp_print_status(void){
     printf("[BT-POLICY] auto=%s target=%s\n",clock_a2dp_autoconnect_enabled()?"ON":"OFF",clock_a2dp_target());
+    printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu\n",
+           (unsigned long)clock_pace_late, (unsigned long)clock_pace_max_gap,
+           (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate));
     printf("[INFO] A2DP stream: %s; audio: %s; sample rate: %d Hz; samples remaining: %lu\n",
            clock_a2dp_stream_running ? "ACTIVE" : "INACTIVE",
            clock_pcm_ring_active() ? "MP3_PCM" : (clock_clip_playing ? "PCM_CLIP" : (clock_tone_samples_remaining ? "TONE" : "SILENCE")),
@@ -895,6 +923,41 @@ if(_clock_avrcp_not_at EQUAL -1)
     message(FATAL_ERROR "BTstack AVRCP volume notification handler changed")
 endif()
 string(REPLACE "${_clock_avrcp_notify_old}" "${_clock_avrcp_notify_new}" _source "${_source}")
+
+set(_old_backlog [=[
+    context->time_audio_data_sent = now;
+    context->samples_ready += num_samples;
+]=])
+set(_new_backlog [=[
+    context->time_audio_data_sent = now;
+    context->samples_ready += num_samples;
+    clock_pacing_limit(&context->samples_ready, now);
+]=])
+string(FIND "${_source}" "${_old_backlog}" _backlog_pos)
+if(_backlog_pos EQUAL -1)
+    message(FATAL_ERROR "BTstack audio timer changed")
+endif()
+string(REPLACE "${_old_backlog}" "${_new_backlog}" _source "${_source}")
+
+set(_old_can_send [=[
+            a2dp_demo_send_media_packet();
+]=])
+set(_new_can_send [=[
+            a2dp_demo_send_media_packet();
+            clock_pacing_sent();
+            if (clock_a2dp_stream_running){
+                a2dp_demo_fill_sbc_audio_buffer(&media_tracker);
+                if ((media_tracker.sbc_storage_count + sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state)) > media_tracker.max_media_payload_size){
+                    media_tracker.sbc_ready_to_send = 1;
+                    a2dp_source_stream_endpoint_request_can_send_now(media_tracker.a2dp_cid, media_tracker.local_seid);
+                }
+            }
+]=])
+string(FIND "${_source}" "${_old_can_send}" _can_send_pos)
+if(_can_send_pos EQUAL -1)
+    message(FATAL_ERROR "BTstack can-send handler changed")
+endif()
+string(REPLACE "${_old_can_send}" "${_new_can_send}" _source "${_source}")
 
 # Cap the SBC bitpool offered to speakers (CLOCK_A2DP_MAX_BITPOOL).
 if(DEFINED MAX_BITPOOL AND NOT MAX_BITPOOL STREQUAL "")

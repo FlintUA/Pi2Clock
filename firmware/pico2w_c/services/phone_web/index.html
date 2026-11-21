@@ -1864,8 +1864,12 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       if (!response.ok) throw new Error("Status unavailable");
       const data = await response.json();
       live = data;
-      if(data.ota_control) {try {await otaStatus();} catch {}} else otaView=null;
-      bluetoothView=null;
+      // Secondary snapshots may be refreshed less often by the presentation layer to keep
+      // radio traffic low; a pending command, a busy page or a new epoch always refreshes.
+      const refresh=(name,view)=>Boolean(pending || busy || !view || view.epoch!==data.epoch ||
+        !globalThis.uiNeeds || globalThis.uiNeeds(name));
+      if(data.ota_control) {if(refresh("ota",{epoch:data.epoch})){try {await otaStatus();} catch {}}} else otaView=null;
+      if(refresh("bluetooth",bluetoothView)) {bluetoothView=null;
       if(data.bt_control) {
         try {
           const btResponse=await fetch("/bluetooth.json",{cache:"no-store",signal:request.signal});
@@ -1874,8 +1878,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
             if(bt.epoch===data.epoch && Array.isArray(bt.devices)) bluetoothView=bt;
           }
         } catch {} // A missing list must not hide timer/alarm controls or reuse stale peers.
-      }
-      networkView=null;
+      }}
+      if(refresh("network",networkView)) {networkView=null;
       if(data.network_control) {
         try {
           const netResponse=await fetch("/network.json",{cache:"no-store",signal:request.signal});
@@ -1884,8 +1888,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
             if(net.epoch===data.epoch)networkView=net;
           }
         } catch {} // Keep unrelated controls usable if this optional snapshot fails.
-      }
-      browserView=null;
+      }}
+      if(refresh("browsers",browserView)) {browserView=null;
       if(data.browser_control) {
         try {
           const response=await fetch("/browsers.json",{cache:"no-store",signal:request.signal});
@@ -1894,8 +1898,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
             if(view.epoch===data.epoch && Array.isArray(view.entries)) browserView=view;
           }
         } catch {} // A metadata failure must not disable ordinary clock controls.
-      }
-      wifiView=null;
+      }}
+      if(refresh("wifi",wifiView)) {wifiView=null;
       if(data.wifi_control) {
         try {
           const response=await fetch("/wifi.json",{cache:"no-store",signal:request.signal});
@@ -1907,7 +1911,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
         try {const response=await fetch("/wifi-scan.json",{cache:"no-store",signal:request.signal});
           if(response.ok){const scan=await response.json();if(scan.epoch===data.epoch && Array.isArray(scan.entries))wifiScanView=scan;}
         } catch {}
-      }
+      }}
       if (token && (checkedEpoch !== data.epoch || (browserView && checkedBrowserRevision!==browserView.revision)) && !busy) {
         const candidate = token;
         const check = await post("/access", candidate);
@@ -2057,9 +2061,10 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       updateControls();
       clearTimeout(deadline);
       statusRunning = false;
-      pollStatusSoon(pending || settingsNeedStatus ? 100 :
+      const nextPoll = pending || settingsNeedStatus ? 100 :
         live?.overview?.timer_sound_id || live?.overview?.alarm?.active ||
-        live?.timer_running && live.timer_seconds <= 5 ? 250 : 1000);
+        live?.timer_running && live.timer_seconds <= 5 ? 250 : 1000;
+      pollStatusSoon(globalThis.uiPollDelay ? globalThis.uiPollDelay(nextPoll) : nextPoll);
       scheduleSettings();
     }
   }
@@ -2769,6 +2774,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     else if(parts[0]==="birthday" && Number(parts[1])>=1 && Number(parts[1])<=15) {next="birthday";openRecord("birthday",parts[1]);}
     else if(parts[0]==="settings") next=settingViews[parts[1]] || "settings";
     view=next;
+    if(view.startsWith("s-"))pollStatusSoon(0); // Fetch the page's own snapshot at once.
     for(const section of $$(".view"))show(section,section.dataset.view===view);
     const formView=$(`#settings-controls > [data-view="${view}"]`);
     if(formView)formView.appendChild(saveStatus);
@@ -2793,8 +2799,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
   const waiting=()=>busy || Boolean(pending);
   const btSupported=()=>Boolean(live?.bt_control && bluetoothView?.supported && bluetoothView.epoch===live.epoch);
   function btConnected() {
-    const v=bluetoothView;
-    if(btSupported() && v.target)return {name:v.devices.find(d=>d.id===v.target)?.name || live.overview?.bluetooth?.name || T("Speaker"),connected:v.connected};
+    // Speaker state comes from status (every poll); the device list may be a few seconds old.
     const bt=(live || lastLive)?.overview?.bluetooth;
     return bt && ["connected","waiting"].includes(bt.state)?{name:bt.name || T("Speaker"),connected:bt.state==="connected"}:null;
   }
@@ -3053,6 +3058,23 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     otaSpeaker.set({id:v.target,epoch:live.epoch});otaRelease={since:Date.now(),started:false};
     btAction("disconnect","");updateControls();
   });
+  /* Radio load. Every request shares the clock's radio with Bluetooth audio, and each open page
+     used to fetch seven files per second. Status stays at the control layer's pace; the other
+     snapshots refresh every poll only while their view or flow needs them, otherwise slowly.
+     A hidden page polls every 15 s and catches up as soon as it becomes visible. */
+  const refreshed={}, refreshEvery={ota:30000,bluetooth:10000,network:20000,wifi:20000,browsers:30000};
+  globalThis.uiNeeds=name=>{
+    const now=Date.now(), handoff=Boolean(wifiHandoff || networkHandoff || networkView?.transition==="pending" ||
+      ["pending","testing","restoring"].includes(wifiView?.state));
+    const active=name==="ota"?view==="s-update" || otaRelease || otaTransfer || otaRestart || (otaView && otaView.state!=="idle"):
+      name==="bluetooth"?view==="s-bluetooth" || view==="s-update" || $("#sheet-speaker").open || otaRelease || otaSpeaker.get():
+      name==="network" || name==="wifi"?view==="s-network" || handoff:
+      name==="browsers"?view==="s-access":false;
+    if(active || !(now-(refreshed[name] || 0)<refreshEvery[name])){refreshed[name]=now;return true;}
+    return false;
+  };
+  globalThis.uiPollDelay=delay=>document.hidden && !pending && !busy?Math.max(delay,15000):delay;
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollStatusSoon(0);});
   let lastLive=null;
   globalThis.uiRender=()=>{
     if(live)lastLive=live;
@@ -3082,7 +3104,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
   });
   for(const range of $$("#settings-controls input[type=range]"))range.addEventListener("input",()=>fill(range));
   $("#f-sound").addEventListener("click",()=>{if(!soundToggle.disabled)soundToggle.click();});
-  $("#f-speaker").addEventListener("click",()=>{rowsKey="";renderSpeakers();$("#sheet-speaker").showModal();});
+  $("#f-speaker").addEventListener("click",()=>{rowsKey="";renderSpeakers();$("#sheet-speaker").showModal();pollStatusSoon(0);});
   $("#f-say").addEventListener("click",()=>$("#sheet-say").showModal());
   $("#f-settings").addEventListener("click",()=>{location.hash=view==="settings"?"#/":"#/settings";});
   for(const dialog of $$("dialog")) {
