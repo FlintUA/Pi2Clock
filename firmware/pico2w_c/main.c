@@ -51,7 +51,36 @@ static bool radio_ready;
 #include "pico/cyw43_arch.h"
 #include "clock_a2dp_control.h"
 #include "bt_catalog.h"
+#include "audio/pcm_ring.h"
 int btstack_main(int argc, const char *argv[]);
+// BTstack is not thread-safe and runs in the async context's background interrupt. Calls from
+// the main loop that touch Bluetooth state take the (recursive) async context lock first.
+static async_context_t *bt_lock(void) {
+    async_context_t *context = radio_ready ? cyw43_arch_async_context() : NULL;
+    if (context) async_context_acquire_lock_blocking(context);
+    return context;
+}
+static void bt_unlock(async_context_t *context) { if (context) async_context_release_lock(context); }
+#define BT_LOCKED_VOID(name, params, args) \
+    static void bt_locked_##name params { async_context_t *c = bt_lock(); clock_a2dp_##name args; bt_unlock(c); }
+#define BT_LOCKED_BOOL(name, params, args) \
+    static bool bt_locked_##name params { async_context_t *c = bt_lock(); bool r = clock_a2dp_##name args; bt_unlock(c); return r; }
+BT_LOCKED_BOOL(scan_start, (void), ())
+BT_LOCKED_VOID(scan_stop, (void), ())
+BT_LOCKED_BOOL(scan_get, (unsigned i, clock_bt_device_t *out), (i, out))
+BT_LOCKED_BOOL(select_target, (const char *address), (address))
+BT_LOCKED_BOOL(forget, (const char *address), (address))
+BT_LOCKED_VOID(clear_target, (void), ())
+BT_LOCKED_VOID(disconnect, (void), ())
+BT_LOCKED_VOID(boot_hold, (bool hold), (hold))
+BT_LOCKED_VOID(set_volume, (uint8_t level), (level))
+BT_LOCKED_BOOL(play_tone, (void), ())
+BT_LOCKED_BOOL(play_clip, (void), ())
+BT_LOCKED_VOID(stop_tone, (void), ())
+BT_LOCKED_VOID(print_status, (void), ())
+BT_LOCKED_BOOL(has_link_key, (const char *address), (address))
+BT_LOCKED_VOID(set_frames, (unsigned frames), (frames))
+BT_LOCKED_VOID(set_bitpool, (unsigned bitpool), (bitpool))
 #endif
 
 #define LCD_SDA_GPIO 0
@@ -1485,7 +1514,7 @@ static void set_output_volume(bool bluetooth, uint8_t level) {
         if (bt_volume == level && bt_volume_remote_synced) return;
         bt_volume = level;
         bt_volume_remote_synced = true;
-        clock_a2dp_set_volume(bt_volume);
+        bt_locked_set_volume(bt_volume);
         settings_mark_changed();
         printf("[AUDIO] Bluetooth volume=%u/30 output=%s\n",
                (unsigned)bt_volume,
@@ -1924,6 +1953,71 @@ static void music_ui_service(void) {
     music_ui_start();
 }
 
+#ifdef CLOCK_ENABLE_A2DP
+// Play/pause buttons on the speaker control the music player; the A2DP stream stays open.
+static void bt_remote_service(void) {
+    uint8_t command;
+    {
+        async_context_t *c = bt_lock();
+        command = clock_a2dp_take_remote_command();
+        bt_unlock(c);
+    }
+    if (command == CLOCK_A2DP_REMOTE_NONE) return;
+    bool pause = command == CLOCK_A2DP_REMOTE_PAUSE;
+    if (!music_ui_open || !music_ui_bluetooth) {
+        printf("[BT-REMOTE] %s ignored: no Bluetooth music\n", pause ? "pause" : "play");
+        return;
+    }
+    if (music_ui_interrupted) music_ui_interrupt_paused = pause;
+    else if (pause && music_ui_playing && !music_ui_paused && !music_ui_pending) music_ui_toggle();
+    else if (!pause && music_ui_paused) music_ui_toggle();
+    printf("[BT-REMOTE] %s from speaker; paused=%s\n", pause ? "pause" : "play",
+           (music_ui_interrupted ? music_ui_interrupt_paused : music_ui_paused) ? "YES" : "NO");
+}
+
+// One line every 10 s while the stream is active, printed only when something went wrong in
+// the interval: send failures, late packets, trimmed backlog or ring underruns. Web request
+// counts are included because page polling shares the radio with Bluetooth audio.
+static void bt_audio_diag_service(uint64_t now) {
+    static uint64_t next;
+    static clock_a2dp_diag_t last;
+    static uint32_t last_underruns, last_underrun_frames, last_requests, last_posts;
+    static bool primed;
+    if (!radio_ready || now < next) return;
+    next = now + 10000u;
+    clock_a2dp_diag_t d;
+    {
+        async_context_t *c = bt_lock();
+        clock_a2dp_diagnostics(&d);
+        bt_unlock(c);
+    }
+    uint32_t underruns = clock_pcm_ring_underruns(), underrun_frames = clock_pcm_ring_underrun_frames();
+    uint32_t requests = 0, posts = 0;
+#ifdef CLOCK_ENABLE_PHONE_WEB
+    requests = phone_web_requests(); posts = phone_web_posts();
+#endif
+    bool active = clock_a2dp_stream_active();
+    if (primed && active) {
+        uint32_t gaps = d.gap_count - last.gap_count;
+        uint32_t avg = gaps ? (d.gap_sum_ms - last.gap_sum_ms) / gaps : 0u;
+        uint32_t lost = d.lost - last.lost, retried = d.retried - last.retried, late = d.late - last.late;
+        uint32_t trimmed = d.trimmed_ms - last.trimmed_ms, under = underruns - last_underruns;
+        if (lost || retried || late || trimmed || under) {
+            uint32_t rate = clock_a2dp_current_rate();
+            printf("[BT-DIAG] 10s sent=%lu retried=%lu lost=%lu err=0x%02x gap_avg=%lums gap_max=%lums late=%lu "
+                   "trimmed=%lums underruns=%lu silence=%lums http_get=%lu http_post=%lu bitpool=%d payload=%d\n",
+                   (unsigned long)(d.sent - last.sent), (unsigned long)retried, (unsigned long)lost, d.last_error,
+                   (unsigned long)avg, (unsigned long)d.gap_max_ms, (unsigned long)late, (unsigned long)trimmed,
+                   (unsigned long)under,
+                   (unsigned long)(rate ? (uint64_t)(underrun_frames - last_underrun_frames) * 1000u / rate : 0u),
+                   (unsigned long)(requests - last_requests), (unsigned long)(posts - last_posts), d.bitpool, d.payload);
+        }
+    }
+    last = d; last_underruns = underruns; last_underrun_frames = underrun_frames;
+    last_requests = requests; last_posts = posts; primed = true;
+}
+#endif
+
 #ifdef CLOCK_ENABLE_PHONE_WEB
 static bool service_phone_player(phone_action_t action, uint32_t value) {
     if (action == PHONE_PLAYER_TEST_STOP) {
@@ -2191,7 +2285,7 @@ static clock_bt_device_t bt_scan_cache[CLOCK_BT_MAX_DEVICES];
 static unsigned bt_catalog_refresh(void) {
     unsigned count = 0;
     for (unsigned i = 0; i < clock_a2dp_scan_count() && count < CLOCK_BT_MAX_DEVICES; ++i)
-        if (clock_a2dp_scan_get(i, &bt_scan_cache[count])) ++count;
+        if (bt_locked_scan_get(i, &bt_scan_cache[count])) ++count;
     return (unsigned)bt_catalog_build(bt_known, bt_known_count, bt_scan_cache, count,
                                      bt_catalog_cache, BT_CATALOG_CAPACITY);
 }
@@ -2223,13 +2317,13 @@ static bool bt_user_disconnect(void) {
         puts("[BT] Disconnect refused: timer/alarm/audio busy; stop playback first");
         return false;
     }
-    clock_a2dp_disconnect();
+    bt_locked_disconnect();
     bt_persist_disconnected("USER_DISCONNECT");
     return true;
 }
 static bool bt_user_scan(void) {
     if (!bt_sink_change_allowed()) return false;
-    bool started=clock_a2dp_scan_start();
+    bool started=bt_locked_scan_start();
     // Scan may fail after the previous target was already disconnected.
     if (!clock_a2dp_autoconnect_enabled()) bt_persist_disconnected("SCAN");
     return started;
@@ -2246,14 +2340,14 @@ static bool bt_sink_select(const char *mac){
         return false;
     }
     bool was_active = clock_a2dp_stream_active();
-    if (!clock_a2dp_select_target(mac)) return false;
+    if (!bt_locked_select_target(mac)) return false;
     for (unsigned i=0;i<6u;i++)
         bt_pending_target_addr[i] = (uint8_t)b[i];
     snprintf(bt_pending_target_name, sizeof(bt_pending_target_name), "%s", mac);
     clock_bt_device_t discovered;
     for (unsigned i = 0; i < clock_a2dp_scan_count(); ++i) {
         unsigned found[6];
-        if (clock_a2dp_scan_get(i, &discovered) &&
+        if (bt_locked_scan_get(i, &discovered) &&
             sscanf(discovered.address, "%2x:%2x:%2x:%2x:%2x:%2x",
                    &found[0], &found[1], &found[2], &found[3],
                    &found[4], &found[5]) == 6 &&
@@ -2281,7 +2375,7 @@ static bool bt_user_forget(const char *address) {
     uint8_t mac[6];
     if(!bt_address_parse(address,mac) || !bt_sink_change_allowed()) return false;
     int found=bt_known_find(mac);
-    if(found<0 || !clock_a2dp_forget(address)) return false;
+    if(found<0 || !bt_locked_forget(address)) return false;
     if(memcmp(saved_bt_target_addr,mac,6)==0) memset(saved_bt_target_addr,0xff,6);
     if(bt_pending_target_valid && memcmp(bt_pending_target_addr,mac,6)==0) bt_pending_target_valid=false;
     memmove(&bt_known[found],&bt_known[found+1],(bt_known_count-(unsigned)found-1u)*sizeof(bt_known[0]));
@@ -2297,7 +2391,7 @@ static void bt_scan_list(void){
         bt_menu_device(i + 1u, &known);
         printf("[BT-KNOWN] %u address=%s name=%s paired=%s\n",
                i + 1u, known.address, known.name,
-               clock_a2dp_has_link_key(known.address) ? "YES" : "NO");
+               bt_locked_has_link_key(known.address) ? "YES" : "NO");
     }
     printf("[BT-SCAN] count=%u active=%s preferred=%s\n",
            clock_a2dp_scan_count(),
@@ -2750,10 +2844,10 @@ static void phone_snapshot_network(uint64_t now) {
 static phone_command_result_t service_phone_bluetooth(const phone_command_t *request) {
 #ifdef CLOCK_ENABLE_A2DP
     if(menu_state!=MENU_CLOSED || alarm_ui_state!=ALARM_UI_CLOSED) return PHONE_COMMAND_EDITING;
-    if(request->action==PHONE_BT_CANCEL) {clock_a2dp_scan_stop();return PHONE_COMMAND_APPLIED;}
+    if(request->action==PHONE_BT_CANCEL) {bt_locked_scan_stop();return PHONE_COMMAND_APPLIED;}
     if(!bt_sink_change_allowed()) return PHONE_COMMAND_BLOCKED;
     if(request->action==PHONE_BT_DISCONNECT) {
-        clock_a2dp_scan_stop();
+        bt_locked_scan_stop();
         return bt_user_disconnect()?PHONE_COMMAND_APPLIED:PHONE_COMMAND_BLOCKED;
     }
     if(request->action==PHONE_BT_SCAN) {
@@ -2963,7 +3057,7 @@ static void menu_close(void) {
     if (menu_state == MENU_CLOSED) return;
 #ifdef CLOCK_ENABLE_A2DP
     if (menu_state == MENU_BT_SCANNING || menu_state == MENU_BT_LIST ||
-        menu_state == MENU_BT_CONFIRM) clock_a2dp_scan_stop();
+        menu_state == MENU_BT_CONFIRM) bt_locked_scan_stop();
 #endif
     menu_state = MENU_CLOSED;
     timer_screen = false;
@@ -3317,13 +3411,13 @@ static void menu_back(uint64_t now) {
         menu_state = MENU_TIMER_MUSIC_MODE;
     } else if (menu_state == MENU_BT_SCANNING) {
 #ifdef CLOCK_ENABLE_A2DP
-        clock_a2dp_scan_stop();
+        bt_locked_scan_stop();
 #endif
         menu_state = MENU_BT_LIST;
         puts("[MENU-BT] Search cancelled");
     } else if (menu_state == MENU_BT_LIST) {
 #ifdef CLOCK_ENABLE_A2DP
-        clock_a2dp_scan_stop(); // Browsing never changes the explicit connection policy.
+        bt_locked_scan_stop(); // Browsing never changes the explicit connection policy.
 #endif
         menu_state = MENU_LIST;
         puts("[MENU-BT] Back to settings");
@@ -3522,7 +3616,7 @@ static void load_settings_at_boot(void) {
         volume = saved.volume;
         bt_volume = saved.bt_volume;
 #ifdef CLOCK_ENABLE_A2DP
-        clock_a2dp_set_volume(bt_volume); // Before A2DP connects: PCM-only initial state.
+        bt_locked_set_volume(bt_volume); // Before A2DP connects: PCM-only initial state.
 #endif
         exact_hour_phrase = saved.exact_hour;
         quiet_enabled = saved.quiet_enabled;
@@ -3571,7 +3665,7 @@ static void load_settings_at_boot(void) {
         for (unsigned k = 0; k < sizeof(saved_bt_target_addr); ++k)
             target_cleared &= saved_bt_target_addr[k] == 0xffu;
         if (target_cleared) {
-            clock_a2dp_clear_target();
+            bt_locked_clear_target();
             puts("[BT-POLICY] auto=OFF at boot; explicit Connect required");
         } else if (address_saved) {
             char mac[18];
@@ -3579,7 +3673,7 @@ static void load_settings_at_boot(void) {
                      saved_bt_target_addr[0], saved_bt_target_addr[1],
                      saved_bt_target_addr[2], saved_bt_target_addr[3],
                      saved_bt_target_addr[4], saved_bt_target_addr[5]);
-            if (!clock_a2dp_select_target(mac))
+            if (!bt_locked_select_target(mac))
                 puts("[BT] Saved sink MAC rejected; using build-time default");
             else
                 printf("[FLASH] preferred Bluetooth sink=%s\n", mac);
@@ -3615,7 +3709,7 @@ static void load_settings_at_boot(void) {
     last_persisted_settings = settings_snapshot();
     autosave_pending = false;
 #ifdef CLOCK_ENABLE_A2DP
-    clock_a2dp_boot_hold(false);
+    bt_locked_boot_hold(false);
 #endif
 }
 
@@ -4200,7 +4294,7 @@ static void handle_command(char *line) {
             puts("[BT-SCAN] Not ready or scan already active");
         else puts("[BT-SCAN] Started, run bt-devices after ~10s");
     } else if (strcmp(line, "bt-scan-stop") == 0) {
-        clock_a2dp_scan_stop();
+        bt_locked_scan_stop();
         puts("[BT-SCAN] Stopped");
     } else if (strcmp(line, "bt-devices") == 0) {
         bt_scan_list();
@@ -4279,35 +4373,35 @@ static void handle_command(char *line) {
         char extra = 0;
         if (sscanf(line + 11, "%u %c", &bitpool, &extra) != 1 || bitpool > 250u)
             puts("[A2DP-PACKET] Usage: bt-bitpool <0|2..250> (0 = negotiated maximum; not saved)");
-        else clock_a2dp_set_bitpool(bitpool);
+        else bt_locked_set_bitpool(bitpool);
     } else if (strncmp(line, "bt-frames ", 10) == 0) {
         unsigned int frames = 0u;
         char extra = 0;
         if (sscanf(line + 10, "%u %c", &frames, &extra) != 1 || frames > 15u)
             puts("[A2DP-PACKET] Usage: bt-frames <0..15> (0 = as many as fit; not saved)");
-        else clock_a2dp_set_frames(frames);
+        else bt_locked_set_frames(frames);
     } else if (strcmp(line, "bt-status") == 0) {
         printf("[BT] preferred=%s\n", clock_a2dp_target());
-        clock_a2dp_print_status();
+        bt_locked_print_status();
     } else if (strcmp(line, "bt-tone") == 0) {
 #ifdef CLOCK_ENABLE_A2DP
         if (bt_timer_running) bt_timer_fallback("BT_TONE_OVERRIDE");
         if (bt_speech_running) bt_speech_cancel("BT_TONE_OVERRIDE");
 #endif
         if (mp3_play_active()) mp3_play_stop();
-        if (!clock_a2dp_play_tone())
+        if (!bt_locked_play_tone())
             puts("[BT] No active A2DP stream");
     } else if (strcmp(line, "bt-clip") == 0) {
         if (bt_timer_running) bt_timer_fallback("BT_CLIP_OVERRIDE");
         if (bt_speech_running) bt_speech_cancel("BT_CLIP_OVERRIDE");
         if (mp3_play_active()) mp3_play_stop();
-        if (!clock_a2dp_play_clip())
+        if (!bt_locked_play_clip())
             puts("[BT] PCM clip unavailable (A2DP not active)");
     } else if (strcmp(line, "bt-silence") == 0) {
         if (bt_timer_running) bt_timer_fallback("BT_SILENCE_OVERRIDE");
         if (bt_speech_running) bt_speech_cancel("BT_SILENCE_OVERRIDE");
         if (mp3_play_active()) mp3_play_stop();
-        clock_a2dp_stop_tone();
+        bt_locked_stop_tone();
 #endif
     } else if (strncmp(line, "mp3-pause-test ", 15) == 0) {
 #ifdef CLOCK_ENABLE_A2DP
@@ -5315,7 +5409,7 @@ int main(void) {
     radio_ready=cyw43_arch_init()==PICO_OK;
     puts(radio_ready?"[RADIO] Initialized":"[RADIO] Unavailable; clock continues offline");
 #ifdef CLOCK_ENABLE_A2DP
-    clock_a2dp_boot_hold(true);
+    bt_locked_boot_hold(true);
 #ifndef CLOCK_ENABLE_OTA_AB
     if (radio_ready) printf("[BT] btstack_main=%d\n",btstack_main(0,NULL));
 #endif
@@ -5459,7 +5553,7 @@ int main(void) {
             // to unlock Upload; begin already requires no active A2DP stream.
             static bool bt_held_for_ota;
             bool ota_transfer_active=phone_ota_busy();
-            if(ota_transfer_active!=bt_held_for_ota) {clock_a2dp_boot_hold(ota_transfer_active);bt_held_for_ota=ota_transfer_active;}
+            if(ota_transfer_active!=bt_held_for_ota) {bt_locked_boot_hold(ota_transfer_active);bt_held_for_ota=ota_transfer_active;}
         }
 #endif
         if(phone_ota_busy()) {
@@ -5531,6 +5625,10 @@ int main(void) {
         }
         alarm_service_playback(now);
         music_ui_service();
+#ifdef CLOCK_ENABLE_A2DP
+        bt_remote_service();
+        bt_audio_diag_service(to_ms_since_boot(get_absolute_time()));
+#endif
         // One sector of read-only SD diagnostics per loop; do not decode in audio callbacks.
         sd_fat32_stream_service();
         // Test-route reliability: on Bluetooth loss, replay the current

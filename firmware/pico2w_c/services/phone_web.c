@@ -286,10 +286,14 @@ static const char *reply_path(phone_reply_t reply) {
     return paths[reply];
 }
 
+static volatile uint32_t post_count;
+uint32_t phone_web_posts(void) { return post_count; }
+
 err_t httpd_post_begin(void *connection, const char *uri, const char *header,
                       u16_t header_length, int length, char *response_uri,
                       u16_t response_length, u8_t *auto_window) {
     (void)auto_window;
+    ++post_count;
     phone_post_action_t action;
     if (strcmp(uri, "/pair") == 0) action = POST_PAIR;
     else if (strcmp(uri, "/timer") == 0) action = POST_TIMER;
@@ -450,7 +454,11 @@ static int wifi_scan_json(char *out,size_t capacity){
     n=snprintf(out+used,capacity-used,"]}");return n<0 || (size_t)n>=capacity-used?-1:(int)used+n;
 }
 
+static volatile uint32_t request_count;
+uint32_t phone_web_requests(void) { return request_count; }
+
 int fs_open_custom(struct fs_file *file, const char *name) {
+    ++request_count; // Diagnostics: requests compete with Bluetooth audio for the radio.
     bool ota=false;
 #ifdef CLOCK_ENABLE_OTA_AB
     ota=strcmp(name,"/ota.json")==0;

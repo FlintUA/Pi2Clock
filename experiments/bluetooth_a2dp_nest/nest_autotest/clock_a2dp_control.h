@@ -53,6 +53,16 @@ void clock_a2dp_print_status(void);
 void clock_a2dp_set_frames(unsigned frames);
 // Encode with a lower SBC bitpool within the negotiated range for speaker tests; 0 = maximum.
 void clock_a2dp_set_bitpool(unsigned bitpool);
+// Play/pause buttons pressed on the speaker (AVRCP), handed to the music player; reading clears.
+enum { CLOCK_A2DP_REMOTE_NONE = 0, CLOCK_A2DP_REMOTE_PLAY = 1, CLOCK_A2DP_REMOTE_PAUSE = 2 };
+uint8_t clock_a2dp_take_remote_command(void);
+// Sender counters since boot (see clock_a2dp_diagnostics in patch_a2dp_source.cmake).
+typedef struct {
+    uint32_t sent, retried, lost, late, gap_sum_ms, gap_count, gap_max_ms, trimmed_ms;
+    int bitpool, payload;
+    uint8_t last_error;
+} clock_a2dp_diag_t;
+void clock_a2dp_diagnostics(clock_a2dp_diag_t *diag);
 bool clock_a2dp_stream_active(void);
 bool clock_a2dp_stream_matches(const uint8_t address[6]);
 uint32_t clock_a2dp_current_rate(void);

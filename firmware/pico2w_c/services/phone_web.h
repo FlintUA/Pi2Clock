@@ -55,6 +55,9 @@ void phone_web_publish(const phone_web_snapshot_t *snapshot);
 void phone_web_publish_bluetooth(const phone_bt_view_t *view);
 void phone_web_publish_network(const phone_network_view_t *view);
 uint32_t phone_web_epoch(void);
+// Diagnostics: number of GET (custom files) and POST requests since boot.
+uint32_t phone_web_requests(void);
+uint32_t phone_web_posts(void);
 bool phone_web_begin_pair(void);
 bool phone_web_pair_code(uint32_t *code);
 bool phone_web_pair_succeeded(void);

@@ -78,6 +78,7 @@ Remaining work, in recommended order:
 9. Finish release evidence, resource/four-client measurements and English instructions, then prepare a separate web-control release. No stable web release is implied by functional acceptance; the development line was merged into `main` on 2026-11-20 without a release tag.
 10. Accept the 2026-11-20 size optimization on the clock: the gzip-compressed browser page in Home and Direct (first load, reload, four clients), encoder and button response with the `-Os` build, Bluetooth music continuity while the page is open, and an OTA upload. `CLOCK_WEB_GZIP=OFF` and `CLOCK_SIZE_OPTIMIZE_APP=OFF` revert each part independently.
 11. Split `main.c` (about 6,000 lines: main loop, LCD screens and menus, USB commands, Bluetooth/Wi-Fi glue) into modules with host-testable screen rendering and a table-driven USB command dispatcher. Behavior-neutral refactoring that needs on-device acceptance; plan it as a separate stage.
+12. Stable Bluetooth audio on every saved speaker (Portable crackles at bitpool 53). OTA 25 fixes the audit findings and adds `[BT-DIAG]` counters; next are 10-minute fixed-setting tests per speaker, then a data-based decision (web load, Wi-Fi power management, per-speaker bitpool). See [BT_AUDIO_CHAIN.md](BT_AUDIO_CHAIN.md#ota-25-audit-fixes-and-diagnostics).
 
 The [expansion specification](WEB_CONTROL_SPEC.md) records the implemented capacity/UI stage and links the broader follow-up scope. One-time reminders, track seeking and new display/audio hardware remain excluded from current implementation.
 

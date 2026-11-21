@@ -42,7 +42,9 @@ void clock_a2dp_set_volume(uint8_t level){
     uint8_t absolute = (uint8_t)(((uint16_t)level * 127u + 15u) / 30u);
     uint8_t status = avrcp_controller_set_absolute_volume(media_tracker.avrcp_cid,
                                                            absolute);
-    clock_bt_pcm_fallback = status != ERROR_CODE_SUCCESS;
+    // Keep PCM gain once the speaker has refused Absolute Volume on this connection.
+    if (status == ERROR_CODE_SUCCESS && !clock_bt_volume_refused) clock_bt_pcm_fallback = false;
+    else clock_bt_pcm_fallback = true;
     printf("[BT-VOL] %u/30 AVRCP absolute=%u status=0x%02x mode=%s\n",
            level, absolute, status, clock_bt_pcm_fallback ? "PCM" : "AVRCP");
 }
@@ -507,6 +509,7 @@ set(_new_produce [=[
 static uint8_t clock_bt_volume = 16u;
 static bool clock_bt_pcm_fallback = true;
 static uint8_t clock_bt_remote_volume = 255u;
+static bool clock_bt_volume_refused; // Speaker answered SetAbsoluteVolume with REJECTED/NOT_IMPLEMENTED.
 
 /* Clock A2DP experiment: 300 ms tone followed by PCM silence. */
 static uint32_t clock_tone_samples_remaining;
@@ -566,10 +569,13 @@ bool clock_a2dp_stream_active(void){
 // stalls, drain the backlog right after each packet, and owe the speaker at most 125 ms.
 static uint32_t clock_pace_last_send, clock_pace_max_gap, clock_pace_late, clock_pace_capped;
 static uint32_t clock_pace_reported_late, clock_pace_last_report;
+static uint32_t clock_pace_gap_sum, clock_pace_gap_count, clock_pace_interval_max;
 static void clock_pacing_sent(void){
     uint32_t now = btstack_run_loop_get_time_ms();
     uint32_t gap = clock_pace_last_send ? now - clock_pace_last_send : 0u;
     if (gap && gap < 2000u){ // Longer gaps are pauses between streams, not stalls.
+        clock_pace_gap_sum += gap; clock_pace_gap_count++;
+        if (gap > clock_pace_interval_max) clock_pace_interval_max = gap;
         if (gap > clock_pace_max_gap) clock_pace_max_gap = gap;
         if (gap > 60u) clock_pace_late++;
     }
@@ -586,13 +592,38 @@ static volatile int clock_frames_request = -1;
 // "bt-bitpool N" over USB tests lower data rates on one speaker (0 = negotiated maximum).
 // Applied right after a packet is sent, when no partial packet is buffered.
 static volatile int clock_bitpool_request = -1;
+static volatile uint8_t clock_remote_command;
+uint8_t clock_a2dp_take_remote_command(void){ uint8_t command = clock_remote_command; clock_remote_command = 0; return command; }
 static int clock_bitpool_active;
 void clock_a2dp_set_bitpool(unsigned bitpool){ clock_bitpool_request = (int)(bitpool > 250u ? 250u : bitpool); }
 void clock_a2dp_set_frames(unsigned frames){ clock_frames_request = (int)(frames > 15u ? 15u : frames); }
+// SBC frame length from the configuration (A2DP spec 12.9). The encoder reports its length
+// only after encoding a frame, so it is stale right after a bitpool change.
+static int clock_sbc_frame_bytes(void){
+    int bitpool = clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value;
+    int subbands = sbc_configuration.subbands, blocks = sbc_configuration.block_length;
+    int channels = sbc_configuration.channel_mode == SBC_CHANNEL_MODE_MONO ? 1 : 2;
+    if (subbands <= 0 || blocks <= 0 || bitpool <= 0) return 0;
+    int bits = sbc_configuration.channel_mode == SBC_CHANNEL_MODE_JOINT_STEREO ? subbands + blocks * bitpool :
+               sbc_configuration.channel_mode == SBC_CHANNEL_MODE_STEREO ? blocks * bitpool : blocks * channels * bitpool;
+    return 4 + (4 * subbands * channels) / 8 + (bits + 7) / 8;
+}
+// Send results. BTstack refuses a packet that exceeds the remote MTU or finds no free
+// ACL buffer; the upstream example ignored both and discarded the audio silently.
+static uint32_t clock_send_ok, clock_send_retry, clock_send_lost;
+static uint8_t clock_send_last_error;
 static void clock_payload_apply(a2dp_media_sending_context_t *context){
-    int frame = sbc_encoder_instance ? (int)sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state) : 0;
-    int limit = clock_payload_mtu;
-    if (clock_frames_limit && frame > 0 && clock_frames_limit * frame < limit) limit = clock_frames_limit * frame;
+    int frame = clock_sbc_frame_bytes();
+    // clock_payload_mtu is the payload BTstack allows including the one-byte SBC media header,
+    // capped by the storage buffer, which also holds that header: keep one byte for it.
+    int limit = clock_payload_mtu - 1;
+    if (frame > 0){
+        int frames = limit / frame;
+        if (frames > 15) frames = 15; // The SBC media header counts frames in 4 bits.
+        if (clock_frames_limit && clock_frames_limit < frames) frames = clock_frames_limit;
+        if (frames < 1) frames = 1;
+        if (frames * frame < limit) limit = frames * frame;
+    }
     context->max_media_payload_size = limit;
     printf("[A2DP-PACKET] mtu_payload=%d frame_bytes=%d frames_per_packet=%d limit=%s\n",
            clock_payload_mtu, frame, frame > 0 ? limit / frame : 0, clock_frames_limit ? "bt-frames" : "auto");
@@ -613,10 +644,16 @@ static void clock_bitpool_poll(a2dp_media_sending_context_t *context){
     int bitpool = request == 0 || request > high ? high : request;
     if (bitpool < low) bitpool = low;
     if (bitpool < 2) bitpool = 2;
+    int previous = clock_bitpool_active;
+    clock_bitpool_active = bitpool;
+    if (clock_sbc_frame_bytes() > clock_payload_mtu - 1){ // Never larger than one packet.
+        clock_bitpool_active = previous;
+        printf("[A2DP-PACKET] bitpool %d rejected: frame larger than the packet\n", bitpool);
+        return;
+    }
     sbc_encoder_instance->configure(&sbc_encoder_state, SBC_MODE_STANDARD,
         sbc_configuration.block_length, sbc_configuration.subbands, sbc_configuration.allocation_method,
         sbc_configuration.sampling_frequency, (uint8_t)bitpool, sbc_configuration.channel_mode);
-    clock_bitpool_active = bitpool;
     printf("[A2DP-PACKET] bitpool=%d (negotiated %d..%d)\n", bitpool, low, high);
     clock_payload_apply(context);
 }
@@ -624,12 +661,24 @@ static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
     uint32_t cap = (uint32_t)current_sample_rate / 8u;
     if (*samples_ready > cap){ clock_pace_capped += *samples_ready - cap; *samples_ready = cap; }
     if (clock_pace_late != clock_pace_reported_late && now - clock_pace_last_report >= 60000u){
-        printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu\n",
+        printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu sent=%lu retried=%lu lost=%lu\n",
                (unsigned long)clock_pace_late, (unsigned long)clock_pace_max_gap,
-               (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate));
+               (unsigned long)((uint64_t)clock_pace_capped * 1000u / (uint32_t)current_sample_rate),
+               (unsigned long)clock_send_ok, (unsigned long)clock_send_retry, (unsigned long)clock_send_lost);
         clock_pace_reported_late = clock_pace_late;
         clock_pace_last_report = now;
     }
+}
+// Cumulative counters for the main loop's periodic diagnostics line; the interval maximum of
+// the gap between packets restarts on every read. Call with the async context locked.
+void clock_a2dp_diagnostics(clock_a2dp_diag_t *d){
+    d->sent = clock_send_ok; d->retried = clock_send_retry; d->lost = clock_send_lost;
+    d->last_error = clock_send_last_error; d->late = clock_pace_late;
+    d->gap_sum_ms = clock_pace_gap_sum; d->gap_count = clock_pace_gap_count;
+    d->gap_max_ms = clock_pace_interval_max; clock_pace_interval_max = 0;
+    d->trimmed_ms = (uint32_t)((uint64_t)clock_pace_capped * 1000u / (uint32_t)(current_sample_rate ? current_sample_rate : 44100));
+    d->bitpool = clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value;
+    d->payload = media_tracker.max_media_payload_size;
 }
 void clock_a2dp_print_status(void){
     printf("[BT-POLICY] auto=%s target=%s\n",clock_a2dp_autoconnect_enabled()?"ON":"OFF",clock_a2dp_target());
@@ -640,6 +689,9 @@ void clock_a2dp_print_status(void){
            clock_payload_mtu, media_tracker.max_media_payload_size, (unsigned)clock_frames_limit,
            clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value,
            sbc_configuration.min_bitpool_value, sbc_configuration.max_bitpool_value);
+    printf("[A2DP-SEND] ok=%lu retried_buffer_full=%lu lost=%lu last_error=0x%02x\n",
+           (unsigned long)clock_send_ok, (unsigned long)clock_send_retry,
+           (unsigned long)clock_send_lost, clock_send_last_error);
     printf("[INFO] A2DP stream: %s; audio: %s; sample rate: %d Hz; samples remaining: %lu\n",
            clock_a2dp_stream_running ? "ACTIVE" : "INACTIVE",
            clock_pcm_ring_active() ? "MP3_PCM" : (clock_clip_playing ? "PCM_CLIP" : (clock_tone_samples_remaining ? "TONE" : "SILENCE")),
@@ -927,6 +979,7 @@ set(_clock_avrcp_connect_new [=[
             }
             media_tracker.avrcp_cid = local_cid;
             clock_bt_pcm_fallback = false;
+            clock_bt_volume_refused = false;
             clock_bt_remote_volume = 255u;
 ]=])
 string(FIND "${_source}" "${_clock_avrcp_connect_old}" _clock_avrcp_conn_at)
@@ -975,6 +1028,74 @@ if(_clock_avrcp_not_at EQUAL -1)
 endif()
 string(REPLACE "${_clock_avrcp_notify_old}" "${_clock_avrcp_notify_new}" _source "${_source}")
 
+set(_old_send [=[
+static void a2dp_demo_send_media_packet(void){
+    int num_bytes_in_frame = sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state);
+    int bytes_in_storage = media_tracker.sbc_storage_count;
+    uint8_t num_sbc_frames = bytes_in_storage / num_bytes_in_frame;
+    // Prepend SBC Header
+    media_tracker.sbc_storage[0] = num_sbc_frames;  // (fragmentation << 7) | (starting_packet << 6) | (last_packet << 5) | num_frames;
+    a2dp_source_stream_send_media_payload_rtp(media_tracker.a2dp_cid, media_tracker.local_seid, 0,
+                                               media_tracker.rtp_timestamp,
+                                               media_tracker.sbc_storage, bytes_in_storage + 1);
+
+    // update rtp_timestamp
+]=])
+set(_new_send [=[
+static bool a2dp_demo_send_media_packet(void){
+    int num_bytes_in_frame = clock_sbc_frame_bytes();
+    int bytes_in_storage = media_tracker.sbc_storage_count;
+    uint8_t num_sbc_frames = num_bytes_in_frame > 0 ? bytes_in_storage / num_bytes_in_frame : 0;
+    // Prepend SBC Header
+    media_tracker.sbc_storage[0] = num_sbc_frames;  // (fragmentation << 7) | (starting_packet << 6) | (last_packet << 5) | num_frames;
+    uint8_t clock_status = a2dp_source_stream_send_media_payload_rtp(media_tracker.a2dp_cid, media_tracker.local_seid, 0,
+                                               media_tracker.rtp_timestamp,
+                                               media_tracker.sbc_storage, bytes_in_storage + 1);
+    if (clock_status == BTSTACK_ACL_BUFFERS_FULL){
+        // Keep the packet and its timestamp; send it on the next can-send event.
+        clock_send_retry++;
+        clock_send_last_error = clock_status;
+        a2dp_source_stream_endpoint_request_can_send_now(media_tracker.a2dp_cid, media_tracker.local_seid);
+        return false;
+    }
+    if (clock_status == ERROR_CODE_SUCCESS) clock_send_ok++;
+    else { clock_send_lost++; clock_send_last_error = clock_status; }
+
+    // update rtp_timestamp
+]=])
+set(_old_send_end [=[
+    media_tracker.sbc_storage_count = 0;
+    media_tracker.sbc_ready_to_send = 0;
+}
+
+static int a2dp_demo_fill_sbc_audio_buffer(]=])
+set(_new_send_end [=[
+    media_tracker.sbc_storage_count = 0;
+    media_tracker.sbc_ready_to_send = 0;
+    return true; // Sent, or refused for good (counted as lost): the storage is free again.
+}
+
+static int a2dp_demo_fill_sbc_audio_buffer(]=])
+foreach(_pair "send" "send_end")
+    string(FIND "${_source}" "${_old_${_pair}}" _pos)
+    if(_pos EQUAL -1)
+        message(FATAL_ERROR "BTstack media send function changed (${_pair})")
+    endif()
+    string(REPLACE "${_old_${_pair}}" "${_new_${_pair}}" _source "${_source}")
+endforeach()
+# Space checks use the configured frame length (fresh after a bitpool change).
+set(_old_fill_len "    uint16_t sbc_buffer_length = sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state);")
+set(_new_fill_len "    uint16_t sbc_buffer_length = (uint16_t)clock_sbc_frame_bytes();")
+set(_old_tick_len "    if ((context->sbc_storage_count + sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state)) > context->max_media_payload_size){")
+set(_new_tick_len "    if ((context->sbc_storage_count + clock_sbc_frame_bytes()) > context->max_media_payload_size){")
+foreach(_pair "fill_len" "tick_len")
+    string(FIND "${_source}" "${_old_${_pair}}" _pos)
+    if(_pos EQUAL -1)
+        message(FATAL_ERROR "BTstack SBC buffer code changed (${_pair})")
+    endif()
+    string(REPLACE "${_old_${_pair}}" "${_new_${_pair}}" _source "${_source}")
+endforeach()
+
 set(_old_backlog [=[
     context->time_audio_data_sent = now;
     context->samples_ready += num_samples;
@@ -995,12 +1116,12 @@ set(_old_can_send [=[
             a2dp_demo_send_media_packet();
 ]=])
 set(_new_can_send [=[
-            a2dp_demo_send_media_packet();
+            if (!a2dp_demo_send_media_packet()) break; // ACL buffers full: the same packet is retried.
             clock_pacing_sent();
             clock_bitpool_poll(&media_tracker);
             if (clock_a2dp_stream_running){
                 a2dp_demo_fill_sbc_audio_buffer(&media_tracker);
-                if ((media_tracker.sbc_storage_count + sbc_encoder_instance->sbc_buffer_length(&sbc_encoder_state)) > media_tracker.max_media_payload_size){
+                if ((media_tracker.sbc_storage_count + clock_sbc_frame_bytes()) > media_tracker.max_media_payload_size){
                     media_tracker.sbc_ready_to_send = 1;
                     a2dp_source_stream_endpoint_request_can_send_now(media_tracker.a2dp_cid, media_tracker.local_seid);
                 }
@@ -1024,6 +1145,61 @@ if(_encoder_config_pos EQUAL -1)
     message(FATAL_ERROR "BTstack SBC encoder setup changed")
 endif()
 string(REPLACE "${_old_encoder_config}" "${_new_encoder_config}" _source "${_source}")
+
+# Buttons on the speaker (AVRCP target PLAY/PAUSE/STOP) used to suspend the A2DP stream, which
+# the main loop could not tell from a lost link and answered by moving music to the built-in
+# speaker. Hand the button to the music player instead and keep the stream open.
+set(_old_remote_buttons [=[
+                case AVRCP_OPERATION_ID_PLAY:
+                    status = a2dp_source_start_stream(media_tracker.a2dp_cid, media_tracker.local_seid);
+                    break;
+                case AVRCP_OPERATION_ID_PAUSE:
+                    status = a2dp_source_pause_stream(media_tracker.a2dp_cid, media_tracker.local_seid);
+                    break;
+                case AVRCP_OPERATION_ID_STOP:
+                    status = a2dp_source_stop_stream(media_tracker.a2dp_cid, media_tracker.local_seid);
+                    break;
+]=])
+set(_new_remote_buttons [=[
+                case AVRCP_OPERATION_ID_PLAY:
+                    clock_remote_command = CLOCK_A2DP_REMOTE_PLAY;
+                    break;
+                case AVRCP_OPERATION_ID_PAUSE:
+                    clock_remote_command = CLOCK_A2DP_REMOTE_PAUSE;
+                    break;
+                case AVRCP_OPERATION_ID_STOP:
+                    clock_remote_command = CLOCK_A2DP_REMOTE_PAUSE;
+                    break;
+]=])
+string(FIND "${_source}" "${_old_remote_buttons}" _remote_pos)
+if(_remote_pos EQUAL -1)
+    message(FATAL_ERROR "BTstack AVRCP target operation handler changed")
+endif()
+string(REPLACE "${_old_remote_buttons}" "${_new_remote_buttons}" _source "${_source}")
+
+# Absolute Volume: an open AVRCP channel does not prove the speaker supports it. Fall back to
+# PCM gain when the speaker rejects or does not implement SetAbsoluteVolume.
+set(_old_batt [=[
+        case AVRCP_SUBEVENT_NOTIFICATION_EVENT_BATT_STATUS_CHANGED:
+]=])
+set(_new_batt [=[
+        case AVRCP_SUBEVENT_SET_ABSOLUTE_VOLUME_RESPONSE: {
+            uint8_t type = avrcp_subevent_set_absolute_volume_response_get_command_type(packet);
+            bool accepted = type == AVRCP_CTYPE_RESPONSE_ACCEPTED;
+            clock_bt_volume_refused = !accepted;
+            if (clock_bt_pcm_fallback == accepted)
+                printf("[BT-VOL] speaker %s Absolute Volume (response 0x%02x); mode=%s\n",
+                       accepted ? "accepted" : "did not accept", type, accepted ? "AVRCP" : "PCM");
+            clock_bt_pcm_fallback = !accepted;
+            break;
+        }
+        case AVRCP_SUBEVENT_NOTIFICATION_EVENT_BATT_STATUS_CHANGED:
+]=])
+string(FIND "${_source}" "${_old_batt}" _batt_pos)
+if(_batt_pos EQUAL -1)
+    message(FATAL_ERROR "BTstack AVRCP controller handler changed")
+endif()
+string(REPLACE "${_old_batt}" "${_new_batt}" _source "${_source}")
 
 # Cap the SBC bitpool offered to speakers (CLOCK_A2DP_MAX_BITPOOL).
 if(DEFINED MAX_BITPOOL AND NOT MAX_BITPOOL STREQUAL "")

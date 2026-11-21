@@ -8,6 +8,7 @@
 // outside the critical section to minimize Bluetooth latency.
 static int16_t samples[CLOCK_PCM_RING_FRAMES * 2u];
 static uint32_t head, tail, count, underruns, consumed, produced;
+static uint32_t underrun_frames; // Silence frames inserted by underruns since boot (diagnostics).
 static bool active, paused, source_eof;
 // First-fault snapshot is written in the same short PCM path as the counters.
 // Avoid printf, dynamic allocation and callbacks in the audio consumer.
@@ -118,7 +119,7 @@ uint32_t clock_pcm_ring_pop(int16_t *dst, uint32_t frames) {
     consumed += take;
     pcm_diag_check(3u, frames, take);
     restore_interrupts(irq_state);
-    if (active && !source_eof && take < frames) ++underruns; // not at EOF
+    if (active && !source_eof && take < frames) { ++underruns; underrun_frames += frames - take; } // not at EOF
     if (take < frames) {
         memset(dst + 2u * take, 0,
                (size_t)(frames - take) * 2u * sizeof(int16_t));
@@ -133,6 +134,7 @@ void clock_pcm_ring_set_eof(bool eof) { source_eof = eof; }
 bool clock_pcm_ring_eof(void) { return source_eof; }
 bool clock_pcm_ring_active(void) { return active; }
 uint32_t clock_pcm_ring_underruns(void) { return underruns; }
+uint32_t clock_pcm_ring_underrun_frames(void) { return underrun_frames; }
 uint32_t clock_pcm_ring_consumed(void) { return consumed; }
 uint32_t clock_pcm_ring_produced(void) { return produced; }
 

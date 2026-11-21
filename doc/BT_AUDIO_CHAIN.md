@@ -11,8 +11,8 @@ The user reported Bluetooth music that stutters or audibly speeds up and slows d
 
 ## Findings
 
-- **The source keeps up.** A COM8 capture on OTA 18 showed `underruns=0` and a ring 70–90 % full for every speaker. The decoder, the card and `-Os` in the main loop are not the cause.
-- **Codec settings are equal.** Portable, Nest and a third speaker all ran SBC 44.1 kHz joint stereo, bitpool up to 53. Lowering the bitpool to 35 (OTA 19) silenced Portable and SSTB 10 and was reverted in OTA 20.
+- **The source kept up in that capture.** A COM8 capture on OTA 18 showed `underruns=0` and a ring 70–90 % full for every speaker. This rules out the decoder and the card for that capture only; it is not proof for every track and load (correction, OTA 25).
+- **Codec settings are equal.** Portable, Nest and a third speaker all ran SBC 44.1 kHz stereo (not joint stereo, as first written; a frame at bitpool 53 is 118 bytes), bitpool up to 53. Lowering the bitpool to 35 (OTA 19) silenced Portable and SSTB 10 and was reverted in OTA 20; the cause was a packet-size bug, see [OTA 25](#ota-25-audit-fixes-and-diagnostics).
 - **Web traffic shares the radio and the sender's context.** Each open page fetched seven files every second (status, Bluetooth, network, browser list, Wi-Fi, Wi-Fi scan, update state), each over a new TCP connection. Two open pages meant about 14 requests and well over 100 Wi-Fi packets per second, plus JSON generation in the context that paces A2DP. This matches the improvement after closing the PC tab.
 - **The sender bursts after a stall.** The upstream sender sends one packet per can-send event and refills only on its next 10 ms tick. After a delay it owed the speaker the whole backlog and sent it as fast as possible: a gap followed by a burst, which a speaker hears as stutter followed by speed-up.
 
@@ -51,8 +51,29 @@ OTA 23 makes the packet size adaptive: when more than 100 ms of backlog is trimm
 
 ## OTA 23 result: packet size is not the cause (OTA 24 candidate)
 
-On OTA 23 the user heard crackling through almost the whole test, while the log showed Portable running at 2 frames per packet the entire time (adaptation had already reduced it before the test; `bt-frames 0` dropped back to 2 within about 6 s). Even at 2 frames the trimmed backlog grew from 85.9 s to 135.3 s in 189 s: the sender delivers only about 74 % of real time to Portable, with few long gaps (`late_packets` +65, `max_gap_ms` 282). The earlier "clean at 2 frames" window was therefore not reproducible. The link to Portable carries too few bytes per second for SBC at bitpool 53 (about 328 kbit/s), independent of packet size.
+On OTA 23 the user heard crackling through almost the whole test, while the log showed Portable running at 2 frames per packet the entire time (adaptation had already reduced it before the test; `bt-frames 0` dropped back to 2 within about 6 s). Even at 2 frames the trimmed backlog grew from 85.9 s to 135.3 s in 189 s: the sender delivers only about 74 % of real time to Portable, with few long gaps (`late_packets` +65, `max_gap_ms` 282). The earlier "clean at 2 frames" window was therefore not reproducible. A likely explanation was that the link to Portable carries too few bytes per second for SBC at bitpool 53 (about 328 kbit/s). This is a hypothesis: the trimmed backlog shows that the sender fell behind, not why, and packets refused by BTstack were not counted before OTA 25.
 
-OTA 24 removes the adaptive packet size (manual `bt-frames` remains) and adds the USB test command `bt-bitpool N`: the encoder uses a lower bitpool within the range the speaker negotiated, without renegotiation, as phones do. Every SBC frame carries its bitpool, so a compliant speaker decodes it. Expected rates at 44.1 kHz joint stereo: 53 ≈ 328, 45 ≈ 281, 37 ≈ 240, 31 ≈ 207 kbit/s. Unlike OTA 19, the negotiated maximum stays 53, so the configuration Portable accepted is unchanged. A test with Portable decides whether a lower rate removes the crackling; only then becomes it automatic.
+OTA 24 removes the adaptive packet size (manual `bt-frames` remains) and adds the USB test command `bt-bitpool N`: the encoder uses a lower bitpool within the range the speaker negotiated, without renegotiation, as phones do. Every SBC frame carries its bitpool, so a compliant speaker decodes it. Expected rates at 44.1 kHz stereo: 53 ≈ 328, 45 ≈ 281, 37 ≈ 240, 31 ≈ 207 kbit/s. Unlike OTA 19, the negotiated maximum stays 53, so the configuration Portable accepted is unchanged. A test with Portable decides whether a lower rate removes the crackling; only then becomes it automatic.
 
 If stalls remain with no page open, the next candidates are Wi-Fi power management and HTTP keep-alive; both need separate measurement.
+
+## OTA 25: audit fixes and diagnostics
+
+An external audit of the chain (checked against the BTstack sources) found defects that make the earlier measurements hard to interpret. OTA 25 fixes them before more listening tests.
+
+| Finding | Effect before OTA 25 | OTA 25 |
+| --- | --- | --- |
+| The one-byte SBC media header was not reserved: frames filled the whole payload the speaker allows, and the header made the packet one byte too large. | BTstack refuses such a packet (`ERROR_CODE_MEMORY_CAPACITY_EXCEEDED`). With bitpool 35 on Portable, 8 × 82 + 1 = 657 > 656 bytes, so every packet was refused: this explains the silence on OTA 19, which was wrongly attributed to the speaker rejecting bitpool 35. At bitpool 53 (5 × 118 = 590) the bug did not trigger. | The payload limit keeps one byte for the header and never exceeds 15 frames (4-bit frame count). |
+| The return value of the send call was ignored. | A packet refused for full ACL buffers (`BTSTACK_ACL_BUFFERS_FULL`) was dropped, while the RTP timestamp advanced: the speaker received a hole in the audio. Such drops were invisible in the log. | On full buffers the packet and its timestamp are kept and sent on the next can-send event. Other errors are counted as lost; counters appear in `bt-status` (`[A2DP-SEND]`). |
+| After a bitpool change the frame length came from the encoder, which updates it only after encoding a frame. | The first packets after `bt-bitpool` could be computed with the old frame size (possible over-filled packet). | The frame length is computed from the SBC configuration (A2DP specification); a bitpool whose frame does not fit one packet is refused. |
+| Bluetooth calls from the main loop (volume, connect, disconnect, scan, test tones) ran without the async context lock. | Rare corruption of BTstack state, because the stack runs in a background interrupt and is not thread-safe. | All such calls take the (recursive) async context lock. |
+| Play/pause buttons on the speaker suspended or stopped the A2DP stream. | The main loop treated the inactive stream as a lost link and moved music to the built-in speaker. | The buttons pause or resume the music player; the stream stays open (`[BT-REMOTE]`). |
+| AVRCP Absolute Volume was assumed whenever AVRCP connected. | A speaker that refuses Absolute Volume stayed at a fixed level and the clock did not attenuate. | If the speaker answers SetAbsoluteVolume with REJECTED or NOT IMPLEMENTED, the clock switches to PCM volume for that connection (`[BT-VOL]`). |
+
+New diagnostics: while the stream is active, one line every 10 s, printed only when something went wrong in that interval:
+
+`[BT-DIAG] 10s sent retried lost err gap_avg gap_max late trimmed underruns silence http_get http_post bitpool payload`
+
+`retried` counts packets delayed by full ACL buffers, `lost` refused packets, `gap_*` the time between sent packets, `trimmed` the backlog dropped by the 125 ms cap, `silence` the duration of ring underruns, and `http_*` the requests the clock served in the interval (page polling shares the radio).
+
+Not changed: SBC configuration and default bitpool 53, packet pacing, page polling, Wi-Fi settings. The next step is a series of 10-minute tests with fixed settings (pages closed, one page with the screen on, two pages; each speaker), compared by these counters and the user's marks of audible crackling.
