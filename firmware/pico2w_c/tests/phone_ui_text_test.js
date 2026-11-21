@@ -7,7 +7,7 @@ const path = require("node:path");
 const html = fs.readFileSync(path.join(__dirname, "../services/phone_web/index.html"), "utf8");
 const scripts = html.split("<script").slice(1).map(part => part.slice(part.indexOf(">") + 1).split("</script>")[0]);
 const code = scripts.join("\n");
-const table = JSON.parse(/const UI_TEXT=(\[.*?\]);\n/s.exec(code)[1]);
+const table = JSON.parse(/const UI_TEXT=(\[.*?\]);\r?\n/s.exec(code)[1]);
 const translated = new Map(table.map(([english, russian, german]) => [english, {russian, german}]));
 const unescape = text => text.replace(/\\(["\\])/g, "$1");
 const keys = new Set();
