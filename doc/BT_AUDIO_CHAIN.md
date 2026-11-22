@@ -133,3 +133,11 @@ What remains are such disturbances: after a stall the sender sent at most 125 ms
 - `[BT-DIAG]` is printed only for intervals with trimmed backlog, underruns, refused or retried packets, or a gap over 150 ms; gaps of 61–150 ms are harmless at 20 ms per packet.
 
 A stall longer than the speaker's own buffer still produces a crackle. The check needs 20–30 minutes of music on Portable (random disturbances), compared with OTA 27 by crackles heard and trimmed backlog, and a listen for speed-up after stalls.
+
+## OTA 28 result
+
+Test on 2026-11-22: Portable, Home mode, automatic settings (bitpool 40, 7 frames per packet, Wi-Fi power saving off while streaming), 25 minutes of shuffled music with the phone screen allowed to turn off. The user heard no crackling, no speed changes and no delayed track starts. The log has no `[BT-DIAG]` line (no trimmed backlog, underruns or refused packets in any interval); the longest gap between packets in the whole test was 109 ms, and 88,287 packets were sent without a refusal.
+
+No radio disturbance occurred during the test, so the 300 ms catch-up was not exercised; the result shows that OTA 28 adds no start delay or speed change and that the OTA 27 settings keep Portable clean in a quiet radio environment. Whether the catch-up removes crackles during disturbances will show in normal use: a crackle with trimmed backlog in `[BT-DIAG]` means a stall longer than 300 ms, one without it a stall longer than the speaker's own buffer.
+
+OTA 28 is the working baseline. Nest and SSTB 10 are still to be checked by the user (SSTB 10 was silent on OTA 19 because of the header-byte bug).
