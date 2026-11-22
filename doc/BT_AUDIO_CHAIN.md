@@ -89,3 +89,26 @@ Test on 2026-11-22 (Portable, one phone page open, about 11 minutes of `[BT-DIAG
 - **Diagnostic bug.** The ring's underrun count restarts with every track, so the first interval after a track change printed a wrapped value (about 4.29 billion). Fixed in OTA 26.
 
 The gaps of up to about 290 ms are close to the Wi-Fi driver's default power-saving timer (PM2 with 200 ms return to sleep), which was never changed in this firmware. OTA 26 adds the USB test command `wifi-pm default|none|perf|aggr` (not saved; reapplied when Wi-Fi comes up) and shows the mode in `[BT-DIAG]`. The planned comparison: baseline, `wifi-pm none`, `bt-bitpool 35` (7 frames per packet, 49 instead of 69 packets per second, now valid after the header fix) and both together, each for several minutes with the user marking audible crackle.
+
+## OTA 26 blind test: Wi-Fi power saving and packet rate (OTA 27 candidate)
+
+Blind test on 2026-11-22 (Portable, Home mode, one phone page; the user did not know the settings). `[BT-DIAG]` lines appear only for intervals with a problem, so missing lines mean clean intervals.
+
+| Segment | Setting | User verdict | Packets per 10 s (needed) | Longest gap | Trimmed per 10 s | Underruns |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | power saving on (driver default), bitpool 53 | crackle 2 of 3, dragging | 596–688 (689) | 318 ms | 70–1,270 ms | 143 |
+| 2 | power saving off, bitpool 53 | crackle 1, dragging | 626–644 (689), steady | 115 ms | 650–930 ms, steady | 2 |
+| 3 | power saving on, bitpool 35 | single crackle every 5–7 s or rarer, no dragging | 481–495 (492) | 282 ms | 0–232 ms | 0 |
+| 4 | power saving off, bitpool 35 | no crackle, no dragging | 480–493 (492); most intervals clean and not printed | 95 ms (267 ms right after switching) | 0 (240 ms once after switching) | 0 |
+
+Two separate effects:
+
+1. **Wi-Fi power saving causes the long gaps.** With power saving off the longest gap fell from about 300 ms to about 110 ms and the ring underruns disappeared (segments 1→2, 3→4).
+2. **The Portable link carries about 63 packets per second.** In segment 2, without long gaps, the sender still delivered a steady 92 % of real time: bitpool 53 in a 656-byte payload means 5 frames per packet and 69 packets per second. At bitpool 35 a packet holds 7 frames (49 packets per second) and the sender kept up. Whether the limit is the packet rate or the byte rate is not yet separated; the 590- and 574-byte packets both fit one baseband packet, which points to the packet rate.
+
+OTA 27:
+
+- **Automatic Wi-Fi power saving:** off while an A2DP stream is active, driver default otherwise (`[WIFI-PM]` logs each change). `wifi-pm auto|none|default|aggr` overrides it for tests.
+- **Automatic bitpool:** the highest bitpool within the negotiated range that puts at least 7 SBC frames into one packet (never below 30). For a 656-byte payload this is bitpool 40 (92-byte frames, 7 per packet, the same 49 packets per second as bitpool 35, with 14 % more data per frame). Speakers whose payload already holds 7 frames at the negotiated maximum keep it. `bt-bitpool N` overrides it for tests; `bt-bitpool 0` returns to automatic. `[A2DP-PACKET] bitpool=… auto|manual` shows the choice at every stream start.
+
+Open: acceptance on Portable (automatic, compared blind with bitpool 35), the bitpool chosen for Nest, PRO X 2 and SSTB 10, and Direct mode. Quality could later improve with Joint Stereo at the same bitpool; the speakers currently negotiate Stereo.

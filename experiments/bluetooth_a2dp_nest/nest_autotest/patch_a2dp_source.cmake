@@ -592,21 +592,43 @@ static volatile int clock_frames_request = -1;
 // "bt-bitpool N" over USB tests lower data rates on one speaker (0 = negotiated maximum).
 // Applied right after a packet is sent, when no partial packet is buffered.
 static volatile int clock_bitpool_request = -1;
+static int clock_bitpool_manual; // 0 = automatic; set with "bt-bitpool N" over USB, not saved.
 static volatile uint8_t clock_remote_command;
 uint8_t clock_a2dp_take_remote_command(void){ uint8_t command = clock_remote_command; clock_remote_command = 0; return command; }
 static int clock_bitpool_active;
-void clock_a2dp_set_bitpool(unsigned bitpool){ clock_bitpool_request = (int)(bitpool > 250u ? 250u : bitpool); }
+void clock_a2dp_set_bitpool(unsigned bitpool){
+    clock_bitpool_manual = (int)(bitpool > 250u ? 250u : bitpool);
+    clock_bitpool_request = clock_bitpool_manual;
+}
 void clock_a2dp_set_frames(unsigned frames){ clock_frames_request = (int)(frames > 15u ? 15u : frames); }
 // SBC frame length from the configuration (A2DP spec 12.9). The encoder reports its length
 // only after encoding a frame, so it is stale right after a bitpool change.
-static int clock_sbc_frame_bytes(void){
-    int bitpool = clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value;
+static int clock_sbc_frame_bytes_for(int bitpool){
     int subbands = sbc_configuration.subbands, blocks = sbc_configuration.block_length;
     int channels = sbc_configuration.channel_mode == SBC_CHANNEL_MODE_MONO ? 1 : 2;
     if (subbands <= 0 || blocks <= 0 || bitpool <= 0) return 0;
     int bits = sbc_configuration.channel_mode == SBC_CHANNEL_MODE_JOINT_STEREO ? subbands + blocks * bitpool :
                sbc_configuration.channel_mode == SBC_CHANNEL_MODE_STEREO ? blocks * bitpool : blocks * channels * bitpool;
     return 4 + (4 * subbands * channels) / 8 + (bits + 7) / 8;
+}
+static int clock_sbc_frame_bytes(void){
+    return clock_sbc_frame_bytes_for(clock_bitpool_active ? clock_bitpool_active : sbc_configuration.max_bitpool_value);
+}
+// Automatic bitpool. Measured on Portable (656-byte payload, OTA 26): the link carried about 63
+// packets per second, while bitpool 53 needs 69 (5 frames per packet); at 7 frames per packet
+// (49 packets per second) the sender kept up and the user heard no crackling. Speakers whose
+// payload already holds 7 or more frames at the negotiated maximum keep it.
+#define CLOCK_A2DP_MIN_FRAMES 7
+#define CLOCK_A2DP_MIN_AUTO_BITPOOL 30
+static int clock_bitpool_auto(void){
+    int high = sbc_configuration.max_bitpool_value, low = sbc_configuration.min_bitpool_value;
+    int floor = low > CLOCK_A2DP_MIN_AUTO_BITPOOL ? low : CLOCK_A2DP_MIN_AUTO_BITPOOL;
+    if (clock_payload_mtu <= 1) return high;
+    for (int bitpool = high; bitpool >= floor; --bitpool){
+        int frame = clock_sbc_frame_bytes_for(bitpool);
+        if (frame > 0 && (clock_payload_mtu - 1) / frame >= CLOCK_A2DP_MIN_FRAMES) return bitpool;
+    }
+    return floor < high ? floor : high;
 }
 // Send results. BTstack refuses a packet that exceeds the remote MTU or finds no free
 // ACL buffer; the upstream example ignored both and discarded the audio silently.
@@ -641,7 +663,7 @@ static void clock_bitpool_poll(a2dp_media_sending_context_t *context){
     if (request < 0 || context->sbc_storage_count || !sbc_encoder_instance) return;
     clock_bitpool_request = -1;
     int high = sbc_configuration.max_bitpool_value, low = sbc_configuration.min_bitpool_value;
-    int bitpool = request == 0 || request > high ? high : request;
+    int bitpool = request == 0 ? clock_bitpool_auto() : request > high ? high : request;
     if (bitpool < low) bitpool = low;
     if (bitpool < 2) bitpool = 2;
     int previous = clock_bitpool_active;
@@ -654,7 +676,7 @@ static void clock_bitpool_poll(a2dp_media_sending_context_t *context){
     sbc_encoder_instance->configure(&sbc_encoder_state, SBC_MODE_STANDARD,
         sbc_configuration.block_length, sbc_configuration.subbands, sbc_configuration.allocation_method,
         sbc_configuration.sampling_frequency, (uint8_t)bitpool, sbc_configuration.channel_mode);
-    printf("[A2DP-PACKET] bitpool=%d (negotiated %d..%d)\n", bitpool, low, high);
+    printf("[A2DP-PACKET] bitpool=%d %s (negotiated %d..%d)\n", bitpool, request == 0 ? "auto" : "manual", low, high);
     clock_payload_apply(context);
 }
 static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
@@ -802,6 +824,7 @@ set(_new_started [=[
             a2dp_demo_timer_start(&media_tracker);
             clock_payload_mtu = media_tracker.max_media_payload_size;
             clock_payload_apply(&media_tracker);
+            clock_bitpool_request = clock_bitpool_manual; // Automatic or USB test value, applied between packets.
 ]=])
 string(FIND "${_source}" "${_old_started}" _started_at)
 if (_started_at EQUAL -1)
