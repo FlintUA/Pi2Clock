@@ -566,7 +566,7 @@ bool clock_a2dp_stream_active(void){
 
 // Sender pacing. The upstream example sends one media packet per can-send event and refills
 // only on its next 10 ms timer, and after a radio stall it bursts the whole backlog. Record
-// stalls, drain the backlog right after each packet, and owe the speaker at most 125 ms.
+// stalls, drain the backlog right after each packet, and owe the speaker a bounded backlog (see clock_pacing_limit).
 static uint32_t clock_pace_last_send, clock_pace_max_gap, clock_pace_late, clock_pace_capped;
 static uint32_t clock_pace_reported_late, clock_pace_last_report;
 static uint32_t clock_pace_gap_sum, clock_pace_gap_count, clock_pace_interval_max;
@@ -680,7 +680,10 @@ static void clock_bitpool_poll(a2dp_media_sending_context_t *context){
     clock_payload_apply(context);
 }
 static void clock_pacing_limit(uint32_t *samples_ready, uint32_t now){
-    uint32_t cap = (uint32_t)current_sample_rate / 8u;
+    // Owe the speaker at most 300 ms (125 ms until OTA 28). With 7 frames per packet the link has
+    // about 28 % spare packet rate, so a radio stall of this length is caught up within about a
+    // second instead of being dropped; longer backlogs are trimmed, never burst (OTA 21).
+    uint32_t cap = (uint32_t)current_sample_rate * 3u / 10u;
     if (*samples_ready > cap){ clock_pace_capped += *samples_ready - cap; *samples_ready = cap; }
     if (clock_pace_late != clock_pace_reported_late && now - clock_pace_last_report >= 60000u){
         printf("[A2DP-PACING] late_packets=%lu max_gap_ms=%lu skipped_backlog_ms=%lu sent=%lu retried=%lu lost=%lu\n",

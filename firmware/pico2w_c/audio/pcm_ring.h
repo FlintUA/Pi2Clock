@@ -4,8 +4,9 @@
 #include <stddef.h>
 
 // Single-core cooperative PCM producer (main loop) and A2DP consumer.
-// 8192 stereo frames = about 186 ms at 44.1 kHz.
-#define CLOCK_PCM_RING_FRAMES 8192u
+// 16384 stereo frames = about 372 ms at 44.1 kHz (64 KiB). Large enough for the A2DP sender to
+// catch up a 300 ms radio stall without emptying the ring (OTA 28; 8192 frames before).
+#define CLOCK_PCM_RING_FRAMES 16384u
 void clock_pcm_ring_reset(void);
 uint32_t clock_pcm_ring_available(void);
 uint32_t clock_pcm_ring_free(void);

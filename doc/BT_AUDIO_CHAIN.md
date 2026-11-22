@@ -112,3 +112,24 @@ OTA 27:
 - **Automatic bitpool:** the highest bitpool within the negotiated range that puts at least 7 SBC frames into one packet (never below 30). For a 656-byte payload this is bitpool 40 (92-byte frames, 7 per packet, the same 49 packets per second as bitpool 35, with 14 % more data per frame). Speakers whose payload already holds 7 frames at the negotiated maximum keep it. `bt-bitpool N` overrides it for tests; `bt-bitpool 0` returns to automatic. `[A2DP-PACKET] bitpool=… auto|manual` shows the choice at every stream start.
 
 Open: acceptance on Portable (automatic, compared blind with bitpool 35), the bitpool chosen for Nest, PRO X 2 and SSTB 10, and Direct mode. Quality could later improve with Joint Stereo at the same bitpool; the speakers currently negotiate Stereo.
+
+## OTA 27 acceptance and stall recovery (OTA 28 candidate)
+
+Acceptance test on 2026-11-22 (power saving automatic, bitpool automatic):
+
+| Speaker, mode | Bitpool, frames per packet | User verdict | Trimmed | Longest gap |
+| --- | --- | --- | --- | --- |
+| Portable, Home | 40 auto, 7 | first track clean; 4–5 short crackles in the second | 926 ms, all within one minute | 287 ms |
+| Portable, Home | 35 manual, 7 | clean, no dragging | 0 | 74 ms |
+| Portable, Direct | 40 auto, 7 | clean, same as bitpool 35 | 0 | 113 ms |
+| PRO X 2, Home | 53 auto, 7 (883-byte payload) | clean | 0 after connection | 100 ms |
+
+All crackles of the first segment fell into one minute in which the phone page also nearly stopped reaching the clock (3 instead of about 11 requests per 10 s), so it was a disturbance of the radio as a whole rather than of bitpool 40. Bitpool 40 and 35 send the same number of packets; the test does not separate them. Nest and SSTB 10 were not tested. OTA 27 is the working baseline.
+
+What remains are such disturbances: after a stall the sender sent at most 125 ms of backlog and dropped the rest, so the speaker's own buffer stayed lower and the next stall emptied it. OTA 28:
+
+- The backlog owed to the speaker is capped at 300 ms instead of 125 ms. With 7 frames per packet the Portable link has about 28 % spare packet rate (about 63 packets per second against 49 needed), so a 300 ms stall is caught up in about a second.
+- The PCM ring grows from 8,192 to 16,384 frames (about 372 ms, 64 KiB; the checkpoint used to resume music after an announcement grows likewise) so the catch-up does not empty it.
+- `[BT-DIAG]` is printed only for intervals with trimmed backlog, underruns, refused or retried packets, or a gap over 150 ms; gaps of 61–150 ms are harmless at 20 ms per packet.
+
+A stall longer than the speaker's own buffer still produces a crackle. The check needs 20–30 minutes of music on Portable (random disturbances), compared with OTA 27 by crackles heard and trimmed backlog, and a listen for speed-up after stalls.

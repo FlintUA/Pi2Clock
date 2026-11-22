@@ -2037,7 +2037,8 @@ static void bt_audio_diag_service(uint64_t now) {
         // The ring's underrun count restarts with every track; the silence total does not.
         uint32_t trimmed = d.trimmed_ms - last.trimmed_ms;
         uint32_t under = underruns >= last_underruns ? underruns - last_underruns : underruns;
-        if (lost || retried || late || trimmed || under) {
+        // Gaps of 61-150 ms are harmless at 20 ms per packet; report real problems only.
+        if (lost || retried || trimmed || under || d.gap_max_ms > 150u) {
             uint32_t rate = clock_a2dp_current_rate();
             printf("[BT-DIAG] 10s sent=%lu retried=%lu lost=%lu err=0x%02x gap_avg=%lums gap_max=%lums late=%lu "
                    "trimmed=%lums underruns=%lu silence=%lums http_get=%lu http_post=%lu bitpool=%d payload=%d wifi_pm=%s\n",
