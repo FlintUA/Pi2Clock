@@ -1975,6 +1975,30 @@ static void bt_remote_service(void) {
            (music_ui_interrupted ? music_ui_interrupt_paused : music_ui_paused) ? "YES" : "NO");
 }
 
+// Wi-Fi power management test ("wifi-pm", not saved). The driver default is PM2 with a 200 ms
+// return-to-sleep timer; Bluetooth packet gaps of up to about 290 ms suggest checking whether
+// Wi-Fi power saving blocks Bluetooth air time. Reapplied whenever a Wi-Fi interface comes up,
+// because the driver sets its default again when Wi-Fi is switched on.
+static uint8_t wifi_pm_request; // 0 = driver default, 1 = none, 2 = performance (PM2), 3 = aggressive (PM1)
+static uint8_t wifi_pm_applied = 255u;
+static uint32_t wifi_pm_itf_state;
+static const char *wifi_pm_name(uint8_t mode) {
+    return mode == 1u ? "none" : mode == 2u ? "perf" : mode == 3u ? "aggr" : "default";
+}
+static void wifi_pm_service(void) {
+    if (!radio_ready) return;
+    uint32_t itf = cyw43_state.itf_state;
+    if (!itf) { wifi_pm_applied = 255u; wifi_pm_itf_state = 0; return; }
+    if (wifi_pm_applied == wifi_pm_request && itf == wifi_pm_itf_state) return;
+    if (wifi_pm_request == 0 && wifi_pm_applied == 255u) { wifi_pm_applied = 0; wifi_pm_itf_state = itf; return; }
+    uint32_t value = wifi_pm_request == 1u ? CYW43_NONE_PM : wifi_pm_request == 3u ? CYW43_AGGRESSIVE_PM : CYW43_PERFORMANCE_PM;
+    async_context_t *c = bt_lock();
+    int result = cyw43_wifi_pm(&cyw43_state, value);
+    bt_unlock(c);
+    wifi_pm_applied = wifi_pm_request; wifi_pm_itf_state = itf;
+    printf("[WIFI-PM] mode=%s result=%d (test setting, not saved)\n", wifi_pm_name(wifi_pm_request), result);
+}
+
 // One line every 10 s while the stream is active, printed only when something went wrong in
 // the interval: send failures, late packets, trimmed backlog or ring underruns. Web request
 // counts are included because page polling shares the radio with Bluetooth audio.
@@ -1983,6 +2007,7 @@ static void bt_audio_diag_service(uint64_t now) {
     static clock_a2dp_diag_t last;
     static uint32_t last_underruns, last_underrun_frames, last_requests, last_posts;
     static bool primed;
+    wifi_pm_service();
     if (!radio_ready || now < next) return;
     next = now + 10000u;
     clock_a2dp_diag_t d;
@@ -2001,16 +2026,19 @@ static void bt_audio_diag_service(uint64_t now) {
         uint32_t gaps = d.gap_count - last.gap_count;
         uint32_t avg = gaps ? (d.gap_sum_ms - last.gap_sum_ms) / gaps : 0u;
         uint32_t lost = d.lost - last.lost, retried = d.retried - last.retried, late = d.late - last.late;
-        uint32_t trimmed = d.trimmed_ms - last.trimmed_ms, under = underruns - last_underruns;
+        // The ring's underrun count restarts with every track; the silence total does not.
+        uint32_t trimmed = d.trimmed_ms - last.trimmed_ms;
+        uint32_t under = underruns >= last_underruns ? underruns - last_underruns : underruns;
         if (lost || retried || late || trimmed || under) {
             uint32_t rate = clock_a2dp_current_rate();
             printf("[BT-DIAG] 10s sent=%lu retried=%lu lost=%lu err=0x%02x gap_avg=%lums gap_max=%lums late=%lu "
-                   "trimmed=%lums underruns=%lu silence=%lums http_get=%lu http_post=%lu bitpool=%d payload=%d\n",
+                   "trimmed=%lums underruns=%lu silence=%lums http_get=%lu http_post=%lu bitpool=%d payload=%d wifi_pm=%s\n",
                    (unsigned long)(d.sent - last.sent), (unsigned long)retried, (unsigned long)lost, d.last_error,
                    (unsigned long)avg, (unsigned long)d.gap_max_ms, (unsigned long)late, (unsigned long)trimmed,
                    (unsigned long)under,
                    (unsigned long)(rate ? (uint64_t)(underrun_frames - last_underrun_frames) * 1000u / rate : 0u),
-                   (unsigned long)(requests - last_requests), (unsigned long)(posts - last_posts), d.bitpool, d.payload);
+                   (unsigned long)(requests - last_requests), (unsigned long)(posts - last_posts), d.bitpool, d.payload,
+                   wifi_pm_name(wifi_pm_request));
         }
     }
     last = d; last_underruns = underruns; last_underrun_frames = underrun_frames;
@@ -4374,6 +4402,17 @@ static void handle_command(char *line) {
         if (sscanf(line + 11, "%u %c", &bitpool, &extra) != 1 || bitpool > 250u)
             puts("[A2DP-PACKET] Usage: bt-bitpool <0|2..250> (0 = negotiated maximum; not saved)");
         else bt_locked_set_bitpool(bitpool);
+    } else if (strncmp(line, "wifi-pm ", 8) == 0) {
+        const char *mode = line + 8;
+        if (strcmp(mode, "default") == 0) wifi_pm_request = 0;
+        else if (strcmp(mode, "none") == 0) wifi_pm_request = 1;
+        else if (strcmp(mode, "perf") == 0) wifi_pm_request = 2;
+        else if (strcmp(mode, "aggr") == 0) wifi_pm_request = 3;
+        else { puts("[WIFI-PM] Usage: wifi-pm <default|none|perf|aggr> (not saved)"); mode = NULL; }
+        if (mode) {
+            if (wifi_pm_request == 0) wifi_pm_applied = 254u; // Force the driver default back.
+            wifi_pm_service();
+        }
     } else if (strncmp(line, "bt-frames ", 10) == 0) {
         unsigned int frames = 0u;
         char extra = 0;
@@ -4719,6 +4758,7 @@ static void handle_command(char *line) {
         puts("[BT] SETTINGS > Bluetooth: known devices, scan, connect, Disconnect; CLI: bt-disconnect, bt-scan, bt-devices, bt-use N|name|MAC, bt-forget N|MAC, bt-target");
         puts("[BT-VOL] bt-volume shows independent Bluetooth level; bt-vol 0..30 sets it; VOLUME encoder follows audio route");
         puts("[A2DP-PACKET] bt-frames 0..15 limits SBC frames per Bluetooth packet for speaker tests (0 = automatic; not saved)");
+        puts("[WIFI-PM] wifi-pm default|none|perf|aggr sets Wi-Fi power saving for tests (default = driver PM2 200 ms; not saved)");
         puts("[A2DP-PACKET] bt-bitpool N encodes with a lower SBC bitpool within the negotiated range (0 = maximum; not saved)");
         puts("[AUDIO-HEALTH] audio-health shows read-only owner, queue and Bluetooth status");
         puts("[ALARM-PENDING] alarm-pending, alarm-pending-test N, alarm-pending-clear (RAM only)");

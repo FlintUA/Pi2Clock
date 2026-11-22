@@ -77,3 +77,15 @@ New diagnostics: while the stream is active, one line every 10 s, printed only w
 `retried` counts packets delayed by full ACL buffers, `lost` refused packets, `gap_*` the time between sent packets, `trimmed` the backlog dropped by the 125 ms cap, `silence` the duration of ring underruns, and `http_*` the requests the clock served in the interval (page polling shares the radio).
 
 Not changed: SBC configuration and default bitpool 53, packet pacing, page polling, Wi-Fi settings. The next step is a series of 10-minute tests with fixed settings (pages closed, one page with the screen on, two pages; each speaker), compared by these counters and the user's marks of audible crackling.
+
+## OTA 25 result: no lost packets, but stalls remain (OTA 26 candidate)
+
+Test on 2026-11-22 (Portable, one phone page open, about 11 minutes of `[BT-DIAG]` lines). The user heard crackling and "dragging" speed almost all the time, more noticeable at loud levels. Speaker play/pause buttons worked and music stayed on Bluetooth.
+
+- **Sending works as intended.** `retried=0 lost=0` in every interval and 68,598 packets sent: no packet was refused or dropped. The packet geometry is unchanged at bitpool 53 (5 frames, 590 bytes; the header fix only matters at other bitpools).
+- **The sender still falls behind.** Real time needs 689 packets per 10 s (44,100 / 640 samples). Intervals delivered 594–694, never more than real time, with 1–8 gaps over 60 ms and gaps of up to 291 ms in most intervals. The backlog dropped by the 125 ms cap grew by 27 s in 11 minutes (about 4 % of real time, against 26 % on OTA 23). What the cap drops never reaches the speaker, so its buffer runs short after every long gap; an adaptive speaker answers with slower playback or crackling, which matches the user's description. This is an inference from the counters, not a measurement inside the speaker.
+- **Ring underruns follow the gaps.** After a gap the sender takes up to 125 ms from the PCM ring at once; with the ring only partly full this produced 0–23 underruns per 10 s (up to 63 ms of inserted silence). Underruns appear only in intervals with trimming.
+- **Web traffic is not the driver.** About 10 requests per 10 s throughout; intervals without gaps (for example 3 minutes from 08:01:29 UTC) had the same request count as intervals with the largest gaps.
+- **Diagnostic bug.** The ring's underrun count restarts with every track, so the first interval after a track change printed a wrapped value (about 4.29 billion). Fixed in OTA 26.
+
+The gaps of up to about 290 ms are close to the Wi-Fi driver's default power-saving timer (PM2 with 200 ms return to sleep), which was never changed in this firmware. OTA 26 adds the USB test command `wifi-pm default|none|perf|aggr` (not saved; reapplied when Wi-Fi comes up) and shows the mode in `[BT-DIAG]`. The planned comparison: baseline, `wifi-pm none`, `bt-bitpool 35` (7 frames per packet, 49 instead of 69 packets per second, now valid after the header fix) and both together, each for several minutes with the user marking audible crackle.
