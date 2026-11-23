@@ -51,14 +51,14 @@ Russian needs agreement of `час/часа/часов` and `минута/мин
 | Event | RU | DE |
 | --- | --- | --- |
 | T1, 14 min, set | Первый таймер установлен на четырнадцать минут. | Timer eins auf vierzehn Minuten eingestellt und gestartet. |
-| T1, 14 min, finished | **Первый таймер на четырнадцать минут завершён.** | **Timer eins mit vierzehn Minuten Laufzeit ist abgelaufen.** |
-| T2, 1 min, finished | Второй таймер на одну минуту завершён. | Timer zwei mit einer Minute Laufzeit ist abgelaufen. |
-| T3, 1 h 2 min 3 s, finished | Третий таймер на один час две минуты три секунды завершён. | Timer drei mit einer Stunde, zwei Minuten und drei Sekunden Laufzeit ist abgelaufen. |
+| T1, 14 min, finished | **Первый таймер на четырнадцать минут завершён.** | **Timer eins über vierzehn Minuten ist abgelaufen.** |
+| T2, 1 min, finished | Второй таймер на одну минуту завершён. | Timer zwei über eine Minute ist abgelaufen. |
+| T3, 1 h 2 min 3 s, finished | Третий таймер на один час две минуты три секунды завершён. | Timer drei über eine Stunde, zwei Minuten und drei Sekunden ist abgelaufen. |
 | T2, 5 s left | Второй таймер — осталось пять секунд. | Timer zwei: noch fünf Sekunden. |
 
 The finished message speaks the **originally set duration**, not the remaining zero; the timer state must keep `initial_duration` separately from the remaining time. Events finishing together are queued and each is confirmed separately.
 
-**Review:** the CSV entry `timer.finished` has the German pattern "Timer [N] über [DURATION] ist abgelaufen", while the table above uses "Timer [N] mit [DURATION] Laufzeit ist abgelaufen". One wording must be chosen (the table's version reads more naturally; to be confirmed by listening).
+**Decision (2026-11-23):** the German pattern is "Timer [N] über [DURATION] ist abgelaufen" (as in the CSV); the original document's alternative "Timer [N] mit [DURATION] Laufzeit ist abgelaufen" is not used. Note the accusative after "über": "über eine Minute", "über eine Stunde".
 
 ### Dates and birthdays
 

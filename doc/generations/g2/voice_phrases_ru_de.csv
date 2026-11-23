@@ -82,7 +82,7 @@ system.time_manual,Время установлено вручную,Uhrzeit manu
 timer.acknowledged,[ORD] таймер подтверждён.,Timer [N] bestätigt.,Usually a short tone or indication is better.,plan
 timer.all_finished,Все таймеры завершены.,Alle Timer sind abgelaufen.,Optional; not instead of the individual messages.,plan
 timer.cancelled,[ORD] таймер отменён.,Timer [N] abgebrochen.,,plan
-timer.finished,[ORD] таймер на [DURATION] завершён.,Timer [N] über [DURATION] ist abgelaufen.,Exact user requirement for RU; approve the German wording by listening.,plan
+timer.finished,[ORD] таймер на [DURATION] завершён.,Timer [N] über [DURATION] ist abgelaufen.,Exact user requirement for RU; German pattern decided on 2026-11-23.,plan
 timer.five_seconds_warning,Таймер [N]: осталось пять секунд,Timer [N]: Noch fünf Sekunden,,plan
 timer.idle,Таймер [N] не запущен,Timer [N] ist nicht gestartet,,plan
 timer.max_running,Уже работают три таймера,Es laufen bereits drei Timer,,plan
