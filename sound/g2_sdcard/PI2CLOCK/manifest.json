@@ -1,0 +1,18 @@
+{
+  "schema": "g2-sd-1",
+  "product": "Pi2Clock",
+  "generation": "G2",
+  "status": "starter-empty-no-audio",
+  "installed_voice_packs": [],
+  "default_language": "ru-RU",
+  "paths": {
+    "voices": "voices/",
+    "music": "music/",
+    "sounds": "sounds/",
+    "config": "config/",
+    "cache": "cache/",
+    "logs": "logs/",
+    "recordings": "recordings/"
+  },
+  "firmware_min": "not-set"
+}

@@ -4,7 +4,7 @@ Pi2Clock is a speaking clock built around a Raspberry Pi Pico board, an LCD1602,
 
 | | G0 — original | G1 — current | G2 — planned |
 | --- | --- | --- | --- |
-| Status | Archived, read-only | **Active development and the assembled clock** | Planned, no hardware or code yet |
+| Status | Archived, read-only | **The assembled clock**, release `g1-v1.1.0` | Planned; hardware, SD, speech and UI documents in [g2/](g2/), no code yet |
 | Board | Raspberry Pi Pico (RP2040); the v3 line later ran on Pico 2 W | Raspberry Pi Pico 2 W (RP2350 + CYW43439) | Pico 2 W expected; to be confirmed by a prototype |
 | Firmware | MicroPython, versions 1.16 → 2.x → 3.10.0 | C / Pico SDK 2.3.1, releases v1.0.0 and `g1-v1.1.0`, `g1-` build IDs | C / Pico SDK, `g2-` build IDs on a future `codex/gen2` branch |
 | Local sound | DFPlayer Mini with its own microSD card | DFPlayer Mini with its own microSD card | **MAX98357A I2S amplifier**, fed by the Pico's software MP3 decoder; DFPlayer removed |

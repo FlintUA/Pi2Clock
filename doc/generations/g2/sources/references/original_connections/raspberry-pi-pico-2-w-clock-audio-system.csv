@@ -1,0 +1,15 @@
+﻿Designator,Quantity,Type,Value,Part number,Description
+R1,1,Resistor,1 kΩ,,Resistor 1 kΩ
+SPK1,1,Speaker,8 Ω 3 W,,Speaker 8 Ω 3 W
+SW1,1,Push button (normally open),Alarm,,Push button (normally open) Alarm
+SW2,1,Push button (normally open),Mode,,Push button (normally open) Mode
+SW3,1,Push button (normally open),Minus,,Push button (normally open) Minus
+SW4,1,Push button (normally open),Plus,,Push button (normally open) Plus
+SW5,1,Push button (normally open),Timer,,Push button (normally open) Timer
+U1,1,IC,Raspberry Pi Pico 2 W,,"IC Raspberry Pi Pico 2 W, pins GP0 (pin 1) GP1 (pin 2) GP2 (pin 4) GP4 (pin 6) GP5 (pin 7) GP6 (pin 9) GP8 (pin 11) GP9 (pin 12) GP10 (pin 14) GP11 (pin 15) GP12 (pin 16) GP13 (pin 17) GP14 (pin 19) GP15 (pin 20) GP16 (pin 21) GP17 (pin 22) GP18 (pin 24) GP19 (pin 25) GP20 (pin 26) GP21 (pin 27) GP22 (pin 29) GP26 (pin 31) GP27 (pin 32) GP28 (pin 34) 3V3_OUT (pin 36) VSYS (pin 39) VBUS (pin 40) GND (pin 38)"
+U2,1,IC,LCD1602 I2C Backpack,,"IC LCD1602 I2C Backpack, pins SDA SCL VCC GND"
+U3,1,IC,DS1302 RTC Module,,"IC DS1302 RTC Module, pins CLK DAT RST VCC GND"
+U4,1,IC,MicroSD SPI Module,,"IC MicroSD SPI Module, pins CS SCK MOSI MISO VCC GND"
+U5,1,IC,DFPlayer Mini,,"IC DFPlayer Mini, pins RX TX BUSY SPK1 SPK2 VCC GND"
+U6,1,IC,Timer Rotary Encoder,,"IC Timer Rotary Encoder, pins CLK DT SW + GND"
+U7,1,IC,Volume Rotary Encoder,,"IC Volume Rotary Encoder, pins CLK DT SW + GND"

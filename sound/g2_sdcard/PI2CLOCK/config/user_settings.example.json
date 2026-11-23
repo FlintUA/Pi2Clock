@@ -1,0 +1,17 @@
+{
+  "schema": "g2-settings-example-1",
+  "language": "ru-RU",
+  "voice_id": "female_01",
+  "audio_output": "local",
+  "volume_local": 40,
+  "volume_bluetooth": 40,
+  "timezone": "Europe/Berlin",
+  "quiet_hours": {
+    "enabled": false
+  },
+  "timers": {
+    "count": 3
+  },
+  "rtc_optional": true,
+  "wifi_credentials": "DO_NOT_STORE_PLAINTEXT_ON_SD"
+}

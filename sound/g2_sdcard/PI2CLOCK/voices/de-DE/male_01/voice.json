@@ -1,0 +1,11 @@
+{
+  "schema": "g2-voice-1",
+  "language": "de-DE",
+  "voice_id": "male_01",
+  "display_name": "male_01",
+  "installed": false,
+  "audio_format": "wav_pcm_s16le",
+  "sample_rate_hz": 16000,
+  "license": "TO_BE_SET",
+  "status": "PLACEHOLDER_NO_AUDIO"
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- G2 documentation (2026-11-23): the user's G2 document set structured into English documents under `doc/generations/g2/` (hardware and wiring, SD layout, speech events RU/DE with a cleaned CSV, UI concept), originals kept in `doc/generations/g2/sources/`, SD card skeleton in `sound/g2_sdcard/`; [G2 overview](doc/generations/G2.md) rewritten with a review of the documents and suggested stages.
+
 ## g1-v1.1.0 - 2026-11-23
 
 First release with a generation tag; everything below since v1.0.0. Release notes: [doc/releases/g1-v1.1.0.md](doc/releases/g1-v1.1.0.md). Developed on `codex/phone-control` until 2026-11-20 and on `codex/phone-ui-v2` until 2026-11-22, then merged into `main`.

@@ -37,7 +37,7 @@ Separate DFPlayer/Bluetooth volume levels remain intentional. MAC addresses rema
 
 ## Future device hardware
 
-The second generation is described in [G2.md](generations/G2.md): MAX98357A I2S amplifier instead of DFPlayer, one shared SD card, music collections, three timers, a 3.1" OLED display, WS2812 LEDs and a microphone (INMP441-class), subject to Flash and RAM budgets.
+The second generation is described in [G2.md](generations/G2.md) with hardware, SD layout, speech and UI documents in [generations/g2](generations/g2/): MAX98357A I2S amplifier instead of DFPlayer, one shared SD card, SSD1322 OLED, five touch keys, four WS2812, three timers, music collections, RU/DE voice packs, and Full options (DS3231, BME280, INMP441, battery, weather). Suggested stages and open questions: [G2.md](generations/G2.md#suggested-stages).
 
 
 Generation naming is installed as **Pi2Clock G1**, build `g1-accbeb708131-bt-mp3-wifi-phone-ota11-trial`; **Pi2Clock G2** is reserved for the successor. Model, Git-derived version and OTA sequence remain separate. G1 receivers validate the embedded target/prefix, while retaining the ota10 transition layout. Home installation, accepted B, settings preservation and restored Nest connection were verified on November 20. See [identity and release conventions](FIRMWARE_IDENTITY.md); the user confirmed the requested LCD/browser displays and normal playback on November 20.

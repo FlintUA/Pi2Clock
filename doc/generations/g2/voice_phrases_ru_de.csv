@@ -1,0 +1,123 @@
+id,ru,de,notes,status
+alarm.announced,Будильник [N]. Сейчас [TIME].,Wecker [N]. Es ist [TIME].,G1 already speaks the time; German alarm numbers 1–5 must be added.,plan
+alarm.disabled,Будильник [N] выключен.,Wecker [N] deaktiviert.,,plan
+alarm.enabled,Будильник [N] включён на [TIME].,Wecker [N] ist für [TIME] aktiviert.,Setting.,plan
+alarm.next,Следующий будильник в [TIME].,Der nächste Wecker ist um [TIME] gestellt.,Information request.,plan
+alarm.next_slot,Следующий будильник номер [N] в [TIME],Der nächste Wecker ist Nummer [N] um [TIME],,plan
+alarm.none,Включённых будильников нет,Keine aktiven Wecker,,plan
+alarm.saved,Будильник [N] сохранён.,Wecker [N] gespeichert.,,plan
+alarm.snooze_finished,Время повтора будильника,Die Schlummerzeit ist vorbei,,plan
+alarm.snoozed,Будильник отложен на [DURATION].,Wecker um [DURATION] verschoben.,Snooze exists in G1 (three minutes).,plan
+alarm.stopped,Будильник [N] остановлен.,Wecker [N] ausgeschaltet.,Indication is usually enough.,plan
+birthday.age,Исполняется [N] лет,Wird [N] Jahre alt,Only if the birth year is known.,plan
+birthday.today,Сегодня день рождения [NAME],Heute hat [NAME] Geburtstag,Do not speak arbitrary names without TTS.,plan
+birthday.tomorrow,Завтра день рождения [NAME],Morgen hat [NAME] Geburtstag,,plan
+bt.connected,Bluetooth-колонка подключена.,Bluetooth-Lautsprecher verbunden.,Show the saved real name on the OLED.,plan
+bt.connecting,Подключение к Bluetooth-колонке.,Verbindung zum Bluetooth-Lautsprecher wird hergestellt.,,plan
+bt.connection_failed,Не удалось подключиться к колонке.,Verbindung zum Lautsprecher fehlgeschlagen.,,plan
+bt.disconnected,Bluetooth-колонка отключена.,Bluetooth-Lautsprecher getrennt.,,plan
+bt.found,Найдено [N] устройств.,[N] Geräte gefunden.,Do not speak arbitrary device names without TTS.,plan
+bt.no_devices,Bluetooth-устройства не найдены,Keine Bluetooth-Geräte gefunden,,plan
+bt.output_local,Звук через встроенный динамик,Ton über den eingebauten Lautsprecher,,plan
+bt.output_remote,Звук через Bluetooth-колонку,Ton über den Bluetooth-Lautsprecher,,plan
+bt.preferred_saved,Bluetooth-колонка сохранена,Bluetooth-Lautsprecher gespeichert,,plan
+bt.reconnecting,Повторное подключение.,Verbindung wird wiederhergestellt.,Not on every retry.,plan
+bt.searching,Поиск Bluetooth-устройств.,Suche nach Bluetooth-Geräten.,On request.,plan
+clock.chime,бой часов / двойной полчасовой сигнал,Stundenschlag / Halbstundenton,From `sounds/`; no voice pack needed.,plan
+clock.current_date,"Сегодня [WEEKDAY], [DAY] [MONTH] [YEAR] года.","Heute ist [WEEKDAY], der [DAY]. [MONTH] [YEAR].",Years 2000–2099; Russian grammatical cases.,plan
+clock.current_time,Сейчас [TIME].,Es ist [TIME].,On request or scheduled.,plan
+clock.exact_hour,Сейчас [HOUR] ровно.,Es ist genau [HOUR] Uhr.,Align the form with the recorded clips.,plan
+clock.next_birthday,Ближайший день рождения [NAME] [DATE],Der nächste Geburtstag von [NAME] ist am [DATE],"With names from the dictionary, otherwise screen only.",plan
+clock.sync_failed,Не удалось синхронизировать время.,Uhrzeit konnte nicht synchronisiert werden.,Must not block the RTC.,plan
+clock.time_synced,Время синхронизировано.,Uhrzeit synchronisiert.,NTP status; optional.,plan
+music.collection_empty,Выбранная коллекция пуста,Die gewählte Musiksammlung ist leer,,plan
+music.empty,Музыкальные файлы не найдены.,Keine Musikdateien gefunden.,Only if a voice pack is installed.,plan
+music.next,Следующая композиция,Nächster Titel,,plan
+music.paused,Пауза.,Pause.,,plan
+music.previous,Предыдущая композиция,Vorheriger Titel,,plan
+music.shuffle_off,Случайный порядок выключен,Zufallswiedergabe ausgeschaltet,,plan
+music.shuffle_on,Случайный порядок включён,Zufallswiedergabe eingeschaltet,,plan
+music.sleep_timer,Музыка будет остановлена через [DURATION],Musik wird in [DURATION] gestoppt,,plan
+music.started,Воспроизведение музыки.,Musikwiedergabe gestartet.,Optional.,plan
+music.stopped,Воспроизведение остановлено.,Wiedergabe gestoppt.,,plan
+music.track_missing,Выбранная мелодия недоступна.,Der ausgewählte Musiktitel ist nicht verfügbar.,When an alarm track_id is broken.,plan
+network.no_internet,Нет подключения к интернету,Keine Internetverbindung,,plan
+network.web_closed,Веб-интерфейс отключён,Weboberfläche deaktiviert,,plan
+network.web_started,Веб-интерфейс доступен,Weboberfläche verfügbar,,plan
+ota.available,Доступно обновление.,Ein Update ist verfügbar.,Do not promise without an update service.,plan
+ota.checking,Проверка обновлений,Suche nach Updates,,plan
+ota.downloading,Загрузка обновления,Update wird heruntergeladen,,plan
+ota.failed,Не удалось установить обновление.,Update konnte nicht installiert werden.,,plan
+ota.installing,Установка обновления,Update wird installiert,,plan
+ota.rollback,Возврат к предыдущей версии,Vorherige Version wird wiederhergestellt,,plan
+ota.success,Обновление установлено.,Update installiert.,After verification.,plan
+recording.failed,Не удалось сохранить запись,Aufnahme konnte nicht gespeichert werden,,plan
+recording.start,Начинается запись,Aufnahme beginnt,Only with the microphone.,plan
+recording.stopped,Запись сохранена,Aufnahme gespeichert,,plan
+sound.disabled,Звук выключен.,Ton ausgeschaltet.,G1 has 07/009 and 17/009 for this purpose.,plan
+sound.enabled,Звук включён.,Ton eingeschaltet.,G1 has 07/008 and 17/008 for this purpose.,plan
+sound.night_mode_off,Ночной режим выключен.,Nachtmodus deaktiviert.,,plan
+sound.night_mode_on,Ночной режим включён.,Nachtmodus aktiviert.,Independent of silent mode.,plan
+sound.silent_mode_off,Тихий режим выключен.,Lautloser Modus deaktiviert.,Must not cut off a critical timer.,plan
+sound.silent_mode_on,Тихий режим включён.,Lautloser Modus aktiviert.,Confirmation text optional.,plan
+sound.volume,Громкость [LEVEL] процентов.,Lautstärke [LEVEL] Prozent.,"Screen or tone only is acceptable, to avoid noise.",plan
+system.audio_unavailable,Голосовые сообщения недоступны.,Sprachausgabe nicht verfügbar.,Only if a built-in fallback tone exists.,plan
+system.battery_critical,Аккумулятор почти разряжен,Akku fast leer,,plan
+system.battery_low,Низкий заряд аккумулятора,Akkustand niedrig,Only with a battery installed.,plan
+system.battery_power,Работа от аккумулятора,Akkubetrieb,,plan
+system.cancelled,Отменено.,Abgebrochen.,Quiet confirmation optional.,plan
+system.error,Ошибка.,Fehler.,Fallback UI tone.,plan
+system.external_power,Внешнее питание подключено,Externe Stromversorgung angeschlossen,,plan
+system.first_setup,Первоначальная настройка часов,Ersteinrichtung der Uhr,Offline first-time setup.,plan
+system.language_selected,Выбран русский язык,Russisch ausgewählt,Language alternatives according to the selected language.,plan
+system.no_valid_time,Точное время не установлено,Die Uhrzeit ist noch nicht eingestellt,Critical after a cold start without NTP and RTC.,plan
+system.ready,Часы готовы к работе.,Die Uhr ist betriebsbereit.,Not necessarily at every start.,plan
+system.reset_confirm,Подтвердите сброс настроек,Zurücksetzen der Einstellungen bestätigen,,plan
+system.sd_error,Ошибка чтения карты памяти,Fehler beim Lesen der Speicherkarte,Without SD: screen and fallback beep from Flash only.,plan
+system.sd_missing,Карта памяти не найдена.,Speicherkarte nicht gefunden.,Cannot be spoken without SD: show on OLED/WS2812 and play the built-in Flash tone.,plan
+system.settings_saved,Настройки сохранены.,Einstellungen gespeichert.,Do not speak on every encoder step.,plan
+system.startup,короткий стартовый сигнал,kurzer Startton,Separate `sounds/startup.wav`.,plan
+system.storage_full,Недостаточно места на карте памяти,Nicht genügend Speicherplatz auf der Speicherkarte,,plan
+system.time_manual,Время установлено вручную,Uhrzeit manuell eingestellt,,plan
+timer.acknowledged,[ORD] таймер подтверждён.,Timer [N] bestätigt.,Usually a short tone or indication is better.,plan
+timer.all_finished,Все таймеры завершены.,Alle Timer sind abgelaufen.,Optional; not instead of the individual messages.,plan
+timer.cancelled,[ORD] таймер отменён.,Timer [N] abgebrochen.,,plan
+timer.finished,[ORD] таймер на [DURATION] завершён.,Timer [N] über [DURATION] ist abgelaufen.,Exact user requirement for RU; approve the German wording by listening.,plan
+timer.five_seconds_warning,Таймер [N]: осталось пять секунд,Timer [N]: Noch fünf Sekunden,,plan
+timer.idle,Таймер [N] не запущен,Timer [N] ist nicht gestartet,,plan
+timer.max_running,Уже работают три таймера,Es laufen bereits drei Timer,,plan
+timer.one_minute_warning,Таймер [N]: осталась одна минута,Timer [N]: Noch eine Minute,When the warning is enabled.,plan
+timer.overlap,Завершились несколько таймеров.,Mehrere Timer sind abgelaufen.,"For simultaneous events, followed by the individual phrases.",plan
+timer.paused,[ORD] таймер приостановлен.,Timer [N] pausiert.,,plan
+timer.remaining,[ORD] таймер - осталось [DURATION].,Timer [N]: noch [DURATION].,On request only.,plan
+timer.resumed,[ORD] таймер продолжен.,Timer [N] fortgesetzt.,,plan
+timer.running,Таймер [N] работает,Timer [N] läuft,,plan
+timer.setup,Настройка [ORD] таймера.,[N]. Timer einstellen.,"When the editor opens, if enabled.",plan
+timer.started,[ORD] таймер установлен на [DURATION].,Timer [N] auf [DURATION] eingestellt und gestartet.,After a successful start.,plan
+timer.time_invalid,Неверная продолжительность таймера.,Ungültige Timerdauer.,Screen indication first.,plan
+voice.preview,Здравствуйте. Это образец моего голоса.,Hallo. Das ist eine Hörprobe meiner Stimme.,Same text for all voices.,plan
+voice.selected,Выбран голос [VOICE].,Stimme [VOICE] ausgewählt.,Plus a preview phrase.,plan
+weather.condition.clear,Ясно.,Klar.,Needs the contextual form inside a full sentence.,plan
+weather.condition.cloudy,Облачно.,Bewölkt.,,plan
+weather.condition.fog,Туман.,Nebel.,,plan
+weather.condition.part_cloudy,Переменная облачность.,Teilweise bewölkt.,,plan
+weather.condition.rain,Дождь.,Regen.,,plan
+weather.condition.snow,Снег.,Schnee.,,plan
+weather.condition.thunderstorm,Гроза.,Gewitter.,,plan
+weather.current,На улице [TEMP] градусов.,Draußen sind es [TEMP] Grad.,"Current temperature, only if the data is fresh.",plan
+weather.data_age,Последнее обновление [TIME].,Zuletzt aktualisiert um [TIME].,For cached data.,plan
+weather.feels_like,Ощущается как [TEMP] градусов.,Gefühlt [TEMP] Grad.,Optional.,plan
+weather.indoor,"В помещении [TEMP] градусов, влажность [HUMIDITY] процентов","Im Raum [TEMP] Grad, Luftfeuchtigkeit [HUMIDITY] Prozent",BME280 option.,plan
+weather.not_installed,Датчик температуры не установлен,Temperatursensor nicht installiert,,plan
+weather.pressure,Атмосферное давление [PRESSURE] гектопаскалей,Luftdruck [PRESSURE] Hektopascal,BME280 option.,plan
+weather.rain_probability,Вероятность осадков [PERCENT] процентов.,Niederschlagswahrscheinlichkeit [PERCENT] Prozent.,,plan
+weather.stale,Данные о погоде устарели,Wetterdaten sind veraltet,Do not speak as current values.,plan
+weather.temp_range,Температура от [MIN] до [MAX] градусов.,Temperaturen zwischen [MIN] und [MAX] Grad.,,plan
+weather.today,Сегодня ожидается [CONDITION].,Heute wird [CONDITION] erwartet.,Check German grammar per category.,plan
+weather.tomorrow,Завтра ожидается [CONDITION].,Morgen wird [CONDITION] erwartet.,,plan
+weather.unavailable,Нет актуальных данных о погоде.,Keine aktuellen Wetterdaten verfügbar.,Never present an old forecast as current.,plan
+wifi.ap_enabled,Точка доступа включена,Zugangspunkt aktiviert,,plan
+wifi.connected,Wi-Fi подключён.,WLAN verbunden.,,plan
+wifi.connecting,Подключение к Wi-Fi,Verbindung mit WLAN wird hergestellt,,plan
+wifi.disconnected,Wi-Fi недоступен. Часы работают автономно.,WLAN nicht verfügbar. Die Uhr arbeitet offline.,Usually without repeated sound.,plan
+wifi.ntp_pending,Ожидание синхронизации времени,Warte auf Zeitsynchronisierung,,plan
