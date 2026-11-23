@@ -4,6 +4,8 @@
 
 **Platform:** Raspberry Pi Pico 2 W (RP2350). G2 replaces the DFPlayer with a MAX98357A I2S amplifier and one microSD card, and the LCD1602 with an SSD1322 256×64 OLED. Controls: two encoders with push buttons and five TTP223 touch sensors; four WS2812 LEDs; Wi-Fi/Bluetooth with full offline operation. The enclosure and front panel do not affect the electrical design.
 
+**Decisions of 2026-11-23:** two encoders (a one-encoder variant follows only after the two-encoder G2 release); the **DS3231 is part of Base** and replaces the DS1302 with the same role as in G1; the **INMP441 is wired on the board** but has no function at first (a capture test at most); Base is built first. See [G2.md](../G2.md#decisions).
+
 Markers: **[G1]** pin assignment verified on the G1 clock; **[G2]** proposed, needs testing; **[OPTION]** additional function.
 
 ## 1. Sources and confidence
@@ -23,6 +25,8 @@ Markers: **[G1]** pin assignment verified on the G1 clock; **[G2]** proposed, ne
 | MAX98357A I2S DAC + mono class-D amplifier | 1 | – | One speaker |
 | Speaker 8 Ω 3 W | 1 | – | Bridge-tied output: SPK+ and SPK−, neither to ground |
 | Mechanical rotary encoder with push button | 2 | – | TIMER and VOLUME, 3 GPIOs each |
+| DS3231 + backup cell | 1 | – | I2C real-time clock, replaces the DS1302; check the charging circuit |
+| INMP441 | 1 | – | I2S microphone, wired on the board, VDD 3.3 V; no function at first |
 | TTP223 touch sensor | 5 | – | Logic output, not a mechanical contact |
 | WS2812 | 4 | – | Daisy-chained on one data line |
 | 74AHCT125 / 74AHCT1G125 | 1 | – | 3.3 → 5 V level shift for the WS2812 data line |
@@ -31,8 +35,6 @@ Markers: **[G1]** pin assignment verified on the G1 clock; **[G2]** proposed, ne
 | Local decoupling 0.1 µF, 10–100 µF | as needed | – | SD, I2S and logic supplies |
 | White backlight for the five touch keys | variant | – | Separate LEDs and resistors; common dimmable switch or driver |
 | BME280 | – | 1 | I2C, indoor climate in an outside-air channel |
-| DS3231 + CR2032 | – | 1 | I2C, autonomous time; check the charging circuit |
-| INMP441 | – | 1 | I2S input, VDD 3.3 V, optionally switchable supply |
 | LiPo 103450, 2500 mAh | – | 1 | Not to be mixed with 14500 cells; needs protection |
 | Charger + power path + stable rails | – | 1 | Choose a proven design, verify with an oscilloscope |
 | ADC divider / INA226 | – | optional | Power monitoring; protect ADC inputs |
@@ -46,11 +48,11 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 
 | GPIO | Pin | G2 function | Status |
 | --- | ---: | --- | --- |
-| GP0 | 1 | I2C0 SDA → BME280 / DS3231 / optional MCP23017 | [G1] LCD → [G2] shared I2C |
+| GP0 | 1 | I2C0 SDA → DS3231, optional BME280 / MCP23017 | [G1] LCD → [G2] shared I2C |
 | GP1 | 2 | I2C0 SCL → same | [G1] → [G2] |
 | GP2 | 4 | WS2812 data through 74AHCT125 | [G2] |
 | GP3 | 5 | OLED D/C | [G2] |
-| GP4 | 6 | INMP441 SD → Pico (BCLK/WS shared with the amplifier) | [OPTION] |
+| GP4 | 6 | INMP441 SD → Pico (BCLK/WS shared with the amplifier) | [G2] wired, no function at first |
 | GP5 | 7 | Spare, or PWM for the common touch-key backlight through a switch | [G2] |
 | GP6 | 9 | OLED RES# | [G2] (G1: LCD backlight PWM) |
 | GP7 | 10 | OLED CS# | [G2] |
@@ -62,8 +64,8 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 | GP13 | 17 | TIMER encoder CLK | [G1] |
 | GP14 | 19 | VOLUME encoder DT | [G1] |
 | GP15 | 20 | VOLUME encoder CLK | [G1] |
-| GP16 | 21 | PIO I2S BCLK → MAX BCLK; optional INMP441 SCK | [G2] |
-| GP17 | 22 | PIO I2S WS/LRCLK → MAX LRC; optional INMP441 WS | [G2] |
+| GP16 | 21 | PIO I2S BCLK → MAX BCLK and INMP441 SCK | [G2] |
+| GP17 | 22 | PIO I2S WS/LRCLK → MAX LRC and INMP441 WS | [G2] |
 | GP18 | 24 | PIO I2S TX data → MAX DIN | [G2] |
 | GP19 | 25 | TIMER encoder switch | [G1] |
 | GP20 | 26 | VOLUME encoder switch | [G1] |
@@ -77,7 +79,7 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 | VSYS | 39 | Pico supply input through a power-selection circuit | [G2] |
 | VBUS | 40 | Pico's own USB supply; **not** an output for the external 5 V rail | [G2] |
 
-The DS1302 of G1 (GP2/GP4/GP5) is dropped; an optional DS3231 joins the I2C bus. All GPIOs are used except GP5.
+The DS1302 of G1 (GP2/GP4/GP5) is replaced by the DS3231 on the I2C bus. All GPIOs are used except GP5.
 
 **INMP441 caveat (original):** sharing BCLK/WS with the amplifier saves pins but requires identical clock rate and format for TX and RX and a PIO+DMA implementation. Independent rates (for example 16 kHz recording and 44.1 kHz playback) need more GPIOs; see [section 7](#7-full-variant-with-an-independent-i2s-microphone).
 
@@ -150,11 +152,13 @@ Each module: `VCC → 3.3 V`, `GND → GND`, `OUT → GPIO`. **Never connect OUT
 
 `GP2 → 74AHCT125 (VCC 5 V, GND, OE enabled) → 220–470 Ω → DIN(LED1) → DOUT(LED1) → DIN(LED2) → … → LED4`. All four LEDs on 5 V and GND; ≥ 100 µF electrolytic next to the first LED and 0.1 µF ceramics near the modules. Identify DIN/DOUT from the markings of the LEDs actually received. A 74AHCT input reads 3.3 V as HIGH at 5 V supply; **a 74HC without T is not equivalent**. Limit maximum brightness in software (night mode, current and heat budget). The four RGB indicators are not individual backlights for the five touch keys.
 
-### 4.7 [OPTION] BME280 and DS3231 on I2C0
+### 4.7 DS3231 and [OPTION] BME280 on I2C0
 
 `GP0 → SDA`, `GP1 → SCL`, `GND`, `3.3 V → VCC` of both modules. Pull-ups only to 3.3 V; if several boards carry pull-ups, measure the parallel value. Addresses: BME280 `0x76`/`0x77`, DS3231 `0x68` (no conflict). Place the BME280 in the outside-air channel, away from display, amplifier and battery, and **check by chip ID that it is a BME280, not a BMP280 without humidity**. Many DS3231 modules have a charging circuit for the backup cell — remove it or use a rechargeable cell, never charge a CR2032. Read the oscillator-stop flag before trusting the RTC time.
 
-### 4.8 [OPTION] INMP441 microphone (shared I2S clocks, experimental)
+The DS3231 takes the DS1302's role from G1: the clock reads local time from it, writes it on manual date/time changes and NTP corrections (Europe/Berlin DST rules in the firmware, as in G1), and keeps running from the backup cell without power. Its temperature-compensated oscillator (about ±2 ppm) makes the offline drift calibration of G1 unnecessary.
+
+### 4.8 INMP441 microphone (wired; shared I2S clocks, experimental)
 
 | INMP441 | Connect to | Condition |
 | --- | --- | --- |
@@ -165,7 +169,7 @@ Each module: `VCC → 3.3 V`, `GND → GND`, `OUT → GPIO`. **Never connect OUT
 | SD | GP4 | Pico I2S RX (PIO) |
 | L/R | GND | Left slot (VDD for the right slot) |
 
-The sound port must face outside, unobstructed and not right next to the speaker. Muting the speaker while recording is simpler than full echo cancellation. The user's module may have a different pinout — check the markings before wiring.
+The board gets the full wiring now; the firmware does nothing with the microphone in the first G2 release except, at most, a capture test (see [MICROPHONE.md](MICROPHONE.md)). The sound port must face outside, unobstructed and not right next to the speaker. Muting the speaker while recording is simpler than full echo cancellation. The user's module may have a different pinout — check the markings before wiring.
 
 ### 4.9 [OPTION] Battery monitoring
 

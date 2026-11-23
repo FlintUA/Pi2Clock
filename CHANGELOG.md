@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- G2 documentation (2026-11-23): the user's G2 document set structured into English documents under `doc/generations/g2/` (hardware and wiring, SD layout, speech events RU/DE with a cleaned CSV, UI concept), originals kept in `doc/generations/g2/sources/`, SD card skeleton in `sound/g2_sdcard/`; [G2 overview](doc/generations/G2.md) rewritten with a review of the documents and suggested stages.
+- G2 documentation (2026-11-23): the user's G2 document set structured into English documents under `doc/generations/g2/` (hardware and wiring, SD layout, speech events RU/DE with a cleaned CSV, UI concept, microphone plan), decisions of 2026-11-23 recorded (two encoders, DS3231 in Base, INMP441 wired without function, Base first), originals kept in `doc/generations/g2/sources/`, SD card skeleton in `sound/g2_sdcard/`; [G2 overview](doc/generations/G2.md) rewritten with a review of the documents and suggested stages.
 
 ## g1-v1.1.0 - 2026-11-23
 

@@ -14,7 +14,7 @@ The 2026-11-13 concept proposed **one central encoder with push button** for nav
 - Short press again — confirm and save (simple values) or go to the next field (multi-field editors).
 - Long press — back to the home screen, leaving any editor safely.
 
-**Review:** the later wiring plan (2026-11-23) keeps **two encoders** (TIMER and VOLUME), as in G1. Two encoders keep direct volume control during music, which the concept itself lists as important. Decide on the prototype: one encoder (simpler panel) or two (G1 habits, direct volume).
+**Decision (2026-11-23):** G2 uses **two encoders** (TIMER and VOLUME), as in G1. A one-encoder variant is planned only after the two-encoder G2 release; the UI state machine and input layer must keep it possible.
 
 | Element | Count | Purpose |
 | --- | ---: | --- |
@@ -111,7 +111,7 @@ Colours are preliminary and later configurable.
 
 ## Prototype checks
 
-1. Daily use with one encoder, especially volume during music (or two encoders, see above).
+1. Daily use of the two encoders with the touch keys; notes for the later one-encoder variant.
 2. Readability of the 256×64 screen from a distance; layout of three timers.
 3. Whether five touch keys are enough; long touches and false triggers.
 4. Menu behaviour with simultaneous notifications.
@@ -122,7 +122,7 @@ Colours are preliminary and later configurable.
 
 | Decision | Status (2026-11-13 concept) |
 | --- | --- |
-| One central encoder instead of two | Chosen for testing — **superseded by the two-encoder wiring plan, to be decided on the prototype** |
+| One central encoder instead of two | **Superseded (2026-11-23): two encoders for G2; one-encoder variant after the G2 release** |
 | Rotate = choose/change, press = enter/confirm | Main concept |
 | Five TTP223 instead of five mechanical buttons | Preferred |
 | Four WS2812 for silent notifications | Planned |

@@ -17,7 +17,7 @@ Documentation for Pi2Clock, written in English ([conventions](DOCUMENTATION.md))
 | Document | Content |
 | --- | --- |
 | [generations/](generations/README.md) | G0, G1 and G2: hardware, firmware, resources |
-| [generations/g2/](generations/G2.md) | G2 plan: [hardware](generations/g2/HARDWARE.md), [SD layout](generations/g2/SD_LAYOUT.md), [speech](generations/g2/VOICE.md), [UI concept](generations/g2/UI_CONCEPT.md) |
+| [generations/g2/](generations/G2.md) | G2 plan: [hardware](generations/g2/HARDWARE.md), [SD layout](generations/g2/SD_LAYOUT.md), [speech](generations/g2/VOICE.md), [UI concept](generations/g2/UI_CONCEPT.md), [microphone](generations/g2/MICROPHONE.md) |
 | [HARDWARE_PICO2W.md](HARDWARE_PICO2W.md) | Pin map |
 | [FIRMWARE_IDENTITY.md](FIRMWARE_IDENTITY.md) | Generation, version tags, build IDs, OTA sequence and package identity |
 | [../firmware/pico2w_c/README.md](../firmware/pico2w_c/README.md) | Source layout, build options, storage |
