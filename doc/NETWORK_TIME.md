@@ -1,6 +1,6 @@
-# Wi-Fi/NTP time correction
+# Network and time
 
-The default Bluetooth build now includes Wi-Fi/NTP. The clock joins a configured 2.4 GHz network asynchronously, requests UTC from pool.ntp.org and writes Europe/Berlin local time to DS1302. Configuration is optional: without credentials, the clock keeps using its RTC.
+Wi-Fi, NTP, the two browser network modes and settings compatibility of the G1 firmware (release `g1-v1.1.0`). The default Bluetooth build includes Wi-Fi/NTP. The clock joins a configured 2.4 GHz network asynchronously, requests UTC from pool.ntp.org and writes Europe/Berlin local time to DS1302. Configuration is optional: without credentials, the clock keeps using its RTC.
 
 ## Local setup on Windows
 
@@ -52,62 +52,51 @@ CET is UTC+1; CEST is UTC+2. Summer time starts at 01:00 UTC on the last Sunday 
 
 References: [German federal time-change FAQ](https://www.bundeswirtschaftsministerium.de/Redaktion/DE/FAQ/zeitumstellung/faq-zeitumstellung.html), [EU 2022-2026 transition schedule](https://eur-lex.europa.eu/legal-content/DE/TXT/?uri=CELEX%3A52021XC0427%2801%29), [Raspberry Pi networking libraries](https://www.raspberrypi.com/documentation/pico-sdk/networking.html). A future legal change to time-zone rules would require a firmware update.
 
-## Hardware acceptance
+## Network modes (web profile)
 
-1. Capture version, flash-info, alarm-status, audio-settings and bt-known before changing network settings.
-2. Provision the network and confirm save=OK.
-3. Check Wi-Fi Connected, Validated UTC sample received and RTC synchronized messages.
-4. Compare the LCD with a trusted Europe/Berlin clock.
-5. Play speech/music on Portable and Nest while the network is enabled; check underruns and controls.
-6. Restart and confirm network credentials, alarms, independent volume levels and known speakers survive.
-7. Turn off the access point and confirm the clock continues operating, then restore it and check recovery.
-8. Check scheduled events after a time correction. Host tests cover DST boundaries; actual RTC/network coexistence still needs device acceptance.
+The web profile serves the same browser page in one of two modes; they never run at the same time.
 
-To build the previous Bluetooth-only radio profile, pass -NoWifi to build-clock-bt.ps1 or update-pico.ps1. The network credentials are preserved opaquely in that profile.
+- **Home:** the clock joins a saved 2.4 GHz network and uses NTP. Two profiles can be saved, **Main** and **Backup**. Boot tries Main first; a failed join tries Backup (1-second handoff, 30-second backoff after both fail); a healthy Backup connection stays selected. Phone Control on the clock shows join, address and retry progress.
+- **Direct:** the clock's own WPA2 access point `SpeakingClock` at `192.168.4.1`, without router or Internet; no NTP, the RTC keeps time. The Direct password is generated once, kept after saving and can be rotated in Phone Control.
 
-## Experimental phone-control network modes
+Switching: SETTINGS → Phone Control on the clock, or the browser's Wi-Fi and Direct page (with confirmation, cancellation and instructions for moving the phone to the other network). After a browser update the clock returns to the network mode the update was sent from.
 
-The optional `-PhoneWeb` build serves the same local HTTP interface in either home STA mode or direct WPA2 AP mode. It requires Wi-Fi and does not run both modes concurrently. Home mode uses the saved network and NTP service; direct mode provides its own network at `192.168.4.1` and does not provide Internet access or fetch NTP. RTC-based clock operation continues. Returning home resumes asynchronous joining and normal NTP handling. The physical Phone Control screen shows join/address/retry progress and may remain open while joining; applying an NTP sample still waits until idle.
+Browser setup of home networks (from Direct): **Test and save** joins the candidate network and saves it only after the join reached an IPv4 address; old credentials stay until then and a failure restores Direct with the same key. The page can search for networks, edit Main or Backup, **Connect** a saved profile on demand and forget a profile. Changing accepted home credentials turns home trust OFF. USB `wifi-config` changes Main and keeps Backup; `wifi-clear` clears both. Details: [browser Wi-Fi setup](WEB_WIFI_SETUP.md), [network modes](WEB_NETWORK_MODES.md).
 
-The integrated direct password is generated once and reused after a successful settings save, unlike the standalone AP prototype's per-boot password. Browser authorization is separate from the Wi-Fi key. The browser can remember pairing without an inactivity timeout; optional home trust permits unpaired clients on the home subnet. See [phone access and revocation](../experiments/phone_control_ap/README.md#timer-control-from-the-phone). Numeric HTTP addresses are used; no cloud service or Internet connection is required for browser control.
+Browser authorization is separate from the Wi-Fi key: a browser is paired once per mode with a six-digit code from the LCD (up to four entries); optional home trust lets any client on the home subnet control the clock without pairing. See [browser access](WEB_BROWSER_ACCESS.md). The page uses numeric HTTP addresses and needs no cloud service.
+
+## Explicit clock changes
+
+The browser can set the full date and time and request NTP separately ([clock controls](WEB_CLOCK.md)). Physical and browser edits share the scheduler protection against replaying or skipping events. After a manual write the previous NTP reference is discarded and the next hourly request is due one hour later; NTP then corrects the clock again. Local times in the missing spring hour are rejected.
 
 ## Settings compatibility and rollback
 
-Stable main/v1.0.0 writes Flash v11 without moving sectors. It adds display-light settings and retains alarm weekday masks, annual birthday dates and handled years, network, output, volume and speaker settings. Formats v1-v10 remain readable. Alarms from v1-v8 default to Daily, birthdays from v1-v9 default to disabled, and display illumination defaults to OFF when loading v1-v10. Loading alone does not migrate records. Settings changes and newly claimed birthday occurrences write v11 through deferred autosave. An explicit save writes immediately when the existing safety checks allow it. The 348-byte record still occupies two programmed pages in each clock sector. Once both A/B slots contain v11, earlier firmware can only read a legacy record if one exists. A `-NoWifi` build at v1.0.0 understands v11, but not the development formats below. Snooze and waiting birthday delivery are RAM-only.
+Settings live in two A/B Flash sectors with CRC and sequence numbers. The firmware reads every format v1–v18 and chooses the smallest format that holds the actual settings when it writes; loading never writes or migrates.
 
-The `codex/phone-control` branch reads v1-v14 and chooses a write format from the actual settings:
-
-| Format | Selection and content | Record bytes |
+| Format | Written when | Bytes |
 | --- | --- | --- |
-| v11 | Phone settings are blank, birth years are unknown and slots 6-15 remain at disabled defaults; stable baseline fields | 348 |
-| v12 | Phone settings are present, birth years are unknown and slots 6-15 remain at disabled defaults; adds direct key, four scoped browser entries and home trust | 504 |
-| v13 | At least one birth year in slots 1-5 is known and slots 6-15 remain at disabled defaults; retains phone fields | 512 |
-| v14 | At least one of birthday slots 6-15 differs from its disabled default; retains the v13 prefix and adds ten dates and optional birth years | 616 |
+| v11 | Stable baseline fields only (display light added to v10) | 348 |
+| v12 | Phone settings present (Direct key, four browser entries, home trust) | 504 |
+| v13 | A birth year in slots 1–5 is known | 512 |
+| v14 | Any birthday slot 6–15 differs from its default | 616 |
+| v15 | Timer completion choices differ from the defaults | 624 |
+| v16 | Random timer or alarm music is used | 632 |
+| v17 | Five-second timer warning is enabled | 640 |
+| v18 | A Backup home network is saved | 744 |
 
-Formats v11-v13 use two programmed 256-byte pages; v14 uses three pages in one existing 4 KiB A/B sector. The sector offsets, ownership checks, CRC and sequence selection do not change. v1-v12 load with unknown birth years; v1-v13 initialize slots 6-15 disabled. Loading alone never writes or migrates Flash. Both the ordinary profile and `-NoWifi` built from this branch read v12-v14 and preserve phone fields and known birth years even without the web server. A save with any nondefault slot 6-15 writes v14 to the alternate A/B sector, leaving the previous slot intact as fallback. Merely opening or viewing an extra slot does not select v14. If all extra slots later return completely to defaults, the writer can select v11-v13 again according to the remaining fields.
+Each format extends the previous one unchanged; v11–v13 use two 256-byte pages, v14–v18 three pages of the same sector. Older firmware cannot read a newer format: once both A/B sectors hold a newer record, a downgrade loads an older record or defaults. Before a rollback, note the intended settings (or remove the newer features and verify both records), and prefer a build from the same release in another profile (`-NoWifi` and the ordinary profile read and preserve all fields, including phone settings). Stable v1.0.0 reads only v1–v11. Snoozes and waiting birthday playback are RAM-only in every profile.
 
-Stable v1.0.0 cannot read v12-v14. Earlier `codex/phone-control` builds cannot read v14; they may load an older A/B record and appear to lose slots 6-15 and later changes. Once both slots use a newer format, reverting to an older release can load an older legacy record or defaults rather than current settings. Record intended settings before rollback and use a v14-compatible build from this branch for a non-web/offline fallback. Do not equate disabling the web profile with reverting the source to v1.0.0. Snoozes and pending birthday playback remain RAM-only in every profile.
+## Hardware acceptance
 
-## Hardware acceptance status
+Status per feature: [FEATURE_STATUS.md](FEATURE_STATUS.md). The first acceptance on 2026-11-08 (build 7964939) reported configured, synchronized and Europe/Berlin UTC+1, with Portable streaming while Wi-Fi was active ([evidence](HARDWARE_TEST_EVIDENCE.md#november-8-wi-fintp-and-bluetooth-coexistence)). For a new installation:
 
-On November 8, build 7964939 reported configured=YES, synced=YES and Europe/Berlin UTC+1 after local provisioning. Portable stayed A2DP ACTIVE at 44100 Hz, and the user confirmed Bluetooth playback with Wi-Fi enabled. Settings were saved in valid v10 A/B records. See [hardware evidence](HARDWARE_TEST_EVIDENCE.md#november-8-wi-fintp-and-bluetooth-coexistence). Hourly refresh, prolonged playback, access-point outage/recovery, provisioning after reboot and actual DST transitions remain acceptance checks. No offline drift rate has been measured or enabled.
+1. Capture `version`, `flash-info`, `alarm-status`, `audio-settings` and `bt-known` before changing network settings.
+2. Provision the network and wait for the save.
+3. Check the Wi-Fi connected, validated UTC sample and RTC synchronized messages (`ntp-status`).
+4. Compare the LCD with a trusted Europe/Berlin clock.
+5. Play music on a Bluetooth speaker while the network is enabled.
+6. Restart and confirm that credentials, alarms, volumes and speakers survive.
 
-## Explicit clock changes in the web development profile
+Still open: an overnight run, NTP server outage and recovery, access-point outage and recovery (deferred by the user), an actual DST transition. No offline RTC drift rate has been measured or enabled.
 
-The browser now has deliberate full date/time setting and a separate NTP request; see [clock controls and safeguards](WEB_CLOCK.md). Physical manual RTC edits share scheduler correction protection and stale-reference invalidation with web edits. After successful manual write, the previous NTP reference is discarded and the next hourly request is due one hour later; reconnection or an explicit request may synchronize sooner. Manual local times in the missing spring hour are rejected. Latest request failure is reported independently of prior synchronization and RTC-write retry. This development stage is installed as `1.0.0+33.gc2dbec4`; functional acceptance remains pending.
-
-## Browser network mode stage 1
-
-The next candidate exposes state and confirmed/deferred HOME/Direct switches with cancellation and phone handoff instructions. It reuses current radio/NTP behavior and does not edit credentials or browser access. See [network stage 1](WEB_NETWORK_MODES.md); installation and radio handoff acceptance pending.
-
-## Browser credential testing (candidate)
-
-[Home Wi-Fi setup](WEB_WIFI_SETUP.md) tests candidates from Direct without copying them into saved settings until a new join has IP readiness. Connection qualification requires an attempted join since configuration/resume; an old cached link cannot qualify. NTP/Internet success is not a saving prerequisite. Failed/aborted tests restore the old configuration and Direct; changed accepted credentials turn home trust OFF as USB configuration already does. No settings-sector or schema change is introduced. Actual radio/save/recovery acceptance is pending.
-
-## Main and Backup profiles (phone-control)
-
-Version 1.0.0+44.gad0e10e adds a second persisted home profile and asynchronous network search in the web profile. Boot tries Main first; failed joins try Backup, with 1-second handoff and 30-second backoff after both fail. A healthy Backup connection stays selected. Candidate provisioning tests only its requested network and saves only after fresh join/IP readiness. USB wifi-config changes Main and retains Backup; wifi-clear clears both. See [browser setup](WEB_WIFI_SETUP.md) for conditional Flash v18, downgrade precautions and pending radio/persistence acceptance. This expansion is installed; the user supplied Direct discovery results. Actual Backup failover and persistence remain separately unconfirmed.
-
-## Manual saved-network Connect candidate
-
-The new browser Connect command temporarily tests only the selected saved profile. On success, network_time_adopt_profiles restores both profiles without dropping that connection or changing startup priority. On failure from Home, network_time_configure_profiles_from restores the previous runtime profile first, then normal fallback. From Direct, the previous AP is restored. No settings write or Home-trust change is part of saved Connect; normal credential-edit rules remain separate. See WEB_WIFI_SETUP.md for the uninstalled candidate and device checks.
+To build the Bluetooth-only radio profile, pass `-NoWifi` to `build-clock-bt.ps1`; network credentials are preserved unchanged in that profile.

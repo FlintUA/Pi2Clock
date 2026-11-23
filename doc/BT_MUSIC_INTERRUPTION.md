@@ -1,5 +1,7 @@
 # Bluetooth music interruption and continuation
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: introduced with separate approval as sequence 12 on 2026-11-20; the latest installed build is sequence 14, with verified startup/settings and restored Nest connection. Hourly continuation is user-confirmed; alarm continuation, bad-file policy and audition-guard acceptance remain pending. The user requested interruption for both hourly time speech and scheduled alarms, then explicitly limited this stage to Bluetooth music. Local DFPlayer music retains its existing behavior; no ADVERT folder or card modification is required by this stage.
 
 ## Behavior
@@ -18,7 +20,7 @@ The browser keeps the player visible as Paused and publishes `player_interrupted
 
 One temporary checkpoint owns the suspended decoder's allocated buffers. Notification playback uses a separate decoder; the same stable read callbacks are used sequentially. The source file is reopened and its read cursor restored before music decoding continues, retaining decoder read-ahead and partially decoded frames. The original PCM ring and sample counters are restored after the event. No second checkpoint is taken for a nested/queued event.
 
-The ring checkpoint is a bounded heap allocation (32844 bytes in host tests), not a large stack temporary or permanent BSS buffer. Additional notification decoder allocations coexist with the retained music decoder for Bluetooth event audio. Actual peak heap and radio/audio continuity require hardware measurements. On allocation/read failure the code takes the defined fallback rather than promising continuation. No SD reads, decoder work, allocation or snapshot copy is performed inside the A2DP consumer callback; sample copying occurs with its ring paused and short metadata changes protected by IRQ critical sections.
+The ring checkpoint is a bounded heap allocation (32,844 bytes in host tests until OTA 27; about 65.6 KB since the PCM ring was doubled in OTA 28), not a large stack temporary or permanent BSS buffer. Additional notification decoder allocations coexist with the retained music decoder for Bluetooth event audio. Actual peak heap and radio/audio continuity require hardware measurements. On allocation/read failure the code takes the defined fallback rather than promising continuation. No SD reads, decoder work, allocation or snapshot copy is performed inside the A2DP consumer callback; sample copying occurs with its ring paused and short metadata changes protected by IRQ critical sections.
 
 All continuation state is RAM-only. No settings schema, Flash sector, saved volume, output preference, audio file or persistent playlist is changed. A restart does not restore a music session.
 

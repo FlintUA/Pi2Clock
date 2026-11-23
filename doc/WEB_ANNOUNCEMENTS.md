@@ -1,5 +1,7 @@
 # Browser automatic announcements and quiet hours
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: installed with separate approval as `1.0.0+32.g08b93c5` on November 14. Startup/settings/HTTP checks passed; the user subsequently reported the options present and working. This is general acceptance, not individual scheduled-boundary or restart evidence.
 
 ## Controls

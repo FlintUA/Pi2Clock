@@ -4769,7 +4769,7 @@ static void handle_command(char *line) {
         puts("[A2DP-PACKET] bt-bitpool N encodes with SBC bitpool N within the negotiated range (0 = automatic: at least 7 frames per packet; not saved)");
         puts("[AUDIO-HEALTH] audio-health shows read-only owner, queue and Bluetooth status");
         puts("[ALARM-PENDING] alarm-pending, alarm-pending-test N, alarm-pending-clear (RAM only)");
-        puts("[TIMER-SOUND] timer-sound; timer-sound none|signal|music N; timer-voice on|off");
+        puts("[TIMER-SOUND] timer-sound; timer-sound none|signal|music N; timer-voice on|off; timer-random on|off; timer-warning [on|off]; random-music-status");
         puts("[ALARM] alarm-days N daily|weekdays|weekends|135; alarm-snooze; alarm-snooze-status; alarm-snooze-cancel");
         printf("[SNOOZE] ringing: GP28 snoozes %u min; ALARM stops. On clock screen ALARM cancels snoozes\n",
                CLOCK_ALARM_SNOOZE_MINUTES);

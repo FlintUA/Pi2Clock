@@ -1,5 +1,7 @@
 # Phone control: integrated firmware and Wi-Fi prototypes
 
+> **Release `g1-v1.1.0` (2026-11-23):** this is the development record of the phone-control stages (substages, prototypes, acceptance notes); statuses below refer to the date they were written. The current browser page is described in [WEB_UI.md](../../doc/WEB_UI.md), network modes in [NETWORK_TIME.md](../../doc/NETWORK_TIME.md), acceptance in [FEATURE_STATUS.md](../../doc/FEATURE_STATUS.md).
+
 The browser interface was developed on `codex/phone-control` and has been part of `main` since 2026-11-20. The v1.0.0 release does not include it. The integrated profile runs the clock, Bluetooth, MP3 and optional NTP alongside local HTTP control. The standalone targets described below are earlier network experiments and replace the clock application when installed.
 
 ## Current integrated workflow
@@ -237,7 +239,7 @@ Use existing configured records carefully and restore any deliberately changed t
 | Playback and priorities | Refresh/close the page or disconnect the phone during music; timer/alarm priority and guarded commands remain correct. |
 | Network/output coverage | Repeat core controls in home/direct modes on LOCAL/BT; recover after a phone disconnect and mode switch. Router outage testing remains deferred. |
 
-The remaining product stages include expanded status and commands for existing device functions, followed by interface presentation/navigation, themes/localization and release preparation. Follow the [current roadmap](../../doc/ROADMAP.md#current-expansion-status-2026-11-13); stable main has not been replaced and no stable web release has been published as part of these checks.
+The remaining product stages include expanded status and commands for existing device functions, followed by interface presentation/navigation, themes/localization and release preparation. Follow the [current roadmap](../../doc/history/ROADMAP_2026-11-22.md#current-expansion-status-2026-11-13); stable main has not been replaced and no stable web release has been published as part of these checks.
 
 ## November 13 interface revision
 

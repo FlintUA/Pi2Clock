@@ -1,6 +1,17 @@
 # G1 phone interface (layout v2)
 
-This document describes the phone interface that implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page was developed on branch `codex/phone-ui-v2` and merged into `main` on 2026-11-22. On 2026-11-21 the user installed it through the browser as OTA sequence 17, build `g1-d31a02ca0f75-bt-mp3-wifi-phone-ota17-trial` (package `Pi2Clock-G1-v1.0.0+82.gd31a02c-ota17.clockota`, 917,316 bytes, Windows SDK toolchain), and reported that it generally works. Detailed acceptance and refinements follow. First refinements after user review (2026-11-21): a light clock panel with dark digits in the light theme (a dark sea-green panel was tried first and rejected), the ringing-alarm banner and its status dot in the accent brown-orange instead of red, track number kept on one line with the sleep countdown below it, equal-width speaker buttons, and command feedback moved from pop-ups to a status line under the footer. Later the same day: shorter "Auto" appearance label in Russian and German, speaker rows in Settings wrap the buttons below the name, the speaker name was removed from the clock panel (the footer shows it), messages built at page load (for example "Stop and close the music player first.") now follow the selected language, and the update page handles a connected speaker (see below).
+This is the reference for the browser page of the G1 web profile (release `g1-v1.1.0`). Network setup and pairing are described in [NETWORK_TIME.md](NETWORK_TIME.md) and [WEB_BROWSER_ACCESS.md](WEB_BROWSER_ACCESS.md), firmware updates in [OTA_WEB_UPDATE.md](OTA_WEB_UPDATE.md), and acceptance status in [FEATURE_STATUS.md](FEATURE_STATUS.md).
+
+## Opening the page
+
+- **Home:** the clock joins the saved home network; open `http://<clock address>/` (SETTINGS → Phone Control shows the address).
+- **Direct:** connect the phone to the Wi-Fi `SpeakingClock` (password shown under Phone Control) and open `http://192.168.4.1/`.
+- The first visit asks for pairing: start pairing on the clock (Phone Control) and enter the six-digit code shown on the LCD within 60 seconds. Up to four browsers are remembered; on a trusted home network pairing may be skipped (see [browser access](WEB_BROWSER_ACCESS.md)).
+- Up to four browsers can use the page at the same time (a separate limit from the four remembered permissions).
+
+## History
+
+The page implements the [redesign specification](WEB_UI_REDESIGN_SPEC.md). The user approved the visual direction (prototype v2) on 2026-11-20 and asked for implementation. The page was developed on branch `codex/phone-ui-v2` and merged into `main` on 2026-11-22. On 2026-11-21 the user installed it through the browser as OTA sequence 17, build `g1-d31a02ca0f75-bt-mp3-wifi-phone-ota17-trial` (package `Pi2Clock-G1-v1.0.0+82.gd31a02c-ota17.clockota`, 917,316 bytes, Windows SDK toolchain), and reported that it generally works. Detailed acceptance and refinements follow. First refinements after user review (2026-11-21): a light clock panel with dark digits in the light theme (a dark sea-green panel was tried first and rejected), the ringing-alarm banner and its status dot in the accent brown-orange instead of red, track number kept on one line with the sleep countdown below it, equal-width speaker buttons, and command feedback moved from pop-ups to a status line under the footer. Later the same day: shorter "Auto" appearance label in Russian and German, speaker rows in Settings wrap the buttons below the name, the speaker name was removed from the clock panel (the footer shows it), messages built at page load (for example "Stop and close the music player first.") now follow the selected language, and the update page handles a connected speaker (see below).
 
 ## Layout
 
@@ -67,14 +78,18 @@ All commands keep their existing endpoint, body format (`credential epoch id non
 | Pairing card | `POST /pair`, `POST /access` | Unchanged |
 | Firmware update | `GET /ota.json`, `POST /ota` | G1 header checks, sequence, session ownership |
 
-Response schemas, polling intervals, request bodies, server limits and Flash settings are unchanged.
+Response schemas, request bodies, server limits and Flash settings are unchanged from the earlier page.
+
+## Polling
+
+`/status.json` is requested every second (every 250 ms during the last five countdown seconds and while completion audio or a ringing alarm is active). Since OTA 21 the other snapshots are fetched only when needed: every poll while their page or flow is open (Bluetooth page or speaker sheet, network page or switch, browser access, firmware update), otherwise Bluetooth every 10 s, network and Wi-Fi every 20 s, browsers and update state every 30 s; a pending command or a new server epoch always refreshes them. A hidden tab polls at most every 15 s and refreshes at once when shown again. This reduced the load on the shared Wi-Fi/Bluetooth radio from about 140 to about 25 requests per 20 s per open page ([BT_AUDIO_CHAIN.md](BT_AUDIO_CHAIN.md)).
 
 ## Size
 
-| Item | Before (main `fc03d52`) | Layout v2 |
-| --- | --- | --- |
-| Page source (`index.html`) | 124,934 bytes | 271,613 bytes |
-| Stored in Flash and sent per load (gzip) | 31,609 bytes | 71,858 bytes |
+| Item | Before (main `fc03d52`) | Layout v2 at OTA 17 | Release `g1-v1.1.0` |
+| --- | --- | --- | --- |
+| Page source (`index.html`) | 124,934 bytes | 271,613 bytes | 279,678 bytes |
+| Stored in Flash and sent per load (gzip) | 31,609 bytes | 71,858 bytes | about 74 KB |
 | Web-profile image (VM build, GCC 13.2) | 832,664 bytes | 872,920 bytes (+40,256) |
 | OTA-profile image, sequence 17 (VM build) | — | 881,272 bytes of the 1,572,864-byte slot |
 | Static RAM (`.bss`), web profile | 165,944 bytes | 165,944 bytes (unchanged) |
@@ -88,6 +103,6 @@ The VM figures use Ubuntu's GCC 13.2 with `__int64_t_defined` predefined, becaus
 - The host suite registers 37 checks; all pass. `phone_sliders`, `phone_timer_wheels` and `phone_ota` run the production control layer against the new markup. Two test adjustments were needed: `phone_ota` now provides `T` to its script slice, and `phone_sliders` checks that both record editors keep an explicit Save action instead of the former button labels. The new `phone_ui_text` check fails if any visible string lacks a Russian or German translation, if placeholders differ, or if remote text could be inserted as HTML.
 - With the local API stand-in [`tools/phone_web_mock.py`](../tools/phone_web_mock.py) in Chrome at 320, 360, 393 and 820 px, light and dark, English, Russian and German: no script errors and no horizontal overflow. Interactions checked: preset and Start/Cancel of the timer, quick alarm switch, Play, volume proxy, ringing alarm Snooze and Cancel, timer completion stop, footer Sound, speaker Disconnect/Connect, language switch, custom-day alarm Save and connection loss. The stand-in models the API only; this is not device evidence.
 
-## Pending
+## Open checks
 
-- Hardware acceptance: page load in Home and Direct, every block on the phone, physical encoder changes while the page is open, Bluetooth music continuity, four clients, OTA upload from the new page and recovery instructions after OTA.
+Hardware checks still open for the page (four simultaneous clients, recovery instructions after OTA) are tracked in [FEATURE_STATUS.md](FEATURE_STATUS.md). The page has been used daily on the phone in Home and Direct since OTA 17, including firmware updates from OTA 18 to 28.

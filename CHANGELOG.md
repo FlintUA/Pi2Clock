@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased - G1 development on main
+## g1-v1.1.0 - 2026-11-23
 
-G1 work after the v1.0.0 release; no new release is claimed. Developed on `codex/phone-control` until 2026-11-20, then merged into `main`.
+First release with a generation tag; everything below since v1.0.0. Release notes: [doc/releases/g1-v1.1.0.md](doc/releases/g1-v1.1.0.md). Developed on `codex/phone-control` until 2026-11-20 and on `codex/phone-ui-v2` until 2026-11-22, then merged into `main`.
+
+- Documentation updated for the release (2026-11-23): code and documents compared; [controls and modes](doc/CONTROLS_AND_MODES.md), [network and time](doc/NETWORK_TIME.md), [testing](doc/TESTING.md), [roadmap](doc/ROADMAP.md) and the firmware README rewritten as current references; new [feature status](doc/FEATURE_STATUS.md) and [documentation index](doc/README.md); stage-by-stage notes archived in `doc/history/`; feature notes marked as history. USB `help` now lists `timer-random`, `timer-warning` and `random-music-status`.
 
 - Branch `codex/phone-ui-v2` (layout v2 phone page, OTA 17–28) merged into `main` on 2026-11-22 without a release tag. OTA 28 accepted by the user on 2026-11-22: Portable 25 minutes without audible crackling, speed changes or delayed track starts; no radio disturbance occurred, so stall recovery was not exercised. Nest and SSTB 10 remain to be checked. See [BT_AUDIO_CHAIN.md](doc/BT_AUDIO_CHAIN.md#ota-28-result).
 - Bluetooth stall recovery (OTA 28 candidate): the A2DP sender catches up up to 300 ms of backlog after a radio stall instead of 125 ms, and the PCM ring is doubled to 16,384 frames (about 372 ms) for it; `[BT-DIAG]` reports only real problems (trimmed, underruns, refused packets, gaps over 150 ms). OTA 27 accepted on 2026-11-22 as the working baseline: Portable clean in Home and Direct except for one minute of radio disturbance, PRO X 2 clean at bitpool 53. See [BT_AUDIO_CHAIN.md](doc/BT_AUDIO_CHAIN.md#ota-27-acceptance-and-stall-recovery-ota-28-candidate).

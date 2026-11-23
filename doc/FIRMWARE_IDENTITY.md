@@ -12,7 +12,7 @@ The LCD retains two About pages: `Pi2Clock G1 / Pico 2 W`, then the compact vers
 
 ## Tags and branches
 
-New tags use `g1-v<major>.<minor>.<patch>` and, in the future, `g2-v<major>.<minor>.<patch>`, optionally with a prerelease suffix. These are examples, not assigned releases. G1 prefers valid, reachable `g1-v*` tags and ignores G2 tags. Until the first G1 tag exists, existing reachable `v*` tags remain its baseline. Untagged descendants include commit distance/revision; tracked modifications retain the dirty marker. Source archives do not borrow tags from a containing checkout.
+The first generation tag is `g1-v1.1.0` (2026-11-23). New tags use `g1-v<major>.<minor>.<patch>` and, in the future, `g2-v<major>.<minor>.<patch>`, optionally with a prerelease suffix. These are examples, not assigned releases. G1 prefers valid, reachable `g1-v*` tags and ignores G2 tags. Until the first G1 tag exists, existing reachable `v*` tags remain its baseline. Untagged descendants include commit distance/revision; tracked modifications retain the dirty marker. Source archives do not borrow tags from a containing checkout.
 
 G1 development continues on `main`, which absorbed `codex/phone-control` on 2026-11-20; use short-lived `codex/` branches for larger changes. Create `codex/gen2` when second-generation work starts. Release tagging, merging and installation remain separate steps.
 

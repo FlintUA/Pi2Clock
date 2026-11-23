@@ -1,5 +1,7 @@
 # Browser date/time and NTP requests
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: installed with separate approval as `1.0.0+33.gc2dbec4` on November 14. Startup, settings preservation, HOME/NTP and capability checks passed; functional user acceptance remains pending.
 
 ## Controls

@@ -1,8 +1,10 @@
 # Web Control Expansion Specification
 
+> **Release `g1-v1.1.0` (2026-11-23):** this is a design or specification document from before implementation; it is kept for its reasoning. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: implementation authorized on 2026-11-12; device installation still requires separate approval.
 
-Review update, 2026-11-13: the inspected working tree based on `697c062` implements the capacity, timer-wheel, transport-layout and audition changes below. The user reported that the latest improvements worked correctly. This is broad functional acceptance, with the exact installed build and individual persistence/concurrency scenarios still unrecorded. All seventeen host checks passed after a clean Debug rebuild during documentation reconciliation. No new installation was performed for that review. See the [current roadmap](ROADMAP.md#current-expansion-status-2026-11-13) and [hardware evidence](HARDWARE_TEST_EVIDENCE.md#november-13-expansion-user-report).
+Review update, 2026-11-13: the inspected working tree based on `697c062` implements the capacity, timer-wheel, transport-layout and audition changes below. The user reported that the latest improvements worked correctly. This is broad functional acceptance, with the exact installed build and individual persistence/concurrency scenarios still unrecorded. All seventeen host checks passed after a clean Debug rebuild during documentation reconciliation. No new installation was performed for that review. See the [current roadmap](history/ROADMAP_2026-11-22.md#current-expansion-status-2026-11-13) and [hardware evidence](HARDWARE_TEST_EVIDENCE.md#november-13-expansion-user-report).
 
 ## Scope and behavior
 

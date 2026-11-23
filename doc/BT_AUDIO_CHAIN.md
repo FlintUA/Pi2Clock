@@ -1,5 +1,7 @@
 # Bluetooth audio chain: review and load reduction (2026-11-21)
 
+> **Release `g1-v1.1.0` (2026-11-23):** this is the record of the Bluetooth audio investigation (OTA 21–28). The resulting behaviour is part of the release and summarised in [controls and modes](CONTROLS_AND_MODES.md#bluetooth-speakers); acceptance: [feature status](FEATURE_STATUS.md).
+
 The user reported Bluetooth music that stutters or audibly speeds up and slows down, on Portable and, more mildly, on Nest, without an obvious trigger. It improved when a second browser tab (on a PC) was closed and occurred in Direct and in Home mode, more on the 2.4 GHz network `flint.net` than on `Magenta`.
 
 ## Chain

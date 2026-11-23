@@ -1,5 +1,7 @@
 # Browser Bluetooth speaker management
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: installed with separate approval as `1.0.0+35.g5c09045` on November 14. Startup/settings/list checks passed. The user reported device selection working but an apparent full page reload; the [reconnect layout fix](WEB_RECONNECT.md) was installed as `1.0.0+36.ge21b139` and accepted by the user. Radio/persistence scenarios still need focused acceptance.
 
 ## Workflow

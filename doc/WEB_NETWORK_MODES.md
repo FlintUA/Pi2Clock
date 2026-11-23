@@ -1,5 +1,7 @@
 # Browser network modes: stage 1
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: installed as `1.0.0+37.ga1f576b` on November 14; the user confirmed successful Direct and home transitions on November 15, 2026. Explicit cancellation, busy cancellation and four-client/resource acceptance remain separate checks. This stage adds state and HOME/Direct switching, not Wi-Fi credential editing or browser-access administration.
 
 ## Workflow

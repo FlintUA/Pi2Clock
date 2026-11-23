@@ -1,5 +1,7 @@
 # Browser access management
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: installed as `1.0.0+40.g9b20f8b` on November 15, 2026. The user reported general functionality, with a flickering open permission picker. The option-node fix was installed as `1.0.0+41.g9fd19ab`, but the user still reported approximately one flicker per second. The broader background-render hold was installed as `1.0.0+42.g95c7ca5`; the user confirmed on November 15 that the flicker was resolved. This stage follows user-accepted HOME/Direct mode switching in 1.0.0+37.ga1f576b.
 
 ## What the list means

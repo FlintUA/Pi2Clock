@@ -18,11 +18,12 @@ See the [generation overview](doc/generations/README.md) for the comparison, ide
 - One countdown timer from 1 second to 23:59:59 with configurable completion message, signal, fixed or random music and an optional five-second warning.
 - Five alarms with weekday schedules, signal / fixed music / random music and three-minute snooze; fifteen annual birthdays with optional birth year.
 - Music player for folder 08 with normal, shuffle and repeat-one order, Previous/Next history, pause and a sleep timer.
-- Two sound outputs: the built-in DFPlayer speaker and a Classic Bluetooth A2DP speaker (up to four remembered), with automatic fallback; separate volumes and per-event output preferences.
-- Wi-Fi with two saved home networks or a Direct access point, NTP time with Europe/Berlin daylight saving, browser control with paired permissions, and A/B over-the-air updates.
+- Two sound outputs: the built-in DFPlayer speaker and a Classic Bluetooth A2DP speaker (up to four remembered), with automatic fallback; separate volumes and per-event output preferences. Bluetooth music pauses for hourly speech and alarms and resumes at the same position; the speaker's own Play/Pause buttons control the player.
+- Wi-Fi with two saved home networks or a Direct access point, NTP time with Europe/Berlin daylight saving.
+- Phone and tablet control in the browser: one vertical page in English, Russian or German with light and dark themes, paired browser permissions, and A/B over-the-air updates (the page disconnects and reconnects a Bluetooth speaker around an update).
 - LCD light with Off/On/Auto and day/night brightness; settings stored in Flash with backward-compatible migrations.
 
-Current work items, acceptance status and the release baseline are tracked in the [roadmap](doc/ROADMAP.md) and [testing](doc/TESTING.md). The latest tagged release is [v1.0.0](https://github.com/FlintUA/Pi2Clock/releases/tag/v1.0.0); `main` contains the newer G1 development line.
+The current release is [g1-v1.1.0](doc/releases/g1-v1.1.0.md) (2026-11-23). What is accepted on the clock and what remains open: [feature status](doc/FEATURE_STATUS.md); plans: [roadmap](doc/ROADMAP.md).
 
 ## Hardware
 
@@ -41,6 +42,7 @@ Use a short path without non-ASCII characters for build directories, for example
 
 | Goal | Command |
 | --- | --- |
+| Build a release from its tag | `git switch --detach g1-v1.1.0`, then the commands below (the version is taken from the tag) |
 | Build the web profile (USB install) | `.\build-clock-bt.ps1 -Mp3 -PhoneWeb -BuildDirectory C:\pico_clock_compile\phone-clock` |
 | Install a reviewed build over USB | `.\update-pico.ps1 -Port COM8 -Uf2 C:\pico_clock_compile\phone-clock\speaking_clock_c.uf2` |
 | Build an OTA image and package | `.\build-clock-bt.ps1 -Mp3 -PhoneWeb -OtaAb -OtaTrial -OtaSequence N …`, then `python tools\ota_web_package.py --build <dir> …` ([details](doc/OTA_WEB_UPDATE.md)) |
@@ -62,7 +64,7 @@ ctest --test-dir build/host-tests -C Debug --output-on-failure
 2. Select the speaker and confirm *Connect*. The clock saves it once the audio stream is active; close the menu and wait for the automatic save before switching off.
 3. After a restart the clock reconnects to the saved speaker directly. *Disconnect* or a new scan keeps the speaker off until you connect one again.
 
-Classic A2DP speakers with SBC and SSP pairing are supported; BLE-only, HFP, legacy PIN pairing and Google Cast are not. Details: [controls](doc/CONTROLS_AND_MODES.md#bluetooth) and [browser Bluetooth](doc/WEB_BLUETOOTH.md).
+Classic A2DP speakers with SBC and SSP pairing are supported; BLE-only, HFP, legacy PIN pairing and Google Cast are not. Details: [controls](doc/CONTROLS_AND_MODES.md#bluetooth-speakers) and [browser Bluetooth](doc/WEB_BLUETOOTH.md).
 
 ## Repository layout
 
@@ -76,7 +78,7 @@ Classic A2DP speakers with SBC and SSP pairing are supported; BLE-only, HFP, leg
 | [doc](doc/) | Current documentation; [generations](doc/generations/) and [history](doc/history/) |
 | [generations/g0-micropython](generations/g0-micropython/) | Archived G0 MicroPython code and documents |
 
-Documentation is written in English; see the [conventions](doc/DOCUMENTATION.md). Key documents: [controls and modes](doc/CONTROLS_AND_MODES.md), [network and time](doc/NETWORK_TIME.md), [firmware identity](doc/FIRMWARE_IDENTITY.md), [OTA web update](doc/OTA_WEB_UPDATE.md), [web control](doc/WEB_CONTROL_SPEC.md), [hardware test evidence](doc/HARDWARE_TEST_EVIDENCE.md), [changelog](CHANGELOG.md).
+Documentation is written in English; see the [documentation index](doc/README.md) and the [conventions](doc/DOCUMENTATION.md). Key documents: [controls and modes](doc/CONTROLS_AND_MODES.md), [phone interface](doc/WEB_UI.md), [network and time](doc/NETWORK_TIME.md), [OTA web update](doc/OTA_WEB_UPDATE.md), [feature status](doc/FEATURE_STATUS.md), [changelog](CHANGELOG.md).
 
 ## Licenses
 

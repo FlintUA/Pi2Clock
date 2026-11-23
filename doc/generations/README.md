@@ -6,7 +6,7 @@ Pi2Clock is a speaking clock built around a Raspberry Pi Pico board, an LCD1602,
 | --- | --- | --- | --- |
 | Status | Archived, read-only | **Active development and the assembled clock** | Planned, no hardware or code yet |
 | Board | Raspberry Pi Pico (RP2040); the v3 line later ran on Pico 2 W | Raspberry Pi Pico 2 W (RP2350 + CYW43439) | Pico 2 W expected; to be confirmed by a prototype |
-| Firmware | MicroPython, versions 1.16 → 2.x → 3.10.0 | C / Pico SDK 2.3.1, release line v1.0.0+ with `g1-` build IDs | C / Pico SDK, `g2-` build IDs on a future `codex/gen2` branch |
+| Firmware | MicroPython, versions 1.16 → 2.x → 3.10.0 | C / Pico SDK 2.3.1, releases v1.0.0 and `g1-v1.1.0`, `g1-` build IDs | C / Pico SDK, `g2-` build IDs on a future `codex/gen2` branch |
 | Local sound | DFPlayer Mini with its own microSD card | DFPlayer Mini with its own microSD card | **MAX98357A I2S amplifier**, fed by the Pico's software MP3 decoder; DFPlayer removed |
 | Bluetooth audio | None (only an off-device A2DP experiment) | Classic A2DP source: MP3 from a second, SPI-connected microSD card, Helix decoder, SBC encoder | Same decoder path as local sound |
 | SD cards | 1 (DFPlayer) | 2 with identical numbered folders: DFPlayer card and Pico SPI card | 1 shared card |
@@ -26,7 +26,7 @@ All generations share the user-facing concept and most panel hardware:
 
 ## Identity rules
 
-- Firmware version comes from Git tags (`g1-vX.Y.Z` preferred for G1; the legacy `v1.0.0` tag is the current baseline).
+- Firmware version comes from Git tags: `g1-vX.Y.Z` for G1 (first: `g1-v1.1.0`), falling back to the legacy `v1.0.0` tag for older commits.
 - Build IDs start with the generation prefix (`g1-…`, later `g2-…`).
 - OTA packages carry a generation-specific target: G1 `0x23500002`, G2 reserved `0x23500202`. A G1 receiver refuses G2 packages before erasing Flash, and the reverse will hold for G2.
 - OTA sequence numbers increase monotonically within one generation and are never reset by a release.

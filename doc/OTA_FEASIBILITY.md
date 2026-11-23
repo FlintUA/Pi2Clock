@@ -1,5 +1,7 @@
 # OTA feasibility assessment - 2026-11-16
 
+> **Release `g1-v1.1.0` (2026-11-23):** this is a design or specification document from before implementation; it is kept for its reasoning. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: feasible on the existing Pico 2 W. The opt-in [A/B foundation](OTA_FOUNDATION.md) subsequently passed separately approved device gates on November 16; the [browser uploader](OTA_WEB_UPDATE.md) is an uninstalled candidate. This is an assessment, not an OTA implementation or installation approval. The device, COM8, firmware sources, settings, OTP and installed partitioning were not modified by this assessment.
 
 ## Decision

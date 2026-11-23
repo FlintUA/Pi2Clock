@@ -1,5 +1,7 @@
 # Pi2Clock G1 web interface redesign specification
 
+> **Release `g1-v1.1.0` (2026-11-23):** this is a design or specification document from before implementation; it is kept for its reasoning. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Prepared on 2026-11-20 for design review and subsequent staged implementation. The approved layout and its implementation are described in [WEB_UI.md](WEB_UI.md).
 
 ## 1. Objective and authorization

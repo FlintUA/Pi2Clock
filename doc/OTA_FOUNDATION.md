@@ -1,5 +1,7 @@
 # OTA foundation - A/B bring-up stage
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: initial migration, deliberate-rejection rollback and successful acceptance into B were installed with separate approvals on 2026-11-16. The user accepted ordinary operation after each gate and reported success after the requested power-cycle check; serial inspection then confirmed accepted B. Browser upload is a new [uninstalled candidate](OTA_WEB_UPDATE.md), separate from this foundation evidence.
 
 ## Scope and invariants

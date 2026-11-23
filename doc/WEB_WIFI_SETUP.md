@@ -1,5 +1,7 @@
 # Browser home Wi-Fi setup
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: the single-network stage was installed as 1.0.0+43.g378a692. The user reported successful setup and supplied a connected/saved flint.net screen. The two-profile/search expansion was installed as 1.0.0+44.gad0e10e. The user reported general operation and supplied Direct-mode discovery screenshots with both home SSIDs. Successful Backup persistence and real automatic failover have not been individually confirmed. The compact connection UI was installed as 1.0.0+45.g5b2b1d1. Both profiles survived that update and the clock joined Backup. Explicit saved-network Connect/Edit is the next uninstalled candidate. Setup starts from the already working Direct mode. The current firmware serves one radio mode at a time; it does not keep Direct and home Wi-Fi simultaneously active.
 
 ## User workflow

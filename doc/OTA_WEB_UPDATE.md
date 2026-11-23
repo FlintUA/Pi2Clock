@@ -1,5 +1,7 @@
 # Browser firmware update candidate
 
+> **Release `g1-v1.1.0` (2026-11-23):** this feature is part of the release. This note records its design, implementation and installation history; "pending" or "candidate" below refers to the date it was written. Current behaviour: [controls and modes](CONTROLS_AND_MODES.md) and [phone interface](WEB_UI.md); acceptance: [feature status](FEATURE_STATUS.md).
+
 Status: sequence 9 was installed through Home and independently confirmed accepted in B with matching settings. The user confirmed the phone button layout, then installed sequence 10 and confirmed immediate Direct restoration before any power cycle. A manual browser reload was required. Automatic page reconnection and detailed phone upload-feedback acceptance remain unconfirmed. Thirty-three host checks passed for the preceding implementation.
 
 ## Network mode after restart
