@@ -4,6 +4,8 @@
 
 **Platform:** Raspberry Pi Pico 2 W (RP2350). G2 replaces the DFPlayer with a MAX98357A I2S amplifier and one microSD card, and the LCD1602 with an SSD1322 256×64 OLED. Controls: two encoders with push buttons and five TTP223 touch sensors; four WS2812 LEDs; Wi-Fi/Bluetooth with full offline operation. The enclosure and front panel do not affect the electrical design.
 
+**Decisions of 2026-11-24:** GP6 keeps the G1 LED output circuit and now drives the **touch-key backlight** (the OLED sets its own brightness by command); GP5 becomes the **external alert output** for a vibration pad or lamp; the OLED reset uses an **RC power-on reset** instead of a GPIO.
+
 **Decisions of 2026-11-23:** two encoders (a one-encoder variant follows only after the two-encoder G2 release); the **DS3231 is part of Base** and replaces the DS1302 with the same role as in G1; the **INMP441 is wired on the board** but has no function at first (a capture test at most); Base is built first. See [G2.md](../G2.md#decisions).
 
 Markers: **[G1]** pin assignment verified on the G1 clock; **[G2]** proposed, needs testing; **[OPTION]** additional function.
@@ -33,7 +35,10 @@ Markers: **[G1]** pin assignment verified on the G1 clock; **[G2]** proposed, ne
 | USB-C panel socket | 1 | – | Check CC1/CC2 2×5.1 kΩ and current rating |
 | WS2812 data resistor 220–470 Ω, bulk capacitor 100–470 µF on 5 V | 1+1 | – | Next to the first LED and the power input |
 | Local decoupling 0.1 µF, 10–100 µF | as needed | – | SD, I2S and logic supplies |
-| White backlight for the five touch keys | variant | – | Separate LEDs and resistors; common dimmable switch or driver |
+| White backlight for the five touch keys | 1 set | – | LEDs with resistors behind the keys, one common PWM channel on GP6 through the G1 transistor/MOSFET switch |
+| External alert output: logic-level MOSFET or NPN switch, flyback diode, 2-pin socket | 1 | – | On GP5; drives a 5 V vibration pad (bed shaker) or an external lamp |
+| Vibration pad (bed shaker), 5 V | – | 1 | Plugs into the alert socket; typically 100–300 mA |
+| OLED reset RC: about 10 kΩ + 1 µF | 1 | – | Unless the OLED module already has a reset circuit |
 | BME280 | – | 1 | I2C, indoor climate in an outside-air channel |
 | LiPo 103450, 2500 mAh | – | 1 | Not to be mixed with 14500 cells; needs protection |
 | Charger + power path + stable rails | – | 1 | Choose a proven design, verify with an oscilloscope |
@@ -53,8 +58,8 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 | GP2 | 4 | WS2812 data through 74AHCT125 | [G2] |
 | GP3 | 5 | OLED D/C | [G2] |
 | GP4 | 6 | INMP441 SD → Pico (BCLK/WS shared with the amplifier) | [G2] wired, no function at first |
-| GP5 | 7 | Spare, or PWM for the common touch-key backlight through a switch | [G2] |
-| GP6 | 9 | OLED RES# | [G2] (G1: LCD backlight PWM) |
+| GP5 | 7 | External alert output → MOSFET/NPN switch → vibration pad or lamp | [G2] |
+| GP6 | 9 | Touch-key backlight PWM through the G1 switch circuit | [G1] circuit, new load |
 | GP7 | 10 | OLED CS# | [G2] |
 | GP8 | 11 | SPI1 RX / SD MISO | [G1] |
 | GP9 | 12 | SD CS | [G1] |
@@ -79,7 +84,7 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 | VSYS | 39 | Pico supply input through a power-selection circuit | [G2] |
 | VBUS | 40 | Pico's own USB supply; **not** an output for the external 5 V rail | [G2] |
 
-The DS1302 of G1 (GP2/GP4/GP5) is replaced by the DS3231 on the I2C bus. All GPIOs are used except GP5.
+The DS1302 of G1 (GP2/GP4/GP5) is replaced by the DS3231 on the I2C bus. All usable GPIOs are assigned; the OLED reset needs no GPIO (RC reset).
 
 **INMP441 caveat (original):** sharing BCLK/WS with the amplifier saves pins but requires identical clock rate and format for TX and RX and a PIO+DMA implementation. Independent rates (for example 16 kHz recording and 44.1 kHz playback) need more GPIOs; see [section 7](#7-full-variant-with-an-independent-i2s-microphone).
 
@@ -96,8 +101,10 @@ The DS1302 of G1 (GP2/GP4/GP5) is replaced by the DS3231 on the I2C bus. All GPI
 | 4 | D0 / CLK | GP10 (pin 14) | SCK shared with SD |
 | 5 | D1 / DIN | GP11 (pin 15) | MOSI shared with SD |
 | 14 | D/C# | GP3 (pin 5) | Data/command |
-| 15 | RES# | GP6 (pin 9) | Hardware reset |
+| 15 | RES# | RC power-on reset: ~10 kΩ to 3.3 V, ~1 µF to GND | No GPIO; fallback: GP5 (see below) |
 | 16 | CS# | GP7 (pin 10) | Own chip select, idle HIGH |
+
+**Reset:** the SSD1322 needs RES# low for a short time after its supply is stable; an RC network does this at power-up, and the firmware additionally sends the controller's software initialisation. Many modules already carry such a network — check board Ver 2.1 before adding one. **Fallback** if the display starts unreliably on the prototype: connect RES# to GP5 and move the alert output to a later MCP23017 or drop it. Brightness is set by SSD1322 commands (contrast and segment current); the OLED needs no PWM pin.
 
 Leave OLED pins 3 and 6–13 open, but only after confirming that the board matches the seller's table; do not tie them to GND "for safety". Check the BS0/BS1 jumpers for SPI mode and mark pin 1 before soldering. Drive both chip selects HIGH before the bus starts. Never access SPI from different contexts without a common bus lock; change SPI speed only with both CS released.
 
@@ -171,7 +178,15 @@ The DS3231 takes the DS1302's role from G1: the clock reads local time from it, 
 
 The board gets the full wiring now; the firmware does nothing with the microphone in the first G2 release except, at most, a capture test (see [MICROPHONE.md](MICROPHONE.md)). The sound port must face outside, unobstructed and not right next to the speaker. Muting the speaker while recording is simpler than full echo cancellation. The user's module may have a different pinout — check the markings before wiring.
 
-### 4.9 [OPTION] Battery monitoring
+### 4.9 Touch-key backlight on GP6
+
+The G1 LCD backlight output (GP6, active-high PWM through a transistor or MOSFET switch, LED with current-limiting resistor; see [G1 pin map](../../HARDWARE_PICO2W.md)) is kept unchanged and now lights the five touch keys: white LEDs with their own resistors behind the panel, all on one switched channel. Firmware keeps the G1 behaviour — OFF / ON / AUTO with day and night levels — for the keys. Individually controlled key LEDs would need a driver or expander and are not planned.
+
+### 4.10 External alert output on GP5
+
+`GP5 → gate resistor (~100 Ω) → logic-level N-MOSFET (or NPN with base resistor) → load to 5 V`, flyback diode across the load (motor), 2-pin socket at the back. Intended loads: a 5 V vibration pad under the pillow (bed shaker) for deaf or hard-of-hearing users, or an external lamp. Budget 100–300 mA on the 5 V rail. Firmware drives it in on/off patterns (alarm) and must limit the duty cycle. No vibration motor inside the clock: on a desk it would mostly rattle and is barely felt ([UI concept](UI_CONCEPT.md#light-signals-and-accessibility)).
+
+### 4.11 [OPTION] Battery monitoring
 
 INA226 on I2C0 (GP0/GP1); check its common-mode and shunt limits separately. A simple high-impedance divider for a 1S LiPo needs an ADC pin; GP28 is the only free ADC candidate and would have to be taken from TTP223 5, otherwise use an external ADC or an I2C fuel gauge. **Never feed up to 4.2 V battery voltage directly into a 3.3 V Pico ADC input.**
 
@@ -208,7 +223,8 @@ OPTION BATTERY: USB-C -> charger with power path -> system 5 V rail and 1S LiPo
 | BME280 | 3.3 V | Chip maximum 3.6 V |
 | DS3231 | 3.3 V | Backup CR2032 separately; do not charge |
 | INMP441 | 1.8–3.3 V, use 3.3 V | Never 5 V |
-| Key backlight LEDs | 5 V with current limiting / transistor | Low brightness preferred |
+| Key backlight LEDs (GP6) | 5 V with current limiting / transistor | Low brightness preferred |
+| Vibration pad or lamp (GP5) | 5 V through the alert switch | About 100–300 mA; check the actual pad |
 | LiPo 1S | 3.0–4.2 V | Needs charger, protection, boost/PMIC |
 
 **3V3_OUT:** keep the external load below about **300 mA**; the available current depends on RP2350, Wi-Fi and VSYS. SD and OLED peaks can cause dips. Measure each board (steady and peak) before powering everything from 3V3_OUT; for a repeatable kit a separate good 3.3 V regulator without back-feeding is preferable. All signals share a common ground.
@@ -223,14 +239,31 @@ OPTION BATTERY: USB-C -> charger with power path -> system 5 V rail and 1S LiPo
 4. Low-resistance power and ground connections; short I2S and SPI lines, never parallel to the speaker wires.
 5. Keep the BME280 away from regulators and the amplifier; do not cover its membrane; mount TTP223 sensors against the panel without air gaps.
 6. microSD and USB-C at the back, BME280 at the bottom vent, indicators and OLED at the front. **No enclosure dimensions before a test fit and measurements.**
-7. No fixed GPIOs for individual key LEDs until their supply and driver are decided.
+7. The common key backlight is on GP6; individually controlled key LEDs would need a driver and are not planned.
+
+### Electrical and software conflicts to check
+
+| Risk | Cause | Check / solution |
+| --- | --- | --- |
+| OLED + SD | Shared SPI1, different speeds and chip selects | Stress test SD reads with OLED redraws; bus lock or transaction queue |
+| SD at 3.3 V | Start-up and peak current; a breakout designed for 5 V | Check the board's regulator/level shifter, measure dips |
+| I2S + Bluetooth/Wi-Fi | PIO, DMA and decoder together with CYW43 | Monitor underruns and free SRAM |
+| MAX98357A stereo → mono | `SD/MODE` may select only L or R | Check `SD/MODE`; software mono mix if needed |
+| INMP441 on shared I2S | TX and RX clock rate may differ | Record with the same clocks first (44.1 kHz, decimate) |
+| TTP223 instead of buttons | Active HIGH instead of a short to ground; toggle jumpers | Confirm the outputs, change the input handling |
+| WS2812 data | 3.3 V is a marginal HIGH at 5 V supply | 74AHCT125, local decoupling |
+| DS3231 with CR2032 | Charging circuit on cheap modules can damage the cell | Check and remove the charging path or use a suitable module |
+| OLED pin numbering | Risk of a mirrored pinout | Follow the board markings, not the front view |
+| OLED RC reset | Slow or noisy power-up may leave the controller unreset | Repeated cold starts; fallback RES# on GP5 |
+| Alert motor on GP5 | Motor start current and back-EMF on the 5 V rail | Flyback diode, local capacitor, check for Pico resets |
+| USB-C CC and two USB sources | Wrong CC resistors, back-feeding | Separate 5.1 kΩ per CC line; power-path / OR-ing circuit |
 
 ## 7. Full variant with an independent I2S microphone
 
 If simultaneous 16 kHz capture and 44.1 kHz playback with separate clocks are needed:
 
 - MCP23017 on I2C0 (GP0/GP1), 3.3 V, address by A0–A2, polled or with INT. **Move the five TTP223 to GPA0–GPA4**; the firmware must no longer assume direct Pico GPIOs.
-- Use the freed GP21/GP22/GP26 as `MIC_BCLK`, `MIC_WS`, `MIC_SD`; keep GP4/GP5 spare (any three free GPIOs work, the I2S is PIO-based).
+- Use the freed GP21/GP22/GP26 as `MIC_BCLK`, `MIC_WS`, `MIC_SD`; keep GP4 spare (any three free GPIOs work, the I2S is PIO-based).
 - Individual key backlights through a separate LED driver or MCP23017 outputs with transistor switches and current limiting.
 - This is a different build variant: two firmware profiles or expander detection, and the five keys must keep working. Base needs no MCP23017. **Review:** probably unnecessary if the shared 44.1 kHz clock works (see section 3).
 
@@ -238,7 +271,9 @@ If simultaneous 16 kHz capture and 44.1 kHz playback with separate clocks are ne
 
 - [ ] CC1/CC2 and 5 V at the USB-C socket in both C-C orientations, with the Pico disconnected.
 - [ ] `3V3_OUT`, OLED and microSD current, peak currents and regulator margin.
-- [ ] OLED `CS`, `RES`, `D/C`, a 256×64 test image, connector orientation.
+- [ ] OLED `CS`, `D/C`, RC reset (cold start 20 times, also with slow power-up), a 256×64 test image, connector orientation.
+- [ ] Key backlight on GP6: OFF/ON/AUTO levels, no flicker, no interference with the touch sensors.
+- [ ] Alert output on GP5: vibration pad and lamp, current, flyback diode, no resets of the Pico when the motor starts.
 - [ ] FAT32 with long file names, nested paths, no file mix-ups; cards above 32 GB only after explicit tests.
 - [ ] SD + OLED together: throughput and concurrent stress test.
 - [ ] 16/24/44.1/48 kHz PCM and MP3, mono and stereo, no lost left or right channel.

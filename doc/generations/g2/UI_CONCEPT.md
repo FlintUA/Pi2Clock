@@ -83,20 +83,73 @@ Required TTP223 tests: through PLA/PETG of the chosen panel thickness (start wit
 
 ## Notifications, silent and night mode
 
-| Event | Proposed WS2812 behaviour |
-| --- | --- |
-| Touch confirmation | Short soft flash (can be disabled) |
-| Silent mode on | Short blue confirmation |
-| Timer finished | Orange pulsing until acknowledged |
-| Alarm ringing | Red pulsing in silent mode |
-| Bluetooth connected | Short green signal |
-| Normal operation | Off or barely visible |
-
-Colours are preliminary and later configurable.
-
 - **Silent mode** turns off spoken and sound notifications but not the events; OLED and WS2812 still show them.
-- **Night mode** dims OLED and WS2812 (or turns them off on a schedule) independently of silent mode.
+- **Night mode** dims OLED, WS2812 and the key backlight (or turns them off on a schedule) independently of silent mode.
 - An alarm or finished timer shows a **priority notification** that can be acknowledged without finding its function in the menu, without accidentally acknowledging another event.
+
+## Light signals and accessibility
+
+Added on 2026-11-24. The four WS2812 are the clock's **silent notification channel**. For deaf and hard-of-hearing users they replace sound, so the signals must be simple, consistent and understandable without the manual. Colours and timings are a plan, to be tuned on the prototype; all signals are drawn by firmware (individually addressable RGB, PIO output, negligible CPU load).
+
+### Reference practice
+
+- **Google Nest Audio** uses four lights with few motion types and fixed meanings: all four pulsing quickly (listening), light running left to right (thinking), running back and forth (connecting to Wi-Fi), filling left to right (update), all slowly pulsing (alarm or timer ringing), one steady light (notification waiting), one to four lights as a volume scale, four orange lights (microphone off) ([Google: lights on your speaker](https://support.google.com/googlenest/answer/7073219)).
+- **Alerting systems for deaf people** (Bellman Visit, Lisa, Signolux) give every source its own flash pattern and show a coloured symbol for the source on the receiver ([NDCS](https://www.ndcs.org.uk/information-and-support/parenting-and-family-life/families-magazine/technology-articles/staying-safe-with-home-alerting-systems)); for sleep they add a vibrating pad.
+- **Visible fire alarms** for deaf occupants flash white at 1–2 flashes per second ([ADA National Network](https://adata.org/?p=1539)); flash rates above that range raise the risk of photosensitive seizures.
+- **WCAG 2.3** forbids flashing more than three times per second and notes that saturated red flashing is the most critical ([W3C](https://www.w3.org/WAI/WCAG21/Understanding/three-flashes.html)).
+- **Light alone wakes poorly:** in a Gallaudet study strobes were the weakest waking signal ([Gallaudet TAP](https://tap.gallaudet.edu/Emergency/Nov05Conference/Presentations/JDuBois_files/textonly/slide20.html)); hence the vibration output on GP5.
+- **Indicator colours** (IEC 60073 / EN 60204-1): red emergency, yellow abnormal / attention, green normal, blue action required, white neutral.
+
+### Rules
+
+1. **Rhythm = urgency, colour = category, number of flashes or LED position = number** (of a timer or alarm). Colour is never the only carrier of meaning (about 8 % of men confuse red and green).
+2. **At most two flashes per second**; prefer smooth pulses to hard flashes; never flash saturated red quickly.
+3. **The LEDs get attention, the OLED gives the details** in large text (for example `TIMER 2 FINISHED`).
+4. **Important events stay visible until acknowledged**; a missed event leaves a mark until it is seen.
+5. **Few patterns, each with one permanent meaning**, plus a legend card in the manual.
+6. Gamma-corrected brightness for smooth pulses, a diffuser over the LEDs, software brightness limits (night, current, heat).
+
+### Effect library
+
+| Effect | Motion | Use |
+| --- | --- | --- |
+| Run right / run left | One dot with a fading tail | Searching / connecting a speaker; cancel or back |
+| Back and forth | Dot bouncing between the ends | Connecting to Wi-Fi |
+| Fill | 1 → 4 one after another | Loading, OTA update, volume scale (1–4 steps) |
+| Countdown | 4 → 0 going out | Last seconds of a timer (visual counterpart of the warning beeps) |
+| Slow breathing | All together, smooth | Attention without urgency |
+| Pulse groups | N short pulses, pause, repeat | Number of the timer or alarm |
+| Double flash and fade | All together, once | Command accepted / refused |
+| Single steady dot | Static | Something waiting to be seen |
+| Rainbow wave | Smooth gradient moving | Start-up, birthday |
+
+### Signal dictionary
+
+| Event | Colour | Pattern | Duration |
+| --- | --- | --- | --- |
+| Alarm ringing | White, full brightness, all four | Flash once per second (strobe-like) | Until Stop or Snooze |
+| Alarm snoozed | Yellow, one LED | Slow breathing | Until it rings again |
+| Timer N finished | Orange, all four | Groups of N pulses, pause, repeat | Until acknowledged |
+| Last five seconds of a timer | Timer colour | Countdown 4 → 0 | 5 s |
+| Birthday | Rainbow | Slow running wave | Until acknowledged or 30 min |
+| Missed event | Yellow, one LED | Steady | Until any key is touched; the OLED lists it |
+| Action required (no SD card, battery low) | Blue, one LED | Steady | Until resolved |
+| Command accepted | Green | Double flash | Once |
+| Command not possible | Yellow | Double flash | Once |
+| Connecting Wi-Fi or speaker | White | Back and forth | While connecting |
+| Hourly signal (optional) | Warm white | One soft wave | Once |
+| Volume change | White | Fill 1–4 | About 2 s after the last change |
+| Microphone active (later) | White | Fast pulsing (≤ 2 per second) | While recording |
+
+**Option for three timers:** LEDs 1–3 belong to timers 1–3 (each glows dimly in its own colour while running, optionally fading as time runs out, and pulses when it finishes), LED 4 shows alarm, connection and silent-mode states. To be compared with the all-four patterns on the prototype.
+
+### Visual alerts mode
+
+A setting for deaf and hard-of-hearing users: maximum LED brightness; the whole OLED inverts and flashes together with the LEDs; alerts last until acknowledged without time limit; the external alert output (GP5, vibration pad or lamp) runs with alarms and finished timers.
+
+### Beyond the clock: notifications on the phone
+
+For a user who is away from the clock or not looking at it, the clock can send a notification over Wi-Fi to the phone or smartwatch, which then vibrates on the wrist — the "vibration mode" of a phone, carried by a device the user is already wearing. Candidates: a push service such as ntfy, a Telegram bot, or Home Assistant. Planned as a later network function; it must be optional and send nothing without the user's configuration. A vibration motor inside the clock is not planned: on a desk it mostly rattles and is barely felt.
 
 ## Event handling rules
 
