@@ -86,7 +86,7 @@ Keeps the G1 microSD and both encoders, and uses the freed DFPlayer pins for the
 
 The DS1302 of G1 (GP2/GP4/GP5) is replaced by the DS3231 on the I2C bus. All usable GPIOs are assigned; the OLED reset needs no GPIO (RC reset).
 
-**INMP441 caveat (original):** sharing BCLK/WS with the amplifier saves pins but requires identical clock rate and format for TX and RX and a PIO+DMA implementation. Independent rates (for example 16 kHz recording and 44.1 kHz playback) need more GPIOs; see [section 7](#7-full-variant-with-an-independent-i2s-microphone).
+**INMP441 caveat (original):** sharing BCLK/WS with the amplifier saves pins but requires identical clock rate and format for TX and RX and a PIO+DMA implementation. Independent rates (for example 16 kHz recording and 44.1 kHz playback) need more GPIOs; see [section 7](#7-full-variant-mcp23017-for-the-touch-keys).
 
 **Review:** G1 already resamples every source to 44.1 kHz for Bluetooth. If G2 runs the I2S clocks permanently at 44.1 kHz (silence when nothing plays), the INMP441 (specified for 7.8–50 kHz word clocks) can record at 44.1 kHz and the firmware can decimate to 16 kHz. Then the shared-clock variant needs no MCP23017 and no extra pins. To be confirmed on the prototype.
 
@@ -223,7 +223,7 @@ The G1 LCD backlight output (GP6, active-high PWM through a transistor or MOSFET
 
 ### 4.11 [OPTION] Battery monitoring
 
-INA226 on I2C0 (GP0/GP1); check its common-mode and shunt limits separately. A simple high-impedance divider for a 1S LiPo needs an ADC pin; GP28 is the only free ADC candidate and would have to be taken from TTP223 5, otherwise use an external ADC or an I2C fuel gauge. **Never feed up to 4.2 V battery voltage directly into a 3.3 V Pico ADC input.**
+INA226 on I2C0 (GP0/GP1); check its common-mode and shunt limits separately. A simple high-impedance divider for a 1S LiPo needs an ADC pin; GP28 is the only free ADC candidate; it becomes free in the Full variant when the touch keys move to the MCP23017 ([section 7.4](#74-freed-pico-gpios-in-the-full-variant)); otherwise use an external ADC or an I2C fuel gauge. **Never feed up to 4.2 V battery voltage directly into a 3.3 V Pico ADC input.**
 
 ## 5. Power
 
@@ -293,14 +293,72 @@ OPTION BATTERY: USB-C -> charger with power path -> system 5 V rail and 1S LiPo
 | Alert motor on GP5 | Motor start current and back-EMF on the 5 V rail | Flyback diode, local capacitor, check for Pico resets |
 | USB-C CC and two USB sources | Wrong CC resistors, back-feeding | Separate 5.1 kΩ per CC line; power-path / OR-ing circuit |
 
-## 7. Full variant with an independent I2S microphone
+## 7. Full variant: MCP23017 for the touch keys
 
-If simultaneous 16 kHz capture and 44.1 kHz playback with separate clocks are needed:
+In the Full variant the five TTP223 move to an MCP23017 I2C expander. This frees five Pico GPIOs (GP21, GP22, GP26, GP27, GP28) for an independent microphone clock, the expander interrupt and a battery ADC. Base needs no MCP23017; the firmware must detect the expander or use a separate profile, and the five keys must keep their functions. **Review:** the expander is only needed if the shared 44.1 kHz I2S clock (section 3) is not sufficient or if the battery option is fitted.
 
-- MCP23017 on I2C0 (GP0/GP1), 3.3 V, address by A0–A2, polled or with INT. **Move the five TTP223 to GPA0–GPA4**; the firmware must no longer assume direct Pico GPIOs.
-- Use the freed GP21/GP22/GP26 as `MIC_BCLK`, `MIC_WS`, `MIC_SD`; keep GP4 spare (any three free GPIOs work, the I2S is PIO-based).
-- Individual key backlights through a separate LED driver or MCP23017 outputs with transistor switches and current limiting.
-- This is a different build variant: two firmware profiles or expander detection, and the five keys must keep working. Base needs no MCP23017. **Review:** probably unnecessary if the shared 44.1 kHz clock works (see section 3).
+Wiring of the DIP-28 MCP23017 as supplied by the user on 2026-11-24 ([original](sources/MCP23017_WIRING_2026-11-24.txt)), checked against the Microchip pinout; review changes are marked.
+
+### 7.1 MCP23017 pins (DIP-28, top view, pin 1 top left next to the notch)
+
+| Pin | Signal | Connect to |
+| ---: | --- | --- |
+| 1–7 | GPB0–GPB6 | Spare |
+| 8 | GPB7 | Spare, output only (see below) |
+| 9 | VDD | 3.3 V (Pico 3V3_OUT, pin 36) |
+| 10 | VSS | GND (for example Pico pin 38) |
+| 11 | NC | Not connected |
+| 12 | SCL | Pico GP1 (pin 2) |
+| 13 | SDA | Pico GP0 (pin 1) |
+| 14 | NC | Not connected |
+| 15 | A0 | GND |
+| 16 | A1 | GND |
+| 17 | A2 | GND → I2C address `0x20` |
+| 18 | RESET | 10 kΩ to 3.3 V |
+| 19 | INTB | Spare |
+| 20 | INTA | **Review:** Pico GP21 (pin 27), freed by the move; the original proposed GP5, which is now the alert output |
+| 21 | GPA0 | TTP223 1 OUT — ALARM |
+| 22 | GPA1 | TTP223 2 OUT — MODE |
+| 23 | GPA2 | TTP223 3 OUT — MINUS |
+| 24 | GPA3 | TTP223 4 OUT — SETTINGS/PLUS |
+| 25 | GPA4 | TTP223 5 OUT — TIMER_MODE |
+| 26–27 | GPA5–GPA6 | Spare |
+| 28 | GPA7 | Spare, output only |
+
+In recent Microchip datasheet revisions GPA7 and GPB7 are restricted when used as inputs; they are not used for keys. I2C addresses on the bus: MCP23017 `0x20`, DS3231 `0x68`, BME280 `0x76`/`0x77` — no conflict.
+
+### 7.2 Parts next to the MCP23017
+
+- C1: 100 nF between pins 9 and 10, as close to the package as possible.
+- R1: 10 kΩ from RESET (18) to 3.3 V.
+- R2, R3: 4.7 kΩ from SDA and SCL to 3.3 V **only if** the modules have no pull-ups. DS3231 and BME280 modules usually carry 4.7–10 kΩ; measure the parallel value (about 2–5 kΩ is fine at 400 kHz) before adding more.
+- **Review:** 100 kΩ pull-down resistors from GPA0–GPA4 to GND. The TTP223 outputs are active high; with the keys on a detachable connector (recommended below), an unplugged key would otherwise float and could read as touched. Do not enable the MCP23017's internal pull-ups on these inputs — they would make an unplugged key read as pressed.
+- A DIP-28 socket for the MCP23017, and GPA0–GPA4 plus 3.3 V and GND on one connector so the touch keys can be detached.
+
+### 7.3 TTP223 to MCP23017
+
+Each TTP223: `VCC → 3.3 V`, `GND → GND`, signal:
+
+```text
+TTP223 ALARM         OUT -> MCP23017 pin 21 (GPA0)
+TTP223 MODE          OUT -> MCP23017 pin 22 (GPA1)
+TTP223 MINUS         OUT -> MCP23017 pin 23 (GPA2)
+TTP223 SETTINGS/PLUS OUT -> MCP23017 pin 24 (GPA3)
+TTP223 TIMER MODE    OUT -> MCP23017 pin 25 (GPA4)
+```
+
+GPA0–GPA4 are inputs (active high). **Review (firmware):** configure all unused GPA/GPB pins as inputs with the internal pull-up enabled, or as outputs, so they do not float. Read the keys on INTA (interrupt on change) or by polling GPIOA every 10–20 ms; either is enough for touch keys, long-press timing stays in firmware.
+
+### 7.4 Freed Pico GPIOs in the Full variant
+
+| GPIO | Use in Full |
+| --- | --- |
+| GP21 | MCP23017 INTA |
+| GP22, GP26, GP27 | `MIC_BCLK`, `MIC_WS`, `MIC_SD` for an independent microphone clock, if needed (any three free GPIOs work, the I2S is PIO-based) |
+| GP28 | ADC2: battery voltage through a high-impedance divider (never the raw 4.2 V cell on the pin) |
+| GP4 | Spare (microphone data on the shared clock is no longer needed when the microphone has its own pins) |
+
+Individual key backlights, if ever wanted, through a LED driver or MCP23017 outputs (GPB) with transistor switches and current limiting — never LEDs directly from the expander beyond its current rating.
 
 ## 8. Acceptance before permanent soldering
 
