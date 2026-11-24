@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- G2 documentation (2026-11-24): WS2812 wiring through the 74AHCT125 as specified by the user (channel 1, 330 Ω series resistor, 100 nF decoupling), with handling of the unused channels.
 - G2 documentation (2026-11-24): GP6 drives the touch-key backlight with the G1 circuit, GP5 becomes an external alert output (vibration pad or lamp), OLED reset by RC; light-signal rules, effect library and signal dictionary for deaf and hard-of-hearing users with sources (Google Nest, alerting systems, ADA/NFPA, WCAG); phone notifications planned; risk table added to the hardware document.
 - G2 documentation (2026-11-23): the user's G2 document set structured into English documents under `doc/generations/g2/` (hardware and wiring, SD layout, speech events RU/DE with a cleaned CSV, UI concept, microphone plan), decisions of 2026-11-23 recorded (two encoders, DS3231 in Base, INMP441 wired without function, Base first), originals kept in `doc/generations/g2/sources/`, SD card skeleton in `sound/g2_sdcard/`; [G2 overview](doc/generations/G2.md) rewritten with a review of the documents and suggested stages.
 

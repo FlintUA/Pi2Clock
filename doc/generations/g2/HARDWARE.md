@@ -157,7 +157,42 @@ Each module: `VCC → 3.3 V`, `GND → GND`, `OUT → GPIO`. **Never connect OUT
 
 ### 4.6 Four WS2812 in a chain
 
-`GP2 → 74AHCT125 (VCC 5 V, GND, OE enabled) → 220–470 Ω → DIN(LED1) → DOUT(LED1) → DIN(LED2) → … → LED4`. All four LEDs on 5 V and GND; ≥ 100 µF electrolytic next to the first LED and 0.1 µF ceramics near the modules. Identify DIN/DOUT from the markings of the LEDs actually received. A 74AHCT input reads 3.3 V as HIGH at 5 V supply; **a 74HC without T is not equivalent**. Limit maximum brightness in software (night mode, current and heat budget). The four RGB indicators are not individual backlights for the five touch keys.
+Wiring as specified by the user on 2026-11-24 (one buffer channel of the 74AHCT125, DIP-14/SOIC-14):
+
+```text
+Raspberry Pi Pico 2 W
+GP2 (pin 4)
+      |
+      +--------> 74AHCT125 pin 2 (1A)
+
+74AHCT125
+pin 14 (VCC) ---- +5V
+pin 7  (GND) ---- GND
+pin 1  (/1OE) --- GND
+pin 2  (1A)  <--- Pico GP2
+pin 3  (1Y)  ----[330 Ω]---- DIN LED1
+
+WS2812 (4 in series)
+LED1 DOUT ---> LED2 DIN
+LED2 DOUT ---> LED3 DIN
+LED3 DOUT ---> LED4 DIN
+
+All LED VDD ---> +5V
+All LED GND ---> GND
+
+Capacitor 100 nF:
+74AHCT125 pin 14 ---||--- pin 7
+```
+
+| 74AHCT125 pin | Signal | Connect to |
+| ---: | --- | --- |
+| 1 | /1OE | GND (channel 1 always enabled) |
+| 2 | 1A | Pico GP2 (pin 4) |
+| 3 | 1Y | 330 Ω → DIN of LED1 |
+| 7 | GND | GND |
+| 14 | VCC | +5 V, 100 nF to pin 7 close to the chip |
+
+**Review:** the unused channels 2–4 should not float (CMOS inputs): tie their inputs 2A, 3A, 4A (pins 5, 9, 12) to GND and their enables /2OE, /3OE, /4OE (pins 4, 10, 13) to +5 V, so the spare outputs stay high-impedance. Keep the ≥ 100 µF electrolytic across +5 V/GND next to LED1 and 0.1 µF ceramics near the LEDs. Until the 74AHCT125 is available, LEDs can be tested temporarily by feeding their VDD through a diode from 5 V (about 4.3 V, so 3.3 V is a valid HIGH); not for the final board. Identify DIN/DOUT from the markings of the LEDs actually received. A 74AHCT input reads 3.3 V as HIGH at 5 V supply; **a 74HC without T is not equivalent**. Limit maximum brightness in software (night mode, current and heat budget). The four RGB indicators are not individual backlights for the five touch keys.
 
 ### 4.7 DS3231 and [OPTION] BME280 on I2C0
 
