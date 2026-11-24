@@ -331,6 +331,7 @@ In recent Microchip datasheet revisions GPA7 and GPB7 are restricted when used a
 
 - C1: 100 nF between pins 9 and 10, as close to the package as possible.
 - R1: 10 kΩ from RESET (18) to 3.3 V.
+- R4: 10 kΩ from GP21 (INTA line) to 3.3 V — external pull-up for the open-drain interrupt (the Pico's internal pull-up also works, the external one is more robust against noise).
 - R2, R3: 4.7 kΩ from SDA and SCL to 3.3 V **only if** the modules have no pull-ups. DS3231 and BME280 modules usually carry 4.7–10 kΩ; measure the parallel value (about 2–5 kΩ is fine at 400 kHz) before adding more.
 - **Review:** 100 kΩ pull-down resistors from GPA0–GPA4 to GND. The TTP223 outputs are active high; with the keys on a detachable connector (recommended below), an unplugged key would otherwise float and could read as touched. Do not enable the MCP23017's internal pull-ups on these inputs — they would make an unplugged key read as pressed.
 - A DIP-28 socket for the MCP23017, and GPA0–GPA4 plus 3.3 V and GND on one connector so the touch keys can be detached.
@@ -347,7 +348,14 @@ TTP223 SETTINGS/PLUS OUT -> MCP23017 pin 24 (GPA3)
 TTP223 TIMER MODE    OUT -> MCP23017 pin 25 (GPA4)
 ```
 
-GPA0–GPA4 are inputs (active high). **Review (firmware):** configure all unused GPA/GPB pins as inputs with the internal pull-up enabled, or as outputs, so they do not float. Read the keys on INTA (interrupt on change) or by polling GPIOA every 10–20 ms; either is enough for touch keys, long-press timing stays in firmware.
+GPA0–GPA4 are inputs (active high), without internal pull-ups; the 100 kΩ pull-downs sit **on the main board next to the MCP23017**, not on the detachable TTP223 boards, so they keep working when a sensor is unplugged. Configure all unused GPA/GPB pins as inputs with the internal pull-up enabled, or as outputs with a defined level.
+
+**Interrupt (agreed 2026-11-24):**
+
+- INTA (pin 20) → GP21 (pin 27), 10 kΩ pull-up to 3.3 V.
+- MCP23017: `IOCON.ODR = 1` (INT pins open-drain, active low; `INTPOL` is then ignored), interrupt-on-change enabled for GPA0–GPA4 (`GPINTENA`), compared with the previous value (`INTCONA = 0`) so both touch and release are reported. Set `IOCON.MIRROR = 1` later only if GPB inputs are added and should share INTA.
+- Pico: interrupt on the falling edge of GP21; the handler only sets a flag. The main loop then reads `INTFA`/`INTCAPA` (which keys changed, state at the interrupt) and `GPIOA` (current state); reading `INTCAPA` or `GPIOA` clears the interrupt and releases INTA. If INTA is still low after the read (another change in between), read again.
+- Long-press timing and debouncing stay in firmware. Polling `GPIOA` every 10–20 ms remains a valid fallback if the interrupt line is not fitted.
 
 ### 7.4 Freed Pico GPIOs in the Full variant
 
@@ -355,8 +363,33 @@ GPA0–GPA4 are inputs (active high). **Review (firmware):** configure all unuse
 | --- | --- |
 | GP21 | MCP23017 INTA |
 | GP22, GP26, GP27 | `MIC_BCLK`, `MIC_WS`, `MIC_SD` for an independent microphone clock, if needed (any three free GPIOs work, the I2S is PIO-based) |
-| GP28 | ADC2: battery voltage through a high-impedance divider (never the raw 4.2 V cell on the pin) |
+| GP28 | ADC2: battery voltage through a divider (see below) |
 | GP4 | Spare (microphone data on the shared clock is no longer needed when the microphone has its own pins) |
+
+**Battery measurement on GP28:** a divider such as 100 kΩ + 100 kΩ halves the 1S LiPo voltage (4.2 V → 2.1 V, inside the 0–3.3 V ADC range), with about 100 nF from GP28 to GND for a stable reading. The RP2350 GPIOs must not be driven above IOVDD or while the Pico is unpowered: connect the divider **after** the power switch / power path, so it carries no voltage when the clock is off and cannot back-feed the Pico through the pin, or switch the divider with a small P-MOSFET. Check the ADC input range in every power mode (USB, battery, transition).
+
+The GP5 alert output drives a MOSFET, never the motor directly, with a flyback diode across a brushed vibration motor ([section 4.10](#410-external-alert-output-on-gp5)).
+
+**Note:** a second review of this wiring (2026-11-24, [original](sources/MCP23017_REVIEW_2026-11-24.txt)) listed GP6 as "OLED RESET". That is outdated: since 2026-11-24 GP6 drives the touch-key backlight and the OLED reset is an RC network ([section 3](#3-pico-2-w-pin-assignment-base-plan)).
+
+### 7.5 Full-variant pin map
+
+| GPIO | Base | Full |
+| --- | --- | --- |
+| GP0, GP1 | I2C SDA, SCL (DS3231, BME280) | Same + MCP23017 |
+| GP2 | WS2812 via 74AHCT125 | Same |
+| GP3 | OLED D/C | Same |
+| GP4 | INMP441 SD (shared I2S clocks) | Spare, or INMP441 SD if the shared clocks are kept |
+| GP5 | Alert output (vibration pad, lamp) | Same |
+| GP6 | Touch-key backlight PWM | Same |
+| GP7 | OLED CS | Same |
+| GP8–GP11 | SPI1: SD and OLED | Same |
+| GP12–GP15 | Encoder rotation | Same |
+| GP16–GP18 | I2S to MAX98357A (+ INMP441 clocks) | Same |
+| GP19, GP20 | Encoder switches | Same |
+| GP21 | TTP223 ALARM | MCP23017 INTA |
+| GP22, GP26, GP27 | TTP223 MODE, MINUS, SETTINGS/PLUS | Reserved for an independent microphone I2S (not yet confirmed; depends on the PIO implementation) |
+| GP28 | TTP223 TIMER_MODE | ADC2 battery voltage |
 
 Individual key backlights, if ever wanted, through a LED driver or MCP23017 outputs (GPB) with transistor switches and current limiting — never LEDs directly from the expander beyond its current rating.
 

@@ -12,6 +12,7 @@ The user's G2 document set of 2026-11-23 (`Pi2Clock_G2.rar`, plus the microphone
 | [references/original_connections/](references/original_connections/) | G1 connections (DFPlayer, DS1302, LCD1602, buttons); draft netlist, not a schematic. Current G1 pins: [HARDWARE_PICO2W.md](../../../HARDWARE_PICO2W.md) |
 | [README_FIRST.md](README_FIRST.md) | Index of the original set |
 | [MCP23017_WIRING_2026-11-24.txt](MCP23017_WIRING_2026-11-24.txt) | MCP23017 wiring for the Full variant → [HARDWARE.md section 7](../HARDWARE.md#7-full-variant-mcp23017-for-the-touch-keys) |
+| [MCP23017_REVIEW_2026-11-24.txt](MCP23017_REVIEW_2026-11-24.txt) | Second review of the MCP23017 wiring (interrupt, battery divider) → [HARDWARE.md section 7](../HARDWARE.md#7-full-variant-mcp23017-for-the-touch-keys) |
 | [MICROPHONE_IDEAS_2026-11-23.txt](MICROPHONE_IDEAS_2026-11-23.txt) | Microphone ideas supplied separately on 2026-11-23 → [MICROPHONE.md](../MICROPHONE.md) |
 | `sd/Pi2Clock_G2_SD_STARTER` | [sound/g2_sdcard](../../../../sound/g2_sdcard/) with English READMEs |
 

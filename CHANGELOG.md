@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- G2 documentation (2026-11-24): MCP23017 interrupt (INTA open-drain active low on GP21 with 10 kΩ pull-up, register handling), pull-down placement on the main board, battery divider on GP28 after the power switch, Full-variant pin map; outdated "GP6 = OLED reset" in the second review noted.
 - G2 documentation (2026-11-24): MCP23017 wiring for the Full variant (touch keys on GPA0–GPA4, address 0x20) with review changes: INTA on the freed GP21 instead of GP5, 100 kΩ pull-downs for detachable keys, unused pins defined; freed GPIOs assigned (microphone clock, GP28 battery ADC).
 - G2 documentation (2026-11-24): WS2812 wiring through the 74AHCT125 as specified by the user (channel 1, 330 Ω series resistor, 100 nF decoupling), with handling of the unused channels.
 - G2 documentation (2026-11-24): GP6 drives the touch-key backlight with the G1 circuit, GP5 becomes an external alert output (vibration pad or lamp), OLED reset by RC; light-signal rules, effect library and signal dictionary for deaf and hard-of-hearing users with sources (Google Nest, alerting systems, ADA/NFPA, WCAG); phone notifications planned; risk table added to the hardware document.
