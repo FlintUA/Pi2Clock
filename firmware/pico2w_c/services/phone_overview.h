@@ -10,6 +10,7 @@ typedef enum {
 
 typedef struct {
     bool rtc_valid, sound_on, direct;
+    bool quiet_now; // Quiet hours in effect at the last RTC reading.
     char date[16];
     uint8_t weekday;
     uint8_t active_alarm, deferred_count;

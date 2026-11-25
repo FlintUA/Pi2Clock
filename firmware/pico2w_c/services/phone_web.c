@@ -479,7 +479,10 @@ int fs_open_custom(struct fs_file *file, const char *name) {
             if (strcmp(name, reply_path((phone_reply_t)i)) == 0) status = codes[i];
         if (!status) return 0;
     }
-    const size_t capacity = (network || wifi)?2048:(browsers || self)?1024:4096;
+    // Status worst case (2026-11-25): about 100 header + 1,280 main + 820 overview + 2,020 schedule
+    // bytes = about 4.2 KB with maximal values, so the snapshot gets 5 KiB (four clients: 20 KiB of
+    // the 48 KiB lwIP heap). Other replies keep their sizes.
+    const size_t capacity = (network || wifi)?2048:(browsers || self)?1024:snapshot?5120:4096;
     char *response = mem_malloc(capacity);
     if (!response) return 0;
     int len = snprintf(response, capacity, "HTTP/1.0 %s\r\nContent-Type: application/json\r\n"

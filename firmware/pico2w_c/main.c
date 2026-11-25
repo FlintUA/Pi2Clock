@@ -495,6 +495,11 @@ static bool auto_quiet_at(uint8_t hour) {
     return hour >= quiet_start || hour < quiet_end;
 }
 
+// Quiet hours in effect right now (last valid RTC reading); used for display only.
+static bool quiet_hours_now(void) {
+    return birthday_rtc_valid && auto_quiet_at(birthday_now.hour);
+}
+
 static auto_decision_t auto_evaluate(uint8_t hour, uint8_t minute,
                                       uint8_t second, bool require_enabled) {
     if (minute != 0u && minute != 30u) return AUTO_NONE;
@@ -2547,6 +2552,7 @@ static void phone_snapshot_overview(phone_overview_t *view,
     timer_finish_refresh();
     view->timer_sound_id = timer_finish_id;
     view->sound_on = sound_enabled;
+    view->quiet_now = quiet_hours_now();
     view->direct = phone_web_direct();
     view->network = network_time_home_status(now);
     view->ntp = network_time_reference_status(now);
@@ -6198,8 +6204,9 @@ int main(void) {
             snprintf(bottom, sizeof(bottom), "%s", rtc_bottom);
             // Only decorate the normal clock; preserve full RTC error guidance.
             if (strlen(rtc_top) == 8u && strlen(rtc_bottom) == 10u) {
-                snprintf(top, sizeof(top), "%-12.12s%4s", rtc_top,
-                         sound_enabled ? "" : "MUTE");
+                // MUTE (sound off) wins over QUIET (quiet hours: automatic announcements silent).
+                snprintf(top, sizeof(top), "%-11.11s%5s", rtc_top,
+                         !sound_enabled ? "MUTE" : quiet_hours_now() ? "QUIET" : "");
                 snprintf(bottom, sizeof(bottom), "%-13.13s%3s", rtc_bottom,
                          volume_for_bluetooth() ? "BT" : "SPK");
             }

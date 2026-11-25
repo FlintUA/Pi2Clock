@@ -7,11 +7,11 @@ Two firmware profiles exist: the **web profile** (`-PhoneWeb`, the installed clo
 ## Clock screen
 
 ```text
-12:34:56    MUTE
-15.11.2026    BT
+12:34:56    MUTE        12:34:56   QUIET
+15.11.2026    BT        15.11.2026   SPK
 ```
 
-`MUTE` (columns 13–16 of the first row) appears while global sound is OFF. The second row ends with `BT` or `SPK`: the output the volume encoder currently controls — the active audio owner's output, otherwise the Manual preference, with `SPK` when Bluetooth is unavailable. It is not a connection indicator. Quiet hours and volume 0 do not show `MUTE`. Menus, player, timer, alarm, snooze and temporary overlays use their own screens; RTC error guidance takes precedence.
+`MUTE` (columns 13–16 of the first row) appears while global sound is OFF. Otherwise `QUIET` (columns 12–16) appears while quiet hours are in effect: automatic announcements are silent, while alarms, timer, music and requested speech still play. The second row ends with `BT` or `SPK`: the output the volume encoder currently controls — the active audio owner's output, otherwise the Manual preference, with `SPK` when Bluetooth is unavailable. It is not a connection indicator. Volume 0 does not show `MUTE`. Menus, player, timer, alarm, snooze and temporary overlays use their own screens; RTC error guidance takes precedence.
 
 At start-up the LCD shows the device name and compact firmware version for about 1.6 seconds without blocking the clock; no start-up sound is played.
 

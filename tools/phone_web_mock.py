@@ -1,7 +1,7 @@
 """Local stand-in for the Pi2Clock G1 phone API, for page development and screenshots.
 
 Usage: python tools/phone_web_mock.py firmware/pico2w_c/services/phone_web/index.html [port]
-Then open http://127.0.0.1:8765/ in a browser. GET /mock/<ring|timer|music|direct|offline|untrusted>
+Then open http://127.0.0.1:8765/ in a browser. GET /mock/<ring|timer|music|direct|offline|untrusted|quiet>
 switches demo states. The responses follow the JSON field names of phone_web.c, but the command
 handling is a simplified model: it is not evidence of firmware behavior."""
 import json, sys, time, threading
@@ -35,7 +35,7 @@ S = {
         {"enabled": False, "hour": 12, "minute": 0, "days": 21, "sound": 0, "track": 1, "revision": 1},
         {"enabled": False, "hour": 0, "minute": 0, "days": 127, "sound": 0, "track": 1, "revision": 1}],
     "birthdays": [{"enabled": False, "month": 1, "day": 1, "hour": 9, "minute": 0, "birth_year": 0, "revision": 1} for _ in range(15)],
-    "overview": {"rtc_valid": True, "sound_on": True, "timer_sound_id": 0,
+    "overview": {"rtc_valid": True, "sound_on": True, "quiet_now": False, "timer_sound_id": 0,
                  "alarm": {"active": 0, "active_id": 0, "snooze_revision": 1, "deferred": 0, "next_slot": 1, "next_at": "", "next_snoozed": False,
                            "snoozes": 0, "snooze_slot": 0, "snooze_seconds": 0, "snooze_waiting": False},
                  "bluetooth": {"state": "connected", "name": "PRO X 2"},
@@ -145,6 +145,7 @@ class H(BaseHTTPRequestHandler):
                 if scenario == "direct": o["network"]["mode"] = "direct"; NET.update(mode="direct", address="192.168.4.1"); WIFI.update(direct=True)
                 if scenario == "offline": OFFLINE[0] = time.time() + 30
                 if scenario == "untrusted": S["home_trusted"] = False
+                if scenario == "quiet": o["quiet_now"] = True
             return self.send(200, "ok", "text/plain")
         if time.time() < OFFLINE[0] and path.endswith(".json"):
             return self.send(503, "{}")

@@ -47,6 +47,10 @@ int main(void) {
     memcpy(s.bt_name,"A\"\\\n",5);
     int length=phone_overview_json(buffer,sizeof(buffer),&s);
     assert(length>0 && strstr(buffer,"A\\\"\\\\\\u000a"));
+    assert(strstr(buffer,"\"quiet_now\":false"));
+    s.quiet_now=true;
+    assert(phone_overview_json(buffer,sizeof(buffer),&s)>0 && strstr(buffer,"\"quiet_now\":true"));
+    s.quiet_now=false;
     memcpy(s.bt_name,"\xd0\x9a\xd0\xbe\xd0\xbb\xd0\xbe\xd0\xbd\xd0\xba\xd0\xb0",15);
     assert(phone_overview_json(buffer,sizeof(buffer),&s)>0 && strstr(buffer,s.bt_name));
     memset(s.bt_name,0xff,1); s.bt_name[1]=0;
