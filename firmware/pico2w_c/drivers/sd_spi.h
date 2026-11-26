@@ -21,4 +21,8 @@ bool sd_spi_probe_fat(void);
 // Reuses an already ready card; failed attempts are rate-limited (30 s).
 // Safe only from the cooperative main loop, never an A2DP callback.
 bool sd_spi_ensure_fat32(void);
+// FAT32 on the SPI card is initialized and usable now (no I/O).
+bool sd_spi_card_ready(void);
+// Lift the 30 s retry pause once, for an explicit user request (PLAY).
+void sd_spi_allow_retry(void);
 

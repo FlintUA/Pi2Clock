@@ -397,6 +397,8 @@ static uint8_t alarm_track_count = 45u;
 static music_playlist_t music_playlist;
 static bool music_ui_pending;
 static bool music_ui_file_error;
+// The SPI card for Bluetooth music did not initialize: stop instead of skipping tracks.
+static bool music_ui_sd_error;
 // Music and the countdown run together (OTA 32). The timer's last seconds and finish
 // pause the music; it stays paused (user decision 2026-11-26) until PLAY.
 static bool music_ui_timer_hold;
@@ -1926,6 +1928,8 @@ static bool music_play_track(uint8_t track) {
 
 static void music_ui_start(void) {
     if (!music_ui_open || !sound_enabled || alarm_active_index>=0) return;
+    // An explicit start after a card failure retries the card at once (blocks up to ~1.5 s).
+    if (music_ui_sd_error) { music_ui_sd_error=false; sd_spi_allow_retry(); }
     // A track change may still have a queued UART pause. Start on the next
     // safe service tick instead of discarding the user's request.
     music_ui_pending=true;
@@ -2074,7 +2078,12 @@ static void music_ui_service(void) {
         music_ui_pending=false;
         if(!music_play_track(music_ui_track) && music_ui_bluetooth) {
             music_ui_playing=false;music_ui_bt_started=false;
-            if(music_retry_failed(&music_ui_retry,music_track_count,
+            if(!sd_spi_card_ready()) {
+                // No card: every track would fail. Stop; PLAY retries the card.
+                music_ui_sd_error=true;music_ui_paused=true;
+                music_retry_reset(&music_ui_retry);
+                puts("[MUSIC-UI] SPI card for Bluetooth unavailable; stopped (PLAY retries the card; run sd-test)");
+            } else if(music_retry_failed(&music_ui_retry,music_track_count,
                 music_ui_audition || music_playlist.mode==MUSIC_REPEAT_ONE,to_ms_since_boot(get_absolute_time()))) {
                 printf("[MUSIC-UI] skipping undecodable BT track=%u attempt=%u/%u\n",
                     (unsigned)music_ui_track,music_ui_retry.failures,(unsigned)music_track_count);
@@ -6027,7 +6036,7 @@ int main(void) {
                 .timer_running = timer.running,
                 .bluetooth = volume_for_bluetooth(),
                 .player = !music_ui_open ? "Closed" : !sound_enabled ? "Muted" :
-                          music_ui_file_error ? "File error" : music_ui_pending ? "Waiting" : music_ui_paused ? "Paused" :
+                          music_ui_sd_error ? "Card error" : music_ui_file_error ? "File error" : music_ui_pending ? "Waiting" : music_ui_paused ? "Paused" :
                           music_ui_playing ? "Playing" : "Stopped",
             };
             phone_snapshot_overview(&snapshot.overview, rtc_available ? &phone_rtc : NULL, now);
@@ -6077,11 +6086,11 @@ int main(void) {
                 music_playlist_mode_name(music_playlist.mode),music_ui_bluetooth?"BT":"LOCAL");
             snprintf(bottom,sizeof(bottom),"%03u/%03u %s OFF",
                 (unsigned)music_ui_track,(unsigned)music_track_count,
-                !sound_enabled?"MUTE":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP");
+                !sound_enabled?"MUTE":music_ui_sd_error?"SDER":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP");
             if (music_sleep.deadline_ms) {
                 snprintf(bottom,sizeof(bottom),"%03u/%03u %s %02um",
                     (unsigned)music_ui_track,(unsigned)music_track_count,
-                    !sound_enabled?"MUTE":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP",
+                    !sound_enabled?"MUTE":music_ui_sd_error?"SDER":music_ui_file_error?"ERR":music_ui_pending?"WAIT":music_ui_paused?"PAUS":music_ui_playing?"PLAY":"STOP",
                     music_sleep_minutes(&music_sleep,now));
             }
         } else if(menu_state==MENU_BIRTHDAY_LIST) {

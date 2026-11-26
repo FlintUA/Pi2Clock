@@ -2735,7 +2735,9 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     ["No German recording for an hour or more; the clock shows the time left.","Для часа и больше нет немецкой записи; оставшееся время видно на часах.","Für eine Stunde oder mehr gibt es keine deutsche Aufnahme; die Uhr zeigt die Restzeit."],
     ["Music pauses for the announcement and continues from the same place.","Музыка встанет на паузу на время объявления и продолжится с того же места.","Die Musik pausiert für die Ansage und läuft an derselben Stelle weiter."],
     ["Music stops for the announcement; the track then restarts from the beginning.","Музыка остановится на время объявления, затем трек начнётся сначала.","Die Musik stoppt für die Ansage; danach beginnt der Titel von vorn."],
-    ["Timer running · music player open","Таймер идёт · плеер открыт","Timer läuft · Player geöffnet"]];
+    ["Timer running · music player open","Таймер идёт · плеер открыт","Timer läuft · Player geöffnet"],
+    ["Bluetooth card unreadable","Карта для Bluetooth не читается","Bluetooth-Karte nicht lesbar"],
+    ["Card error","Ошибка карты","Kartenfehler"]];
   // Presentation layer. The script above owns transport, guards, drafts and commands;
   // this layer only arranges views, mirrors state into compact displays and forwards
   // clicks to the existing controls. It never sends a request on its own.
@@ -2936,7 +2938,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
   function renderPlayer() {
     show("block-music",authorizedLayout);
     if(!live)return;
-    const test=live.player_test, states={Closed:"Not playing",Playing:"Playing",Paused:"Paused",Muted:"Sound is off",Waiting:"Starting…",Stopped:"Stopped","File error":"File error"};
+    const test=live.player_test, states={Closed:"Not playing",Playing:"Playing",Paused:"Paused",Muted:"Sound is off",Waiting:"Starting…",Stopped:"Stopped","File error":"File error","Card error":"Bluetooth card unreadable"};
     setText("p-state",test?T("Testing an alarm track"):live.player_interrupted?T("Paused for an announcement"):T(states[live.player] || live.player));
     setText("p-track",(live.track?pad3(live.track):"—")+" / "+(live.track_count?pad3(live.track_count):"—"));
     const speaker=btConnected();

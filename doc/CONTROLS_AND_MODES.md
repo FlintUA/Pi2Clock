@@ -137,6 +137,8 @@ ALARM hold opens the player; playback starts automatically when sound is on. Mus
 
 NORM plays in number order and wraps; SHUF plays every track once per cycle and keeps the last seven out of the start of the next cycle; REP1 repeats the current track. The LCD shows mode and output (`MUSIC SHUF BT`), track/count, `PLAY/PAUS/STOP/WAIT/MUTE` and the sleep field (`OFF` or remaining minutes). Muting stops music; unmuting does not restart it.
 
+If the SPI card for Bluetooth does not initialize (`[SD] ACMD41 … timeout`, `[SD-AUTO] FAILED`), the player stops with `SDER` on the LCD and "Bluetooth card unreadable" on the page instead of skipping through every track (OTA 32). PLAY or next/previous retries the card at once (the clock pauses up to about 1.5 s); otherwise the card is retried at most every 30 s. A warm restart (OTA install) can leave the card unresponsive: switch the clock off for 10–20 s and run `sd-test`.
+
 Pause keeps the position on both outputs. If Bluetooth is lost, music restarts the current track on LOCAL (positions cannot move between the two cards); if Bluetooth is lost while paused, the next TIMER press restarts the track on LOCAL. Sleep counts wall time including pauses; expiry stops playback silently and returns to the clock. Player mode, history, pause and sleep are RAM-only.
 
 ## Audio outputs and volume

@@ -35,6 +35,9 @@ bool sd_spi_ensure_fat32(void) {
 }
 
 
+bool sd_spi_card_ready(void) { return sd_info.ready && sd_info.fat_type == 32u; }
+void sd_spi_allow_retry(void) { sd_auto_attempted = false; }
+
 static uint8_t xfer(uint8_t b){
     uint8_t rx = 0xff;
     spi_write_read_blocking(SD_SPI, &b, &rx, 1);

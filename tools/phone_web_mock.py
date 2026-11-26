@@ -1,7 +1,7 @@
 """Local stand-in for the Pi2Clock G1 phone API, for page development and screenshots.
 
 Usage: python tools/phone_web_mock.py firmware/pico2w_c/services/phone_web/index.html [port]
-Then open http://127.0.0.1:8765/ in a browser. GET /mock/<ring|timer|music|direct|offline|untrusted|quiet>
+Then open http://127.0.0.1:8765/ in a browser. GET /mock/<ring|timer|music|direct|offline|untrusted|quiet|sderr>
 switches demo states. The responses follow the JSON field names of phone_web.c, but the command
 handling is a simplified model: it is not evidence of firmware behavior."""
 import json, sys, time, threading
@@ -147,6 +147,7 @@ class H(BaseHTTPRequestHandler):
                 if scenario == "offline": OFFLINE[0] = time.time() + 30
                 if scenario == "untrusted": S["home_trusted"] = False
                 if scenario == "quiet": o["quiet_now"] = True
+                if scenario == "sderr": S["player"] = "Card error"; S["output"] = "BT"
             return self.send(200, "ok", "text/plain")
         if time.time() < OFFLINE[0] and path.endswith(".json"):
             return self.send(503, "{}")
