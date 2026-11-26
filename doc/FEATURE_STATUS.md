@@ -20,13 +20,13 @@ The clock runs the web profile with A/B OTA; OTA 17–28 were installed by the u
 | Spoken date and next alarm (MINUS) | Accepted (build 02b4a51) | Language/output combinations |
 | Date/time setting from the browser | In use (since `1.0.0+33`) | Functional acceptance not recorded |
 | Hourly speech interrupting Bluetooth music and resuming it | Accepted (sequence 12–14) | Alarm interruption with resume; bad-file policy |
-| Manual speech (time, date, next alarm) during music and a running timer; time left on the timer | OTA 31 installed 2026-11-26: German "Minuten" played the double beep (fixed for OTA 32); Bluetooth silence under investigation | BT music resumes in place; LOCAL track restarts; RU/DE time-left wording; timer finish during a phrase |
+| Manual speech (time, date, next alarm) during music and a running timer; time left on the timer | Accepted, general (OTA 33, 2026-11-26) | RU/DE time-left wording in detail; timer finish during a phrase | BT music resumes in place; LOCAL track restarts; RU/DE time-left wording; timer finish during a phrase |
 
 ## Timer, alarms, birthdays
 
 | Feature | Status | Open checks |
 | --- | --- | --- |
-| Timer together with music (GP28 hold in the player, music stays paused after completion) | Candidate, OTA 32 | All points of the OTA 32 check |
+| Timer together with music (GP28 hold in the player, music stays paused after completion) | Accepted, general (OTA 33, 2026-11-26) | Long run with both outputs; SDER display on a real card failure |
 | Countdown 1 s – 23:59:59, quick encoder, precise editor, browser presets and wheels | Accepted, general (2026-11-13; layout v2 2026-11-21) | A full-length 23:59:59 run |
 | Timer completion: message, signal/music/none, Stop timer sound | Stop timer sound accepted; choices in use (since `1.0.0+27`) | Each combination per output; German completion message missing (recording) |
 | Random timer and alarm music | Accepted, general (`1.0.0+28`) | Per-slot and per-output cases |
