@@ -22,7 +22,7 @@ S = {
     "ota_control": True, "clock_control": True, "bt_control": True, "network_control": True, "browser_control": True, "wifi_control": True,
     "timer_running": False, "timer_seconds": 300, "player": "Closed", "track": 12, "output": "BT",
     "epoch": EPOCH, "home_trusted": True, "track_count": 45, "player_mode": "SHUF", "player_test": False,
-    "player_interrupted": False, "player_sleep_preset": 0, "player_sleep_seconds": 0,
+    "player_interrupted": False, "speech_ready": True, "player_sleep_preset": 0, "player_sleep_seconds": 0,
     "command_id": 0, "command_nonce": 0, "command_result": "none",
     "settings": {"snapshot_id": 0, "volume_local": 8, "volume_bt": 8, "language": 0, "audio_manual": 1, "audio_hourly": 0, "audio_timer": 1, "audio_alarm": 0,
                  "light_mode": 2, "light_day": 80, "light_night": 15, "timer_sound": 0, "timer_track": 7, "timer_voice": 1, "timer_random": 0, "timer_warning": 0,
@@ -107,6 +107,7 @@ def command(target, action, value):
         elif action == "alarm_snooze":
             o["alarm"].update(snoozes=1, snooze_slot=o["alarm"]["active"], active=0); snooze_end[0] = time.time() + 180
         elif action == "snooze_cancel": o["alarm"].update(snoozes=0, snooze_slot=0); o["alarm"]["snooze_revision"] += 1
+        elif action == "say_timer" and not S["timer_running"]: return "no_timer"
     elif target == "settings":
         s[action] = int(value); s["saving"] = "pending"
     elif target in ("alarm", "birthday"):

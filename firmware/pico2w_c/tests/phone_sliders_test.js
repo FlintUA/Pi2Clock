@@ -49,7 +49,7 @@ const birthday = {enabled: true, month: 12, day: 10, hour: 7, minute: 0, birth_y
 const state = {
   firmware: {name: "Pi2Clock G1", board: "pico2_w", version: "1.2.3+4.gabcdef0", build: "g1-abcdef012345-bt-mp3-wifi-phone", author: "FlintUA", ota_sequence: 11},
   epoch: 123, command_id: 0, command_nonce: 0, command_result: "none", home_trusted: true,
-  timer_running: false, timer_seconds: 60, player: "Closed", output: "LOCAL", settings: preferences,
+  timer_running: false, timer_seconds: 60, player: "Closed", output: "LOCAL", settings: preferences, speech_ready: true,
   clock_control:true,
   alarms: Array(5).fill(alarm), birthdays: Array(15).fill(birthday)
 };
@@ -72,8 +72,8 @@ const posts = [], writes = [];
 const controlCalls = [];
 let nextControlResult = null, nextSettingsResult = null, nextClockResult=null;
 let lastBody = "", dropResponses = 0, rejectOnce = false, failStatusReads = 0;
-const quickButtons = ["sound", "say_time", "say_date", "next_alarm"].map((action,index) => {
-  const button=getElementById(["sound-toggle","say-time","say-date","say-next-alarm"][index]);
+const quickButtons = ["sound", "say_time", "say_date", "next_alarm", "say_timer"].map((action,index) => {
+  const button=getElementById(["sound-toggle","say-time","say-date","say-next-alarm","say-timer"][index]);
   button.dataset.control=action;
   return button;
 });
@@ -435,14 +435,41 @@ async function settled() {
   await update();
   assert.equal(quickButtons[0].disabled,false);
   assert.equal(quickButtons[1].disabled,true);
-  preferences.editing=false; state.timer_running=true;
+  // OTA 31: speech is available during a running timer and while music plays.
+  preferences.editing=false; state.timer_running=true; preferences.idle=false;
+  assert.equal(quickButtons[4].disabled,true); // Before the update: no timer running.
   await update();
   assert.equal(quickButtons[0].disabled,false);
-  assert.equal(quickButtons[1].disabled,true);
+  assert.equal(quickButtons[1].disabled,false);
+  assert.equal(quickButtons[4].disabled,false);
+  await clickControl(4);
+  assert.equal(controlCalls.at(-1),"say_timer");
+  preferences.language=1; state.timer_seconds=3600;
+  await update();
+  assert.equal(quickButtons[4].disabled,true); // No German recording for an hour or more.
+  assert.equal(quickButtons[1].disabled,false);
+  state.timer_seconds=3599;
+  await update();
+  assert.equal(quickButtons[4].disabled,false);
+  preferences.language=0; state.timer_seconds=60;
   state.timer_running=false; state.player="Playing";
   await update();
   assert.equal(quickButtons[0].disabled,false);
+  assert.equal(quickButtons[1].disabled,false);
+  assert.equal(quickButtons[4].disabled,true);
+  assert.equal(getElementById("control-hint").textContent,"Music stops for the announcement; the track then restarts from the beginning.");
+  state.output="BT";
+  await update();
+  assert.equal(getElementById("control-hint").textContent,"Music pauses for the announcement and continues from the same place.");
+  state.output="LOCAL"; state.player_test=true;
+  await update();
   assert.equal(quickButtons[1].disabled,true);
+  assert.equal(quickButtons[1].title,"Wait for the track test to finish or stop it.");
+  state.player_test=false; state.speech_ready=false;
+  await update();
+  assert.equal(quickButtons[1].disabled,true);
+  assert.equal(quickButtons[1].title,"Wait for the current audio to finish.");
+  state.speech_ready=true; preferences.idle=true;
   state.player="Closed"; state.overview.alarm.next_slot=0;
   await update();
   assert.equal(quickButtons[1].disabled,false);

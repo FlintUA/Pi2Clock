@@ -64,10 +64,34 @@ void speech_enqueue_timer_start(audio_queue_t *queue, speech_language_t language
             audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)minutes);
         }
     } else if (hours == 0u && minutes > 0u) {
-        // German timer duration: <number> + 'Minuten' (17/017).
+        // German timer duration: <number> + 'Minuten' (17/015, see sound/_sdcard/FOLDER_LAYOUT.txt).
         audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)minutes);
-        audio_queue_enqueue(queue, speech_phrases_folder(language), 17u);
+        audio_queue_enqueue(queue, speech_phrases_folder(language), SPEECH_DE_MINUTEN_TRACK);
     }
+}
+
+bool speech_enqueue_timer_remaining(audio_queue_t *queue, speech_language_t language,
+                                    uint32_t remaining_seconds) {
+    if (!queue || !remaining_seconds) return false;
+    // Nearest whole minute, never zero; there are no second or "remaining" recordings.
+    uint32_t total = (remaining_seconds + 30u) / 60u;
+    if (!total) total = 1u;
+    if (total > 23u * 60u + 59u) total = 23u * 60u + 59u;
+    if (language == SPEECH_DE) {
+        // Folder 11 holds clock hours ("N Uhr"), not durations: below one hour only.
+        if (remaining_seconds < 3600u && total > 59u) total = 59u;
+        if (total > 59u || queue->size + 2u > AUDIO_QUEUE_CAPACITY) return false;
+        audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)total);
+        audio_queue_enqueue(queue, speech_phrases_folder(language), SPEECH_DE_MINUTEN_TRACK);
+        return true;
+    }
+    uint32_t hours = total / 60u, minutes = total % 60u;
+    unsigned needed = (hours ? 1u : 0u) + (minutes ? 1u : 0u);
+    if (queue->size + needed > AUDIO_QUEUE_CAPACITY) return false;
+    // RU folder 01 = "N часов", folder 02 = "N минут" with grammatical forms.
+    if (hours) audio_queue_enqueue(queue, speech_hours_folder(language), (uint8_t)hours);
+    if (minutes) audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)minutes);
+    return true;
 }
 
 void speech_enqueue_timer_cancel(audio_queue_t *queue, speech_language_t language) {

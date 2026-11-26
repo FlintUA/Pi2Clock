@@ -453,7 +453,7 @@ int main(void) {
     assert(phone_access_control(&control,"- 50 1 10 sound 0",PHONE_SCOPE_DIRECT,true)==PHONE_DENIED);
     assert(phone_access_control(&control,"- 50 1 10 sound 0",PHONE_SCOPE_HOME,false)==PHONE_DENIED);
     const char *const invalid_controls[]={"sound 2","sound -1","say_time 1","say_date 0 extra",
-        "next_alarm 1","play 0","light_day 10","sound"};
+        "next_alarm 1","say_timer 1","say_timer","play 0","light_day 10","sound"};
     for(unsigned i=0;i<sizeof(invalid_controls)/sizeof(invalid_controls[0]);++i){
         char command[96];
         snprintf(command,sizeof(command),"- 50 1 10 %s",invalid_controls[i]);
@@ -485,6 +485,10 @@ int main(void) {
     assert(phone_access_control(&control,control_body,PHONE_SCOPE_HOME,false)==PHONE_DENIED);
     assert(phone_access_control(&control,control_body,PHONE_SCOPE_DIRECT,false)==PHONE_OK);
     assert(control.last.value==1);
+    control.result=PHONE_COMMAND_APPLIED;
+    snprintf(control_body,sizeof(control_body),"%s 50 6 15 say_timer 0",control_token);
+    assert(phone_access_control(&control,control_body,PHONE_SCOPE_DIRECT,false)==PHONE_OK);
+    assert(control.last.action==PHONE_SAY_TIMER && control.last.value==0);
     phone_access_t finish={0}; phone_access_reset(&finish,88); finish.settings.home_trusted=1;
     assert(phone_access_timer(&finish,"- 88 1 9 stop_sound 0",PHONE_SCOPE_HOME,true)==PHONE_INVALID);
     assert(phone_access_timer(&finish,"- 88 1 9 stop_sound 4294967296",PHONE_SCOPE_HOME,true)==PHONE_INVALID);

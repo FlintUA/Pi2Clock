@@ -30,6 +30,7 @@ typedef struct {
     bool timer_running;
     bool player_test;
     bool player_interrupted;
+    bool speech_ready; // Manual speech could start now (music yields to it).
     bool bluetooth;
     const char *player; // Static, firmware-defined state label.
     const char *player_mode;

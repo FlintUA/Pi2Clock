@@ -22,6 +22,13 @@ bool speech_enqueue_date(audio_queue_t *queue, speech_language_t language,
                          const ds1302_datetime_t *date);
 void speech_enqueue_timer_start(audio_queue_t *queue, speech_language_t language,
                                 uint32_t duration_seconds);
+// German "Minuten" (folder 17).
+#define SPEECH_DE_MINUTEN_TRACK 15u
+// Time left on a running timer: nearest whole minute (at least one).
+// RU: hours (01) + minutes (02). DE: number (12) + "Minuten", below one hour only
+// (returns false without changing the queue when no recording fits).
+bool speech_enqueue_timer_remaining(audio_queue_t *queue, speech_language_t language,
+                                    uint32_t remaining_seconds);
 void speech_enqueue_timer_cancel(audio_queue_t *queue, speech_language_t language);
 void speech_enqueue_timer_finish(audio_queue_t *queue, speech_language_t language);
 

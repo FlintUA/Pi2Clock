@@ -649,6 +649,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       <button type="button" id="say-time" data-control="say_time"><svg class="i s"><use href="#i-say"/></svg><span data-t>Current time</span></button>
       <button type="button" id="say-date" data-control="say_date"><svg class="i s"><use href="#i-say"/></svg><span data-t>Today's date</span></button>
       <button type="button" id="say-next-alarm" data-control="next_alarm"><svg class="i s"><use href="#i-bell"/></svg><span data-t>Next alarm</span></button>
+      <button type="button" id="say-timer" data-control="say_timer"><svg class="i s"><use href="#i-say"/></svg><span data-t>Time left on timer</span></button>
       <p id="control-hint" class="hint"></p>
     </form>
   </div>
@@ -760,7 +761,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     muted: T("Sound is off: speech and scheduled alarm sounds are suppressed."),
     rtc_unavailable: T("Clock time/date is unavailable."), no_alarm: T("No upcoming alarm to announce."),
     editing: T("Close settings or the alarm editor on the clock."), timer_busy: T("Wait for the timer or cancel it first."),
-    alarm_busy: T("A ringing alarm has priority."), player_busy: T("Stop and close the music player first."),
+    alarm_busy: T("A ringing alarm has priority."), player_busy: T("Wait for the track test to finish or stop it."),
+    no_timer: T("No timer is running."), no_recording: T("No German recording for an hour or more; the clock shows the time left."),
     audio_busy: T("Wait for the current audio to finish."), unavailable: T("Current device status is unavailable."),
     network_unavailable: T("NTP needs a configured, connected home Wi-Fi network."),
     rtc_write_failed: T("RTC write/readback failed. The clock setting was not confirmed."),
@@ -775,10 +777,14 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     if (action === "sound") return null;
     if (!overview.sound_on) return "muted";
     if (live.settings?.editing) return "editing";
-    if (live.timer_running) return "timer_busy";
-    if (live.player !== "Closed") return "player_busy";
-    if (!live.settings?.idle) return "audio_busy";
-    if (!overview.rtc_valid) return "rtc_unavailable";
+    // Speech runs during music (it pauses or restarts the track) and during a running timer.
+    if (action === "say_timer") {
+      if (!live.timer_running) return "no_timer";
+      if (live.settings?.language === 1 && live.timer_seconds >= 3600) return "no_recording";
+    }
+    if (live.player_test) return "player_busy";
+    if (!live.speech_ready) return "audio_busy";
+    if (action !== "say_timer" && !overview.rtc_valid) return "rtc_unavailable";
     if (action === "next_alarm" && !overview.alarm?.next_slot) return "no_alarm";
     return null;
   }
@@ -1106,6 +1112,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     const reason = controlReason("say_time");
     controlHint.textContent = busy || pending ? T("Waiting for the clock...") : reason ? controlMessages[reason] :
       controlReason("next_alarm") === "no_alarm" ? T("Time/date speech is ready. No upcoming alarm to announce.") :
+      live?.player && live.player !== "Closed" ? (live.output === "BT" ? T("Music pauses for the announcement and continues from the same place.") :
+        T("Music stops for the announcement; the track then restarts from the beginning.")) :
       T("Announcements use the Manual speech / music output.");
     const alarm = live?.overview?.alarm;
     const alarmActionsAvailable = Number.isInteger(alarm?.active_id) && Number.isInteger(alarm?.snooze_revision);
@@ -1630,7 +1638,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
   quickControls.addEventListener("submit", event => event.preventDefault());
   quickControls.addEventListener("click", async event => {
     const action = event.target.dataset.control;
-    if (!["sound", "say_time", "say_date", "next_alarm"].includes(action)) return;
+    if (!["sound", "say_time", "say_date", "next_alarm", "say_timer"].includes(action)) return;
     const reason = controlReason(action);
     if (reason) { feedback.textContent = controlMessages[reason]; return; }
     await sendCommand("control", action, action === "sound" && !live.overview.sound_on ? 1 : 0);
@@ -2718,7 +2726,13 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     ["The speaker {name} will be disconnected for the update.","Колонка {name} будет отключена на время обновления.","Der Lautsprecher {name} wird für das Update getrennt."],
     ["The speaker {name} will be disconnected for the update and connected again afterwards.","Колонка {name} будет отключена на время обновления и подключится снова после него.","Der Lautsprecher {name} wird für das Update getrennt und danach wieder verbunden."],
     ["Disconnecting the speaker and saving settings; the upload starts automatically…","Отключаю колонку и сохраняю настройки; загрузка начнётся автоматически…","Lautsprecher wird getrennt und gespeichert; das Hochladen startet automatisch…"],
-    ["Disconnect the speaker and upload","Отключить колонку и загрузить","Lautsprecher trennen und hochladen"]];
+    ["Disconnect the speaker and upload","Отключить колонку и загрузить","Lautsprecher trennen und hochladen"],
+    ["Time left on timer","Сколько осталось на таймере","Restzeit des Timers"],
+    ["Wait for the track test to finish or stop it.","Дождитесь окончания проверки трека или остановите её.","Warten Sie, bis der Titeltest endet, oder stoppen Sie ihn."],
+    ["No timer is running.","Таймер не запущен.","Kein Timer läuft."],
+    ["No German recording for an hour or more; the clock shows the time left.","Для часа и больше нет немецкой записи; оставшееся время видно на часах.","Für eine Stunde oder mehr gibt es keine deutsche Aufnahme; die Uhr zeigt die Restzeit."],
+    ["Music pauses for the announcement and continues from the same place.","Музыка встанет на паузу на время объявления и продолжится с того же места.","Die Musik pausiert für die Ansage und läuft an derselben Stelle weiter."],
+    ["Music stops for the announcement; the track then restarts from the beginning.","Музыка остановится на время объявления, затем трек начнётся сначала.","Die Musik stoppt für die Ansage; danach beginnt der Titel von vorn."]];
   // Presentation layer. The script above owns transport, guards, drafts and commands;
   // this layer only arranges views, mirrors state into compact displays and forwards
   // clicks to the existing controls. It never sends a request on its own.

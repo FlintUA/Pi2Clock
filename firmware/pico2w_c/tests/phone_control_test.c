@@ -2,22 +2,28 @@
 #include "phone_control.h"
 
 int main(void) {
-    phone_control_state_t state={.sound_on=true};
-    for (phone_action_t action=PHONE_SOUND_SET; action<=PHONE_SAY_NEXT_ALARM; ++action)
+    phone_control_state_t state={.sound_on=true,.timer_running=true};
+    for (phone_action_t action=PHONE_SOUND_SET; action<=PHONE_SAY_TIMER; ++action)
         assert(phone_control_guard(action,&state)==PHONE_COMMAND_APPLIED);
     assert(phone_control_guard(PHONE_PLAYER_STOP,&state)==PHONE_COMMAND_BLOCKED);
     assert(phone_control_guard(PHONE_SOUND_SET,NULL)==PHONE_COMMAND_BLOCKED);
-    state=(phone_control_state_t){.editing=true,.timer_running=true,.player_open=true,.audio_busy=true};
+    // Speech is admitted during a running timer; timer-left needs one.
+    state.timer_running=false;
+    assert(phone_control_guard(PHONE_SAY_TIME,&state)==PHONE_COMMAND_APPLIED);
+    assert(phone_control_guard(PHONE_SAY_TIMER,&state)==PHONE_COMMAND_NO_TIMER);
+    state=(phone_control_state_t){.editing=true,.player_locked=true,.audio_busy=true};
     assert(phone_control_guard(PHONE_SOUND_SET,&state)==PHONE_COMMAND_APPLIED);
     assert(phone_control_guard(PHONE_SAY_DATE,&state)==PHONE_COMMAND_MUTED);
     state.sound_on=true;
     assert(phone_control_guard(PHONE_SAY_DATE,&state)==PHONE_COMMAND_EDITING);
     state.editing=false;
-    assert(phone_control_guard(PHONE_SAY_TIME,&state)==PHONE_COMMAND_TIMER_BUSY);
-    state.timer_running=false;
+    assert(phone_control_guard(PHONE_SAY_TIMER,&state)==PHONE_COMMAND_NO_TIMER);
+    state.timer_running=true;
     assert(phone_control_guard(PHONE_SAY_NEXT_ALARM,&state)==PHONE_COMMAND_PLAYER_BUSY);
-    state.player_open=false;
+    state.player_locked=false;
     assert(phone_control_guard(PHONE_SAY_DATE,&state)==PHONE_COMMAND_AUDIO_BUSY);
+    state.audio_busy=false;
+    assert(phone_control_guard(PHONE_SAY_TIMER,&state)==PHONE_COMMAND_APPLIED);
     state.alarm_active=true;
     assert(phone_control_guard(PHONE_SOUND_SET,&state)==PHONE_COMMAND_ALARM_BUSY);
     state.sound_on=false;

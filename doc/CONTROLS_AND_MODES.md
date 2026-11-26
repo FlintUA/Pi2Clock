@@ -23,14 +23,14 @@ At start-up the LCD shows the device name and compact firmware version for about
 | Timer encoder button | Start or cancel the countdown |
 | TIMER_MODE (GP28) | Open the precise hours/minutes/seconds timer editor; press again to cancel it |
 | SETTINGS | Open the settings menu |
-| MINUS, short (on release) | Show the date for 4 s and speak it |
+| MINUS, short (on release) | Show the date for 4 s and speak it; while the countdown runs, speak the time left instead |
 | MINUS, hold ≥ 900 ms | Show and speak the next scheduled or snoozed alarm |
 | ALARM, short | Open/close the alarm editor; while snoozes are pending on the clock screen, cancel all snoozes |
 | ALARM, hold ≥ 900 ms | Open the music player |
-| MODE, short | Switch hourly mode VOICE ↔ CHIME |
-| MODE, hold ≥ 900 ms | Speak the current time |
+| MODE, short | Switch hourly mode VOICE ↔ CHIME (not while the countdown runs) |
+| MODE, hold ≥ 900 ms | Speak the current time (also while the countdown runs) |
 
-While an alarm rings: ALARM stops it, GP28 snoozes it for three minutes, the volume encoder still works. A running countdown, a ringing alarm or other audio can block speech requests and some settings.
+While an alarm rings: ALARM stops it, GP28 snoozes it for three minutes, the volume encoder still works. A ringing alarm, open menus, a track test or other audio (for example the timer's own phrases) block speech requests; a running countdown and the music player do not (see [manual speech](#manual-speech-during-music-and-the-timer)). A running countdown still blocks some settings.
 
 ## Countdown timer
 
@@ -83,7 +83,16 @@ An hourly VOICE announcement that falls into Bluetooth music suspends the track,
 
 ## Date and next alarm
 
-The date is spoken as weekday, day, month and year (RU folders 06/03/04/05, DE 16/13/14/15). Year recordings cover 2023–2029; other years are shown but not spoken. The next alarm is the nearest future occurrence of an enabled alarm, honouring weekdays; pending snoozes are included. Russian speech adds the alarm-slot phrase (`07/001`–`005`); German has no slot recordings and speaks date and time only. With no enabled alarm the LCD shows `NEXT ALARM / None enabled`. Information speech follows the Manual output and is suppressed (not queued) while audio, timer or alarm own the output or sound is off.
+The date is spoken as weekday, day, month and year (RU folders 06/03/04/05, DE 16/13/14/15). Year recordings cover 2023–2029; other years are shown but not spoken. The next alarm is the nearest future occurrence of an enabled alarm, honouring weekdays; pending snoozes are included. Russian speech adds the alarm-slot phrase (`07/001`–`005`); German has no slot recordings and speaks date and time only. With no enabled alarm the LCD shows `NEXT ALARM / None enabled`. Information speech follows the Manual output and is suppressed (not queued) while other audio or an alarm owns the output or sound is off.
+
+## Manual speech during music and the timer
+
+Since OTA 31 the manual requests — current time, date, next alarm and the new *time left on the timer* — also work while the music player is open and while the countdown runs (browser Speak sheet, MODE hold, MINUS, USB `say`, `say-date`, `next-alarm`, `say-timer`).
+
+- **Bluetooth music** pauses with the same snapshot as the hourly announcement and continues from the same position after the phrase. The phrase uses the Manual output.
+- **Built-in speaker music (DFPlayer)** cannot keep its position under another file: the track stops, the phrase plays on the built-in speaker, and the same track restarts from the beginning. A paused track stays paused; TIMER then restarts it. The LCD shows `Clock speech / Track restarts` (Bluetooth: `Music paused BT`).
+- A track test in the alarm editor or the player still refuses speech; an alarm, the timer start/cancel/finish audio and the timer warning ticks take priority over the phrase.
+- **Time left on the timer** is rounded to the nearest whole minute, at least one minute, and spoken from the existing recordings only: Russian `N часов` (folder 01) + `N минут` (folder 02); German number (folder 12) + `Minuten` (`17/015`), below one hour only — for an hour or more in German the clock does not speak and the browser reports it. There is no "remaining" word and no seconds recording. During the countdown the date overlay is not shown on the LCD (the countdown stays visible); speech is unaffected.
 
 ## Alarms
 
@@ -147,7 +156,7 @@ Serial port at 115200 baud (`tools/capture-pico-log.ps1` records it). `help` pri
 | --- | --- |
 | Information | `version`, `status`, `help`, `flash-info`, `flash-inspect`, `flash-tail`, `autosave-status`, `audio-health`, `audio-settings`, `mode-status`, `quiet-status`, `auto-status`, `auto-debug`, `rtc-debug`, `rtc-reset-stats`, `display-light-status`, `phone-web-status` (web profile) |
 | Timer | `t <seconds>`, `start`, `cancel`, `timer-sound`, `timer-sound none\|signal\|music N`, `timer-voice on\|off`, `timer-random on\|off`, `timer-warning [on\|off]`, `random-music-status` |
-| Speech and modes | `say [HH MM]`, `say-date`, `next-alarm`, `lang ru\|de`, `exact on\|off`, `mode voice\|chime`, `auto on\|off`, `auto-test HH MM` (silent), `auto-voice-play HH`, `sound`, `vol N`, `save` |
+| Speech and modes | `say [HH MM]`, `say-date`, `next-alarm`, `say-timer`, `lang ru\|de`, `exact on\|off`, `mode voice\|chime`, `auto on\|off`, `auto-test HH MM` (silent), `auto-voice-play HH`, `sound`, `vol N`, `save` |
 | Alarms | `alarm-status`, `alarm-set HH MM signal\|music\|random [track]` (slot 1), `alarm-config N HH MM signal\|music\|random [track]`, `alarm-enable N on\|off`, `alarm-days N daily\|weekdays\|weekends\|135`, `alarm-off`, `alarm-stop`, `alarm-test HH MM [slot]`, `alarm-snooze`, `alarm-snooze-status`, `alarm-snooze-cancel`, `alarm-pending`, `alarm-pending-test N`, `alarm-pending-clear` |
 | Birthdays | `birthday-status`, `birthday-set N DD MM HH MM on\|off`, `birthday-test N`, `birthday-pending-clear` |
 | Player | `play F T`, `pause`, `audio`, `menu` |

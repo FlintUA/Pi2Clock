@@ -71,5 +71,35 @@ int main(void) {
     assert(!speech_enqueue_timer_finish_sound(&q,SPEECH_RU,false,3,1) && q.size==15);
     assert(!speech_enqueue_timer_finish_sound(&q,SPEECH_RU,false,1,0) && q.size==15);
     assert(!speech_enqueue_timer_finish_sound(NULL,SPEECH_RU,true,0,1));
+    // Timer remaining: nearest whole minute, at least one, from existing recordings only.
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,5*60+29) && q.size==1);
+    assert(q.items[0].folder==2 && q.items[0].track==5);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,5*60+30) && q.size==1 && q.items[0].track==6);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,12) && q.size==1 && q.items[0].track==1);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,2*3600+15*60) && q.size==2);
+    assert(q.items[0].folder==1 && q.items[0].track==2 && q.items[1].folder==2 && q.items[1].track==15);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,3*3600+10) && q.size==1 && q.items[0].folder==1 && q.items[0].track==3);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,86399) && q.size==2 && q.items[0].track==23 && q.items[1].track==59);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_DE,42*60+10) && q.size==2);
+    assert(q.items[0].folder==12 && q.items[0].track==42 && q.items[1].folder==17 && q.items[1].track==15);
+    audio_queue_init(&q);
+    assert(speech_enqueue_timer_remaining(&q,SPEECH_DE,3599) && q.items[0].track==59);
+    audio_queue_init(&q);
+    assert(!speech_enqueue_timer_remaining(&q,SPEECH_DE,3600) && q.size==0);
+    assert(!speech_enqueue_timer_remaining(&q,SPEECH_RU,0) && q.size==0);
+    assert(!speech_enqueue_timer_remaining(NULL,SPEECH_RU,60));
+    q.size=16;
+    assert(!speech_enqueue_timer_remaining(&q,SPEECH_RU,60) && q.size==16);
+    // DE timer start uses the existing "Minuten" file 17/015.
+    audio_queue_init(&q);
+    speech_enqueue_timer_start(&q,SPEECH_DE,10*60);
+    assert(q.size==3 && q.items[1].folder==12 && q.items[1].track==10 && q.items[2].folder==17 && q.items[2].track==15);
     return 0;
 }

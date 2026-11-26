@@ -1,8 +1,10 @@
 #pragma once
 #include "phone_access.h"
 
+// player_locked: a track test owns the player. audio_busy: speech cannot start now
+// (a playing/paused music player does not count: it yields to manual speech).
 typedef struct {
-    bool sound_on, alarm_active, timer_running, editing, player_open, audio_busy;
+    bool sound_on, alarm_active, timer_running, editing, player_locked, audio_busy;
 } phone_control_state_t;
 
 // Rechecked in the main loop. APPLIED here means admission, not audio completion.

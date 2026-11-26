@@ -513,8 +513,9 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     } else if (snapshot) {
         static const char *const results[] = {"pending", "applied", "blocked", "conflict", "muted",
             "rtc_unavailable", "no_alarm", "editing", "timer_busy", "alarm_busy", "player_busy", "audio_busy", "no_ringing", "no_snooze", "no_timer_sound",
-            "network_unavailable", "rtc_write_failed", "invalid_time", "bt_not_found", "bt_registry_full"};
-        _Static_assert(sizeof(results)/sizeof(results[0]) == PHONE_COMMAND_BT_REGISTRY_FULL + 1u, "Missing command result");
+            "network_unavailable", "rtc_write_failed", "invalid_time", "bt_not_found", "bt_registry_full",
+            "no_timer", "no_recording"};
+        _Static_assert(sizeof(results)/sizeof(results[0]) == PHONE_COMMAND_NO_RECORDING + 1u, "Missing command result");
         body_length = snprintf(response + len, capacity - (size_t)len,
         "{\"firmware\":{\"name\":\"" CLOCK_DEVICE_MODEL "\",\"generation\":\"" CLOCK_DEVICE_GENERATION "\",\"version\":\"%s\",\"build\":\"%s\","
         "\"board\":\"pico2_w\",\"author\":\"FlintUA\",\"ota_sequence\":%u},\"ota_control\":" OTA_WEB_ENABLED ",\"clock_control\":true,\"bt_control\":true,\"network_control\":true,\"browser_control\":true,\"wifi_control\":true,"
@@ -522,7 +523,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         ",\"player\":\"%s\",\"track\":%u,\"output\":\"%s\",\"timer_request\":%" PRIu32
         ",\"timer_result\":\"%s\",\"timer_nonce\":%" PRIu32 ",\"epoch\":%" PRIu32
         ",\"home_trusted\":%s,\"track_count\":%u,\"player_mode\":\"%s\",\"player_test\":%s"
-        ",\"player_interrupted\":%s,\"player_sleep_preset\":%u,\"player_sleep_seconds\":%" PRIu32
+        ",\"player_interrupted\":%s,\"speech_ready\":%s,\"player_sleep_preset\":%u,\"player_sleep_seconds\":%" PRIu32
         ",\"command_id\":%" PRIu32 ",\"command_nonce\":%" PRIu32 ",\"command_result\":\"%s\""
         ",\"settings\":{\"snapshot_id\":%" PRIu32 ",\"volume_local\":%u,\"volume_bt\":%u,\"language\":%u"
         ",\"audio_manual\":%u,\"audio_hourly\":%u,\"audio_timer\":%u,\"audio_alarm\":%u"
@@ -536,7 +537,7 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         access.last.id ? results[access.result] : "none", access.last.nonce, access.epoch,
         trusted_home_peer() ? "true" : "false", (unsigned)published.track_count, published.player_mode,
         published.player_test ? "true" : "false",
-        published.player_interrupted?"true":"false", (unsigned)published.player_sleep_preset, published.player_sleep_seconds,
+        published.player_interrupted?"true":"false", published.speech_ready?"true":"false", (unsigned)published.player_sleep_preset, published.player_sleep_seconds,
         access.last.id, access.last.nonce, access.last.id ? results[access.result] : "none",
         published_command_id,
         (unsigned)published.preferences.volume_local, (unsigned)published.preferences.volume_bt,
