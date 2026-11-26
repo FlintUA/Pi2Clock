@@ -696,7 +696,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     if (network.mode === "direct") sync = T("Direct mode · ") + (ntp.synced ? sync : T("RTC only"));
     show("ntp-status", sync);
     show("activity-status", data.settings?.editing ? T("Physical settings open") : alarm.active ? T("Alarm ringing") :
-      data.timer_running ? T("Timer running") : data.player && data.player !== "Closed" ? T("Music player open") :
+      data.timer_running ? (data.player && data.player !== "Closed" ? T("Timer running · music player open") : T("Timer running")) :
+      data.player && data.player !== "Closed" ? T("Music player open") :
       data.settings?.idle ? T("Ready") : T("Audio busy"));
   }
   function showAbout(firmware) {
@@ -1065,7 +1066,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     pairForm.hidden = !live || allowed || Boolean(token && checkedEpoch !== live.epoch);
     controls.hidden = !allowed;
     for (const {wheel, sync} of timerWheels) {
-      const locked = busy || Boolean(pending) || !live || live.timer_running || live.player !== "Closed";
+      // Since OTA 32 the timer runs beside music; only an alarm track test blocks it.
+      const locked = busy || Boolean(pending) || !live || live.timer_running || Boolean(live.player_test);
       wheel.setAttribute("aria-disabled", String(locked));
       wheel.tabIndex = locked ? -1 : 0;
       if (!edited) sync();
@@ -1136,13 +1138,13 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
       button.disabled = busy || Boolean(pending) || !live ||
         (idleChanges && (action === "set" || action === "start")) ||
         (action === "stop_sound" ? !live?.overview?.timer_sound_id :
-          (live.timer_running || live.player !== "Closed") && action !== "cancel");
+          (live.timer_running || Boolean(live.player_test)) && action !== "cancel");
     }
     playerPlay.dataset.action = live?.player === "Playing" ? "pause" : live?.player === "Paused" ? "resume" : "play";
     playerPlay.textContent = live?.player === "Playing" ? T("Pause") : T("Play");
     alarmTrackTest.textContent = live?.player_test ? T("Stop") : T("Test");
     const playerOpen = Boolean(live && live.player !== "Closed");
-    const canPlay = Boolean(live && !live.timer_running && !live.player_interrupted && live.player !== "Muted");
+    const canPlay = Boolean(live && !live.player_interrupted && live.player !== "Muted");
     const playerActions = {
       play: canPlay && live.player !== "Playing" && live.player !== "Waiting",
       resume: canPlay && live.player === "Paused",
@@ -1156,7 +1158,7 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
         !playerActions[button.dataset.action];
     }
     const preferences = live?.settings;
-    const canChangePlayer = playerOpen && !live?.player_test && !live?.player_interrupted && !live?.timer_running &&
+    const canChangePlayer = playerOpen && !live?.player_test && !live?.player_interrupted &&
       !live?.overview?.alarm?.active && !preferences?.editing;
     playerMode.disabled = playerSleep.disabled = busy || Boolean(pending) || !canChangePlayer;
     if (!busy && !pending) {
@@ -2732,7 +2734,8 @@ dialog.sheet{margin:auto auto 0;border-radius:20px 20px 0 0;width:min(100vw,560p
     ["No timer is running.","Таймер не запущен.","Kein Timer läuft."],
     ["No German recording for an hour or more; the clock shows the time left.","Для часа и больше нет немецкой записи; оставшееся время видно на часах.","Für eine Stunde oder mehr gibt es keine deutsche Aufnahme; die Uhr zeigt die Restzeit."],
     ["Music pauses for the announcement and continues from the same place.","Музыка встанет на паузу на время объявления и продолжится с того же места.","Die Musik pausiert für die Ansage und läuft an derselben Stelle weiter."],
-    ["Music stops for the announcement; the track then restarts from the beginning.","Музыка остановится на время объявления, затем трек начнётся сначала.","Die Musik stoppt für die Ansage; danach beginnt der Titel von vorn."]];
+    ["Music stops for the announcement; the track then restarts from the beginning.","Музыка остановится на время объявления, затем трек начнётся сначала.","Die Musik stoppt für die Ansage; danach beginnt der Titel von vorn."],
+    ["Timer running · music player open","Таймер идёт · плеер открыт","Timer läuft · Player geöffnet"]];
   // Presentation layer. The script above owns transport, guards, drafts and commands;
   // this layer only arranges views, mirrors state into compact displays and forwards
   // clicks to the existing controls. It never sends a request on its own.

@@ -191,7 +191,7 @@ const context = vm.createContext({
         preferences.idle = !state.player_test;
       }
       if(url === "/player" && ["mode","sleep"].includes(fields[4])) {
-        if(state.player==="Closed" || state.player_test || state.timer_running || preferences.editing || state.overview.alarm.active)
+        if(state.player==="Closed" || state.player_test || preferences.editing || state.overview.alarm.active)
           state.command_result="blocked";
         else if(fields[4]==="mode") state.player_mode=["NORM","SHUF","REP1"][Number(fields[5])];
         else {state.player_sleep_preset=Number(fields[5]);state.player_sleep_seconds=Number(fields[5])*60;}
@@ -653,6 +653,15 @@ async function settled() {
   assert(getElementById("player").textContent.includes("Paused for announcement"));
   state.player_interrupted=false;await update();
   assert(!modeField.disabled && !sleepField.disabled);
+  // OTA 32: music and the countdown run together.
+  state.timer_running=true;await update();
+  assert(!modeField.disabled && !sleepField.disabled);
+  assert(!playerButtons[1].disabled && !playerButtons[2].disabled);
+  assert.equal(timerButtons[2].disabled,false); // Cancel the timer while music plays.
+  assert.equal(getElementById("activity-status").textContent,"Timer running · music player open");
+  state.timer_running=false;await update();
+  assert.equal(timerButtons[1].disabled,false); // Start the timer while the player is open.
+  state.player_test=true;await update();assert(timerButtons[1].disabled);state.player_test=false;await update();
   state.player_mode="NORM";state.player_sleep_preset=60;await update();
   assert.equal(modeField.value,"0");assert.equal(sleepField.value,"60"); // Physical changes.
   state.player_test=true;await update();assert(modeField.disabled && sleepField.disabled);

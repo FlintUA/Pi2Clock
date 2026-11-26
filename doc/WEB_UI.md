@@ -68,6 +68,7 @@ All commands keep their existing endpoint, body format (`credential epoch id non
 | Alarm list switches, alarm editor | `POST /alarm set <slot revision enabled hour minute days sound track>`; `POST /player test_track|test_stop` | Idle, revision conflict, dirty-draft slot lock |
 | Music block | `POST /player play|pause|resume|previous|next|stop|mode|sleep` | Existing player guards and interruption state |
 | Music volume, Volume and outputs | `POST /settings volume_bt|volume_local|audio_*|language` | Existing coalescing and idle rules |
+| Timer and player (OTA 32) | Timer start/cancel and player controls work at the same time; only an alarm track test blocks the timer | `controls`, `playerActions` |
 | Footer Sound, Speak sheet | `POST /control sound|say_time|say_date|next_alarm|say_timer` | `controlReason` (`speech_ready`, `player_test`, `timer_running`; results `no_timer`, `no_recording`) |
 | Speaker sheet, Bluetooth speakers | `POST /bluetooth connect|disconnect|scan|cancel|forget`; `GET /bluetooth.json` | Availability, scanning, registry limit, pending settings |
 | Announcements, quiet hours, display light | `POST /settings auto_enabled|clock_mode|half_hour|exact_hour|quiet_*|light_*` | Existing scalar rules |

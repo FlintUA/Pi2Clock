@@ -67,5 +67,6 @@ Run `git fetch --tags` before building; a shallow checkout must include the tag.
 6. Browser page in the current network mode: status, timer, player, a setting change confirmed by "Settings saved".
 7. Hourly speech during Bluetooth music resumes the track.
 8. Manual speech during music (Speak sheet or MODE hold): Bluetooth music continues in place, built-in speaker music restarts the track; during a countdown MINUS short and the Speak sheet say the time left.
+9. Timer together with music: start in the player with GP28 hold, warning and completion pause the music and it stays paused.
 
 For Bluetooth audio problems, capture the USB log (`tools/capture-pico-log.ps1`) and check `[BT-DIAG]` and `bt-status` ([BT_AUDIO_CHAIN.md](BT_AUDIO_CHAIN.md)).

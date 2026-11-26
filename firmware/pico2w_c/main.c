@@ -183,6 +183,7 @@ static void alarm_pending_service(uint64_t now);
 static void music_ui_close(const char *reason);
 static bool music_ui_interrupt(const char *reason);
 static bool music_ui_yield_for_speech(bool *local_restart);
+static void music_ui_pause_for_timer(const char *why);
 static void music_ui_stop(const char *reason);
 static void birthday_apply(unsigned index, birthday_t draft);
 static char command_line[160];
@@ -396,6 +397,14 @@ static uint8_t alarm_track_count = 45u;
 static music_playlist_t music_playlist;
 static bool music_ui_pending;
 static bool music_ui_file_error;
+// Music and the countdown run together (OTA 32). The timer's last seconds and finish
+// pause the music; it stays paused (user decision 2026-11-26) until PLAY.
+static bool music_ui_timer_hold;
+// The player currently owns the DFPlayer queue or the MP3 decoder.
+static bool music_ui_active(void) {
+    return music_ui_open && !music_ui_interrupted &&
+        (music_ui_playing || music_ui_paused || music_ui_pending);
+}
 static music_retry_t music_ui_retry;
 // Preview starts only by SETTINGS in TRACK field (not on each encoder tick).
 // This keeps rapid track selection silent and never changes saved config.
@@ -419,6 +428,9 @@ static uint64_t info_pressed_at_ms, info_overlay_until_ms;
 static char info_overlay_top[17], info_overlay_bottom[17];
 static uint64_t music_minus_pressed_at_ms;
 static bool music_minus_pressed;
+// GP28 in the player: short = sleep timer, hold = start/cancel the countdown (last duration).
+static uint64_t music_gp28_pressed_at_ms;
+static bool music_gp28_pressed;
 static uint64_t speech_overlay_until_ms;
 static char speech_overlay_time[17];
 static uint64_t volume_overlay_until_ms;
@@ -723,11 +735,15 @@ static void timer_warning_service(uint64_t now) {
     }
     if ((timer_warning_local || timer_warning_bt) &&
         (!timer.running || !sound_enabled || now>=timer_warning_until_ms)) timer_warning_cancel();
+    // Free the output for the five warning ticks: music pauses about 6.5 s before zero.
+    if (timer.running && timer_warning_enabled && sound_enabled && music_ui_active() &&
+        alarm_active_index<0 && timer.deadline_ms>now && timer.deadline_ms-now<=6500u)
+        music_ui_pause_for_timer("TIMER_WARNING");
     uint8_t second=timer_warning_poll(&timer_warning_schedule,timer.running,timer.deadline_ms,
         now,timer_warning_enabled!=0,sound_enabled);
     if(!second) return;
     // Never interrupt start speech or queue an already missed tick behind it.
-    if (alarm_active_index>=0 || music_ui_open || !audio_queue_idle(&audio_queue) ||
+    if (alarm_active_index>=0 || music_ui_active() || !audio_queue_idle(&audio_queue) ||
         dfplayer_busy() || mp3_play_active() || mp3_probe_active() || sd_fat32_stream_active()
 #ifdef CLOCK_ENABLE_A2DP
         || bt_timer_running || bt_speech_running || bt_alarm_running || routed_test_pending
@@ -751,6 +767,14 @@ static void timer_warning_service(uint64_t now) {
 }
 
 static void timer_audio_start(void) {
+    // During music the start is shown only on the LCD; music is not interrupted.
+    if (music_ui_open) {
+#ifdef CLOCK_ENABLE_A2DP
+        bt_timer_cancel("TIMER_RESTART");
+#endif
+        puts("[TIMER] start phrase skipped: music player open");
+        return;
+    }
 #ifdef CLOCK_ENABLE_A2DP
     bt_timer_cancel("TIMER_RESTART");
     // Timer starting overrides any optional manual/hourly BT speech.
@@ -772,6 +796,13 @@ static void timer_audio_start(void) {
 }
 
 static void timer_audio_cancel(void) {
+    if (music_ui_open) {
+#ifdef CLOCK_ENABLE_A2DP
+        bt_timer_cancel("TIMER_CANCEL");
+#endif
+        puts("[TIMER] cancel phrase skipped: music player open");
+        return;
+    }
 #ifdef CLOCK_ENABLE_A2DP
     bt_timer_cancel("TIMER_CANCEL");
     if (bt_speech_running) bt_speech_cancel("TIMER_CANCEL_PRIORITY");
@@ -787,6 +818,7 @@ static void timer_audio_cancel(void) {
 }
 
 static void timer_audio_finished(void) {
+    if (music_ui_open) music_ui_pause_for_timer("TIMER_FINISH");
     uint8_t finish_sound=timer_sound, finish_track=timer_track;
     if (sound_enabled && timer_sound==1u && timer_random) {
         uint16_t choice=event_music_choice(0);
@@ -855,7 +887,7 @@ static bool bt_timer_prepare(const audio_queue_t *plan, const char *event) {
     if (!timer_audio_jbl_enabled || !sound_enabled || !plan ||
         plan->size == 0u || plan->size > AUDIO_QUEUE_CAPACITY ||
         !clock_a2dp_stream_active() || clock_a2dp_current_rate() != 44100u ||
-        alarm_active_index >= 0 || music_ui_open ||
+        alarm_active_index >= 0 || music_ui_active() ||
         mp3_play_active() || mp3_probe_active() || sd_fat32_stream_active() ||
         bt_speech_running || routed_test_pending || bt_timer_running) {
         if (timer_audio_jbl_enabled)
@@ -899,7 +931,7 @@ static void bt_timer_fallback(const char *reason) {
 }
 static void bt_timer_service(void) {
     if (!bt_timer_running) return;
-    if (alarm_active_index >= 0 || !sound_enabled || music_ui_open) {
+    if (alarm_active_index >= 0 || !sound_enabled || music_ui_active()) {
         bt_timer_cancel("HIGHER_PRIORITY");
         return;
     }
@@ -1333,8 +1365,9 @@ static void alarm_pending_service(uint64_t now) {
 }
 
 static void timer_start_now(uint64_t now) {
-    if (alarm_ui_state != ALARM_UI_CLOSED || music_ui_open || menu_state==MENU_TIMER_EDITOR) {
-        puts("[TIMER] start blocked: close UI/player first");
+    if (alarm_ui_state != ALARM_UI_CLOSED || menu_state==MENU_TIMER_EDITOR ||
+        (music_ui_open && music_ui_audition)) {
+        puts("[TIMER] start blocked: close the alarm editor/timer editor/track test first");
         return;
     }
     // An interactive timer preempts a ringing alarm, which resumes later
@@ -1771,35 +1804,63 @@ static bool music_ui_interrupt(const char *reason) {
 #endif
 }
 
-// Manual speech only. BT music keeps its position (same snapshot as hourly speech);
-// the DFPlayer cannot overlay or resume after another file, so LOCAL music stops
-// now and the same track restarts from its beginning after the phrase.
-static bool music_ui_yield_for_speech(bool *local_restart) {
+// Event audio over music. BT music keeps its position (same snapshot as hourly
+// speech); the DFPlayer cannot overlay or resume after another file, so LOCAL
+// music stops now and the same track restarts from its beginning afterwards.
+// keep_paused: the player stays paused afterwards (timer events) instead of continuing.
+static bool music_ui_yield(const char *reason, bool keep_paused, bool *local_restart) {
     *local_restart = false;
     if (!music_ui_open || !(music_ui_playing || music_ui_paused || music_ui_pending)) return true;
     if (music_ui_audition || music_ui_interrupted) return false;
 #ifdef CLOCK_ENABLE_A2DP
-    if (music_ui_bluetooth) return music_ui_interrupt("SPEECH");
+    if (music_ui_bluetooth) {
+        if (!music_ui_interrupt(reason)) return false;
+        if (keep_paused) {music_ui_interrupt_paused = true; music_ui_interrupt_pending = false;}
+        return true;
+    }
 #endif
-    music_ui_interrupt_paused = music_ui_paused;
-    music_ui_interrupt_pending = music_ui_pending || (music_ui_playing && !music_ui_paused);
+    music_ui_interrupt_paused = keep_paused || music_ui_paused;
+    music_ui_interrupt_pending = !music_ui_interrupt_paused &&
+        (music_ui_pending || (music_ui_playing && !music_ui_paused));
     music_ui_interrupted = true;
     music_ui_interrupt_local = true;
-    music_ui_interrupt_reason = "SPEECH";
+    music_ui_interrupt_reason = reason;
     music_ui_pending = false;
     music_ui_paused = true;
     clock_audio_clear();
     *local_restart = true;
-    printf("[MUSIC-RESUME] interrupt=SPEECH LOCAL track=%u restart=%s previous_pause=%s\n",
+    printf("[MUSIC-RESUME] interrupt=%s LOCAL track=%u restart=%s previous_pause=%s\n", reason,
            (unsigned)music_ui_track, music_ui_interrupt_pending ? "YES" : "NO",
-           music_ui_interrupt_paused ? "YES" : "NO");
+           music_ui_paused ? "YES" : "NO");
     return true;
+}
+
+static bool music_ui_yield_for_speech(bool *local_restart) {
+    return music_ui_yield("SPEECH", false, local_restart);
+}
+
+// Timer warning/finish: free the output and leave the music paused afterwards.
+static void music_ui_pause_for_timer(const char *why) {
+    if (!music_ui_open) return;
+    if (music_ui_interrupted) {
+        // Already yielded (for example to speech): keep it paused after the timer audio.
+        music_ui_interrupt_paused = true; music_ui_interrupt_pending = false;
+        music_ui_timer_hold = true;
+        return;
+    }
+    if (!(music_ui_playing || music_ui_paused || music_ui_pending)) return;
+    bool local = false;
+    if (!music_ui_yield(why, true, &local)) {
+        music_ui_close("TIMER_PRIORITY");
+        return;
+    }
+    music_ui_timer_hold = true;
 }
 
 static void music_ui_stop(const char *reason) {
     music_retry_reset(&music_ui_retry);music_ui_file_error=false;
     if(music_ui_interrupted) {
-        mp3_play_discard_suspended();music_ui_interrupted=false;music_ui_interrupt_local=false;
+        mp3_play_discard_suspended();music_ui_interrupted=false;music_ui_interrupt_local=false;music_ui_timer_hold=false;
         music_ui_pending=false;music_ui_paused=false;music_ui_playing=false;music_ui_bt_started=false;
         printf("[MUSIC-RESUME] cancelled=%s; event audio unchanged\n",reason);return;
     }
@@ -1823,6 +1884,7 @@ static void music_ui_close(const char *reason) {
     music_sleep=(music_sleep_t){0};
     mode_press_active=false;
     music_minus_pressed=false;
+    music_gp28_pressed=false;
     timer_screen = false;
     printf("[MUSIC-UI] closed=%s\n", reason);
 }
@@ -1863,7 +1925,7 @@ static bool music_play_track(uint8_t track) {
 }
 
 static void music_ui_start(void) {
-    if (!music_ui_open || !sound_enabled || timer.running || alarm_active_index>=0) return;
+    if (!music_ui_open || !sound_enabled || alarm_active_index>=0) return;
     // A track change may still have a queued UART pause. Start on the next
     // safe service tick instead of discarding the user's request.
     music_ui_pending=true;
@@ -1922,10 +1984,10 @@ static void music_ui_cycle_mode(void) {
 }
 
 static void music_ui_enter(void) {
-    if (timer.running || alarm_active_index >= 0 ||
+    if (alarm_active_index >= 0 ||
         menu_state != MENU_CLOSED || alarm_ui_state != ALARM_UI_CLOSED ||
         !audio_queue_idle(&audio_queue) || dfplayer_busy()) {
-        puts("[MUSIC-UI] open blocked: timer/alarm/menu/audio busy");
+        puts("[MUSIC-UI] open blocked: alarm/menu/audio busy");
         return;
     }
     uint8_t detected = dfplayer_folder_count(8u, to_ms_since_boot(get_absolute_time()));
@@ -1964,12 +2026,13 @@ static void music_ui_service(void) {
     }
     if(music_ui_interrupted) {
         if(!sound_enabled) {music_ui_stop("MUTED_DURING_EVENT");return;}
-        if(timer.running || alarm_active_index>=0 || !audio_queue_idle(&audio_queue) ||
+        if((timer.running && music_ui_timer_hold) || alarm_active_index>=0 || !audio_queue_idle(&audio_queue) ||
            dfplayer_busy() || mp3_play_active() || mp3_probe_active() || sd_fat32_stream_active()) return;
 #ifdef CLOCK_ENABLE_A2DP
         if(bt_speech_running || bt_timer_running || bt_alarm_running || routed_test_pending) return;
 #endif
         for(unsigned i=0;i<CLOCK_ALARM_COUNT;i++) if(deferred_alarms[i].pending)return;
+        music_ui_timer_hold=false;
         if(music_ui_interrupt_local) {
             music_ui_interrupted=false;music_ui_interrupt_local=false;
             // A paused track lost its DFPlayer position: TIMER restarts it (resume fails cleanly).
@@ -1998,7 +2061,7 @@ static void music_ui_service(void) {
     }
     if (music_ui_pending) {
         if(!music_retry_ready(&music_ui_retry,to_ms_since_boot(get_absolute_time())))return;
-        if (!sound_enabled || timer.running || alarm_active_index>=0) {
+        if (!sound_enabled || alarm_active_index>=0) {
             music_ui_pending=false;
             return;
         }
@@ -2170,7 +2233,7 @@ static bool service_phone_player(phone_action_t action, uint32_t value) {
         return false;
     }
     if (action == PHONE_PLAYER_MODE || action == PHONE_PLAYER_SLEEP) {
-        if (!music_ui_open || music_ui_audition || timer.running || alarm_active_index>=0 ||
+        if (!music_ui_open || music_ui_audition || alarm_active_index>=0 ||
             menu_state!=MENU_CLOSED || alarm_ui_state!=ALARM_UI_CLOSED) return false;
         if (action == PHONE_PLAYER_MODE) {
             bool ok=music_playlist_set_mode(&music_playlist,(music_mode_t)value);
@@ -2182,9 +2245,11 @@ static bool service_phone_player(phone_action_t action, uint32_t value) {
         if(ok) printf("[MUSIC-UI] sleep=%lumin (0=OFF; wall duration includes pause)\n",(unsigned long)value);
         return ok;
     }
-    if (timer.running || alarm_active_index >= 0 || menu_state != MENU_CLOSED ||
+    // Music may play beside a running countdown (OTA 32); an alarm track test may not.
+    if (alarm_active_index >= 0 || menu_state != MENU_CLOSED ||
         alarm_ui_state != ALARM_UI_CLOSED || !sound_enabled) return false;
     if (action == PHONE_PLAYER_TEST_TRACK) {
+        if (timer.running) return false;
         if (!music_ui_open) {
 #ifdef CLOCK_ENABLE_A2DP
             if (bt_speech_running || bt_timer_running || bt_alarm_running || routed_test_pending ||
@@ -2676,7 +2741,7 @@ static void timer_finish_refresh(void) {
 #ifdef CLOCK_ENABLE_A2DP
     active = active || bt_timer_running;
 #endif
-    if (!active || timer.running || alarm_active_index >= 0 || music_ui_open || !sound_enabled)
+    if (!active || timer.running || alarm_active_index >= 0 || music_ui_active() || !sound_enabled)
         timer_finish_id = 0;
 }
 
@@ -3114,7 +3179,7 @@ static void service_phone_command(uint64_t now) {
         if (timer.running) timer_cancel_now();
         applied = true;
     } else if (!timer.running && menu_state == MENU_CLOSED &&
-               alarm_ui_state == ALARM_UI_CLOSED && !music_ui_open) {
+               alarm_ui_state == ALARM_UI_CLOSED && !(music_ui_open && music_ui_audition)) {
         countdown_set_duration(&timer, request.value);
         if (request.action == PHONE_TIMER_START) timer_start_now(now);
         else {
@@ -5426,8 +5491,8 @@ static void on_control_event(const control_event_t *event, void *context) {
             if (event->type == CONTROL_BUTTON_PRESS) {
                 if (event->button==BUTTON_TIMER) music_ui_toggle();
                 else if(event->button==BUTTON_TIMER_MODE) {
-                    unsigned minutes=music_sleep_cycle(&music_sleep,now);
-                    printf("[MUSIC-UI] sleep=%umin (0=OFF; wall duration includes pause)\n",minutes);
+                    music_gp28_pressed=true;
+                    music_gp28_pressed_at_ms=now;
                 }
                 else if(event->button==BUTTON_SETTINGS) music_ui_rotate(1);
                 else if(event->button==BUTTON_MINUS) {
@@ -5437,6 +5502,22 @@ static void on_control_event(const control_event_t *event, void *context) {
                 else if(event->button==BUTTON_MODE) {
                     mode_press_active=true;
                     mode_pressed_at_ms=now;
+                }
+            } else if(event->type==CONTROL_BUTTON_RELEASE &&
+                      event->button==BUTTON_TIMER_MODE && music_gp28_pressed) {
+                music_gp28_pressed=false;
+                if(now-music_gp28_pressed_at_ms>=900u) {
+                    if(timer.running) {
+                        timer_cancel_now();
+                        puts("[TIMER] CANCELLED by GP28 hold in player");
+                    } else {
+                        timer_start_now(now);
+                        if(timer.running) printf("[TIMER] STARTED by GP28 hold in player duration=%lus\n",
+                            (unsigned long)timer.duration_seconds);
+                    }
+                } else {
+                    unsigned minutes=music_sleep_cycle(&music_sleep,now);
+                    printf("[MUSIC-UI] sleep=%umin (0=OFF; wall duration includes pause)\n",minutes);
                 }
             } else if(event->type==CONTROL_BUTTON_RELEASE &&
                       event->button==BUTTON_MINUS && music_minus_pressed) {
@@ -5973,9 +6054,25 @@ int main(void) {
         int cursor_column=-1; // Visible only on the editor branch actually rendered.
         if (music_ui_interrupted && alarm_active_index<0) {
             bool hourly=strncmp(music_ui_interrupt_reason,"HOURLY",6)==0;
-            snprintf(top,sizeof(top),"%s",hourly?"Hourly speech":"Clock speech");
-            snprintf(bottom,sizeof(bottom),"%s",music_ui_interrupt_local?"Track restarts":"Music paused BT");
+            bool timer_event=music_ui_timer_hold || strncmp(music_ui_interrupt_reason,"TIMER",5)==0;
+            if (timer_event && timer.running) {
+                uint32_t left=countdown_remaining(&timer,now);
+                snprintf(top,sizeof(top),"TIMER %02lu:%02lu:%02lu",(unsigned long)(left/3600u),
+                    (unsigned long)((left/60u)%60u),(unsigned long)(left%60u));
+            } else snprintf(top,sizeof(top),"%s",timer_event?"TIMER FINISHED":hourly?"Hourly speech":"Clock speech");
+            snprintf(bottom,sizeof(bottom),"%s",timer_event?(music_ui_interrupt_local?"Music paused SPK":"Music paused BT"):
+                music_ui_interrupt_local?"Track restarts":"Music paused BT");
         } else if (music_ui_open && !music_ui_interrupted) {
+            if (timer.running) {
+                // Countdown beside the music: "T04:12 SHUF BT", "T1:04:12 SHUF SPK".
+                uint32_t left=countdown_remaining(&timer,now);
+                char t[10];
+                if (left>=3600u) snprintf(t,sizeof(t),"T%lu:%02lu:%02lu",(unsigned long)(left/3600u),
+                    (unsigned long)((left/60u)%60u),(unsigned long)(left%60u));
+                else snprintf(t,sizeof(t),"T%02lu:%02lu",(unsigned long)(left/60u),(unsigned long)(left%60u));
+                snprintf(top,sizeof(top),"%s %s %s",t,music_playlist_mode_name(music_playlist.mode),
+                    music_ui_bluetooth?"BT":"SPK");
+            } else
             snprintf(top,sizeof(top),"MUSIC %s %s",
                 music_playlist_mode_name(music_playlist.mode),music_ui_bluetooth?"BT":"LOCAL");
             snprintf(bottom,sizeof(bottom),"%03u/%03u %s OFF",

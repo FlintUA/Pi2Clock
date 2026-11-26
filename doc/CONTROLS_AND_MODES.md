@@ -47,6 +47,16 @@ One countdown from 1 second to 23:59:59. Quick encoder steps work in whole minut
 
 The message plays first, then the signal or one music track. Silent completion is valid and still updates the display. Warning beeps that cannot play on time (busy audio, mute, start phrase) are skipped, never queued. The German completion message recording is missing; German message-only completion is therefore silent. Start/cancel phrases and timer output routing are separate settings.
 
+### Timer together with music (OTA 32)
+
+The countdown and the music player no longer block each other. Start the timer on the clock screen and then open the player (ALARM hold), or start/cancel it inside the player with **GP28 hold ≥ 900 ms** (it uses the last set duration; set the duration on the clock screen or in the browser), or from the browser at any time. The player's first LCD row then shows the countdown, for example `T04:12 SHUF BT` or `T1:04:12 SHUF SPK`.
+
+- Start and cancel are silent while the player is open: the music is not interrupted.
+- With the five-second warning on, the music pauses about 6.5 s before zero so the beeps can play. Completion audio (message, signal or music track) always pauses the music. The LCD shows `TIMER 00:00:05` / `TIMER FINISHED` with `Music paused BT|SPK`.
+- After completion the music **stays paused** (decision of 2026-11-26): Bluetooth music keeps its position, built-in speaker music restarts the track on PLAY.
+- Manual speech (including time left) works as described below; hourly announcements stay suppressed while the countdown runs.
+- An alarm track test still cannot run beside the timer, and the timer cannot start during a track test.
+
 ## Settings menu
 
 SETTINGS opens the list; the timer encoder selects; SETTINGS or the timer encoder button enters and confirms; MINUS goes back or discards an unfinished edit. Idle menus close after 20 s (a running Bluetooth scan is allowed to finish). A blinking character cursor marks the field being edited. Only the final confirmation of an editor saves; saved values are written to Flash by a deferred autosave — wait for it (`autosave-status`, or the browser's "Settings saved") before removing power.
@@ -117,7 +127,8 @@ ALARM hold opens the player; playback starts automatically when sound is on. Mus
 | Control in the player | Action |
 | --- | --- |
 | TIMER button | Pause/resume; start the selected track when stopped |
-| GP28 | Sleep timer OFF → 15 → 30 → 60 → 90 min → OFF |
+| GP28 short (on release) | Sleep timer OFF → 15 → 30 → 60 → 90 min → OFF |
+| GP28 hold ≥ 900 ms | Start the countdown with the last duration, or cancel a running one (see [timer together with music](#timer-together-with-music-ota-32)) |
 | SETTINGS or timer encoder clockwise | Next |
 | MINUS short or timer encoder counter-clockwise | Previous (history of up to 128 selections) |
 | ALARM short | Mode SHUF → REP1 → NORM |
