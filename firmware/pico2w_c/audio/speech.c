@@ -64,7 +64,7 @@ void speech_enqueue_timer_start(audio_queue_t *queue, speech_language_t language
             audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)minutes);
         }
     } else if (hours == 0u && minutes > 0u) {
-        // German timer duration: <number> + 'Minuten' (17/015, see sound/_sdcard/FOLDER_LAYOUT.txt).
+        // German timer duration: <number> + 'Minuten' (17/017, see speech.h).
         audio_queue_enqueue(queue, speech_minutes_folder(language), (uint8_t)minutes);
         audio_queue_enqueue(queue, speech_phrases_folder(language), SPEECH_DE_MINUTEN_TRACK);
     }

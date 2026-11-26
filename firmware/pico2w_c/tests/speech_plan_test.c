@@ -88,7 +88,7 @@ int main(void) {
     assert(speech_enqueue_timer_remaining(&q,SPEECH_RU,86399) && q.size==2 && q.items[0].track==23 && q.items[1].track==59);
     audio_queue_init(&q);
     assert(speech_enqueue_timer_remaining(&q,SPEECH_DE,42*60+10) && q.size==2);
-    assert(q.items[0].folder==12 && q.items[0].track==42 && q.items[1].folder==17 && q.items[1].track==15);
+    assert(q.items[0].folder==12 && q.items[0].track==42 && q.items[1].folder==17 && q.items[1].track==17);
     audio_queue_init(&q);
     assert(speech_enqueue_timer_remaining(&q,SPEECH_DE,3599) && q.items[0].track==59);
     audio_queue_init(&q);
@@ -97,9 +97,9 @@ int main(void) {
     assert(!speech_enqueue_timer_remaining(NULL,SPEECH_RU,60));
     q.size=16;
     assert(!speech_enqueue_timer_remaining(&q,SPEECH_RU,60) && q.size==16);
-    // DE timer start uses the existing "Minuten" file 17/015.
+    // DE timer start uses "Minuten" 17/017 (17/015 is the double beep on the card).
     audio_queue_init(&q);
     speech_enqueue_timer_start(&q,SPEECH_DE,10*60);
-    assert(q.size==3 && q.items[1].folder==12 && q.items[1].track==10 && q.items[2].folder==17 && q.items[2].track==15);
+    assert(q.size==3 && q.items[1].folder==12 && q.items[1].track==10 && q.items[2].folder==17 && q.items[2].track==17);
     return 0;
 }
