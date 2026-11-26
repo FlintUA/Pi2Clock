@@ -5907,10 +5907,12 @@ int main(void) {
         bt_speech_service();
 #endif
         // Abort experimental playback when a higher-priority clock event needs audio.
+        // A running countdown no longer owns the decoder by itself (OTA 31/32): Bluetooth
+        // player music and manual Bluetooth speech may play beside it.
         if (mp3_play_active() &&
             ((timer.running
 #ifdef CLOCK_ENABLE_A2DP
-              && !bt_timer_running
+              && !bt_timer_running && !bt_speech_running && !(music_ui_open && music_ui_bluetooth)
 #endif
              ) || (alarm_active_index >= 0
 #ifdef CLOCK_ENABLE_A2DP
